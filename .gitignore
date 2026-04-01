@@ -2,3 +2,4 @@
 *.mkv
 *.mp4
 **/*.pyc
+.playwright-mcp/
