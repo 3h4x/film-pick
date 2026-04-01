@@ -1,0 +1,244 @@
+import Database from "better-sqlite3";
+import path from "path";
+
+export interface Movie {
+  id: number;
+  title: string;
+  year: number | null;
+  genre: string | null;
+  director: string | null;
+  rating: number | null;
+  poster_url: string | null;
+  source: string | null;
+  imdb_id: string | null;
+  tmdb_id: number | null;
+  type: string;
+  file_path: string | null;
+  created_at: string;
+}
+
+export interface MovieInput {
+  title: string;
+  year: number | null;
+  genre: string | null;
+  director: string | null;
+  rating: number | null;
+  poster_url: string | null;
+  source: string | null;
+  imdb_id: string | null;
+  tmdb_id: number | null;
+  type: string;
+  file_path?: string | null;
+}
+
+
+const DB_PATH = path.join(process.cwd(), "data", "movies.db");
+
+export function initDb(db: Database.Database): void {
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS movies (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      title TEXT NOT NULL,
+      year INTEGER,
+      genre TEXT,
+      director TEXT,
+      rating REAL,
+      poster_url TEXT,
+      source TEXT,
+      imdb_id TEXT,
+      tmdb_id INTEGER,
+      type TEXT DEFAULT 'movie',
+      file_path TEXT,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+    );
+
+    CREATE TABLE IF NOT EXISTS settings (
+      key TEXT PRIMARY KEY,
+      value TEXT NOT NULL
+    );
+
+    -- Add file_path column if missing (migration)
+    CREATE TABLE IF NOT EXISTS _migrations (name TEXT PRIMARY KEY);
+  `);
+
+  const hasMigration = db.prepare("SELECT 1 FROM _migrations WHERE name = 'add_file_path'").get();
+  if (!hasMigration) {
+    try {
+      db.exec("ALTER TABLE movies ADD COLUMN file_path TEXT");
+    } catch {
+      // Column already exists
+    }
+    db.prepare("INSERT OR IGNORE INTO _migrations (name) VALUES ('add_file_path')").run();
+  }
+
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS dismissed_recommendations (
+      tmdb_id INTEGER PRIMARY KEY,
+      dismissed_at DATETIME DEFAULT CURRENT_TIMESTAMP
+    );
+
+    CREATE TABLE IF NOT EXISTS recommendation_cache (
+      engine TEXT PRIMARY KEY,
+      data TEXT NOT NULL,
+      movie_count INTEGER NOT NULL,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+    );
+
+    CREATE TABLE IF NOT EXISTS recommended_movies (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      tmdb_id INTEGER NOT NULL,
+      engine TEXT NOT NULL,
+      reason TEXT NOT NULL,
+      title TEXT NOT NULL,
+      year INTEGER,
+      genre TEXT,
+      rating REAL,
+      poster_url TEXT,
+      pl_title TEXT,
+      cda_url TEXT,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      UNIQUE(tmdb_id, engine)
+    );
+  `);
+
+  // Migration: old recommendation_cache had 'id' column, new one has 'engine'
+  const cacheInfo = db.pragma("table_info(recommendation_cache)") as { name: string }[];
+  if (cacheInfo.some((c) => c.name === "id") && !cacheInfo.some((c) => c.name === "engine")) {
+    db.exec("DROP TABLE recommendation_cache");
+    db.exec(`CREATE TABLE recommendation_cache (
+      engine TEXT PRIMARY KEY, data TEXT NOT NULL, movie_count INTEGER NOT NULL,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+    )`);
+  }
+}
+
+let _db: Database.Database | null = null;
+
+export function getDb(): Database.Database {
+  if (!_db) {
+    _db = new Database(DB_PATH);
+    _db.pragma("journal_mode = WAL");
+    _db.pragma("foreign_keys = ON");
+    initDb(_db);
+  }
+  return _db;
+}
+
+export function insertMovie(db: Database.Database, movie: MovieInput): number {
+  const stmt = db.prepare(`
+    INSERT INTO movies (title, year, genre, director, rating, poster_url, source, imdb_id, tmdb_id, type, file_path)
+    VALUES (@title, @year, @genre, @director, @rating, @poster_url, @source, @imdb_id, @tmdb_id, @type, @file_path)
+  `);
+  const result = stmt.run({ ...movie, file_path: movie.file_path ?? null });
+  return Number(result.lastInsertRowid);
+}
+
+export function getMovies(db: Database.Database, type?: string): Movie[] {
+  // Check if user_rating column exists (added via filmweb import migration)
+  const cols = db.pragma("table_info(movies)") as { name: string }[];
+  const hasUserRating = cols.some((c) => c.name === "user_rating");
+  const orderBy = hasUserRating
+    ? "ORDER BY CASE WHEN user_rating IS NOT NULL AND user_rating < 5 THEN 1 ELSE 0 END, user_rating DESC, created_at DESC"
+    : "ORDER BY created_at DESC";
+  if (type) {
+    return db.prepare(`SELECT * FROM movies WHERE type = ? ${orderBy}`).all(type) as Movie[];
+  }
+  return db.prepare(`SELECT * FROM movies ${orderBy}`).all() as Movie[];
+}
+
+export function deleteMovie(db: Database.Database, id: number): void {
+  db.prepare("DELETE FROM movies WHERE id = ?").run(id);
+}
+
+export function getCachedEngine(db: Database.Database, engine: string, movieCount: number): any[] | null {
+  const row = db.prepare("SELECT data, movie_count FROM recommendation_cache WHERE engine = ?").get(engine) as { data: string; movie_count: number } | undefined;
+  if (!row || row.movie_count !== movieCount) return null;
+  return JSON.parse(row.data);
+}
+
+export function setCachedEngine(db: Database.Database, engine: string, data: any[], movieCount: number): void {
+  db.prepare(
+    "INSERT OR REPLACE INTO recommendation_cache (engine, data, movie_count, created_at) VALUES (?, ?, ?, CURRENT_TIMESTAMP)"
+  ).run(engine, JSON.stringify(data), movieCount);
+}
+
+export function clearCachedEngine(db: Database.Database, engine?: string): void {
+  if (engine) {
+    db.prepare("DELETE FROM recommendation_cache WHERE engine = ?").run(engine);
+    db.prepare("DELETE FROM recommended_movies WHERE engine = ?").run(engine);
+  } else {
+    db.prepare("DELETE FROM recommendation_cache").run();
+    db.prepare("DELETE FROM recommended_movies").run();
+  }
+}
+
+export interface RecommendedMovie {
+  id: number;
+  tmdb_id: number;
+  engine: string;
+  reason: string;
+  title: string;
+  year: number | null;
+  genre: string | null;
+  rating: number | null;
+  poster_url: string | null;
+  pl_title: string | null;
+  cda_url: string | null;
+  created_at: string;
+}
+
+export function saveRecommendedMovies(
+  db: Database.Database,
+  engine: string,
+  reason: string,
+  movies: { tmdb_id: number; title: string; year: number | null; genre: string | null; rating: number | null; poster_url: string | null }[]
+): void {
+  const stmt = db.prepare(`
+    INSERT OR IGNORE INTO recommended_movies (tmdb_id, engine, reason, title, year, genre, rating, poster_url)
+    VALUES (@tmdb_id, @engine, @reason, @title, @year, @genre, @rating, @poster_url)
+  `);
+  for (const m of movies) {
+    stmt.run({ ...m, engine, reason });
+  }
+}
+
+export function getRecommendedMovies(db: Database.Database, engine?: string): RecommendedMovie[] {
+  if (engine) {
+    return db.prepare("SELECT * FROM recommended_movies WHERE engine = ? ORDER BY rating DESC").all(engine) as RecommendedMovie[];
+  }
+  return db.prepare("SELECT * FROM recommended_movies ORDER BY engine, rating DESC").all() as RecommendedMovie[];
+}
+
+export function updateRecommendedMovie(db: Database.Database, tmdbId: number, updates: { pl_title?: string; cda_url?: string; description?: string }): void {
+  if (updates.pl_title) {
+    db.prepare("UPDATE recommended_movies SET pl_title = ? WHERE tmdb_id = ?").run(updates.pl_title, tmdbId);
+  }
+  if (updates.cda_url) {
+    db.prepare("UPDATE recommended_movies SET cda_url = ? WHERE tmdb_id = ?").run(updates.cda_url, tmdbId);
+  }
+  if (updates.description) {
+    db.prepare("UPDATE recommended_movies SET description = ? WHERE tmdb_id = ?").run(updates.description, tmdbId);
+  }
+}
+
+export function getSetting(db: Database.Database, key: string): string | null {
+  const row = db.prepare("SELECT value FROM settings WHERE key = ?").get(key) as { value: string } | undefined;
+  return row?.value ?? null;
+}
+
+export function setSetting(db: Database.Database, key: string, value: string): void {
+  db.prepare("INSERT OR REPLACE INTO settings (key, value) VALUES (?, ?)").run(key, value);
+}
+
+export function getMovieByFilePath(db: Database.Database, filePath: string): Movie | null {
+  return (db.prepare("SELECT * FROM movies WHERE file_path = ?").get(filePath) as Movie) ?? null;
+}
+
+export function dismissRecommendation(db: Database.Database, tmdbId: number): void {
+  db.prepare("INSERT OR IGNORE INTO dismissed_recommendations (tmdb_id) VALUES (?)").run(tmdbId);
+}
+
+export function getDismissedIds(db: Database.Database): Set<number> {
+  const rows = db.prepare("SELECT tmdb_id FROM dismissed_recommendations").all() as { tmdb_id: number }[];
+  return new Set(rows.map((r) => r.tmdb_id));
+}

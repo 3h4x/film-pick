@@ -1,66 +1,38 @@
 # Movies Organizer
 
-![GitHub top language](https://img.shields.io/github/languages/top/3h4x/movies-organizer)
-![GitHub release (latest by date)](https://img.shields.io/github/v/release/3h4x/movies-organizer)
-![GitHub last commit](https://img.shields.io/github/last-commit/3h4x/movies-organizer)
-![GitHub](https://img.shields.io/github/license/3h4x/movies-organizer)
-![GitHub Sponsors](https://img.shields.io/github/sponsors/3h4x)
+Movie and TV series recommendation system with a Next.js web UI and SQLite database. Includes a Python CLI tool for bulk renaming/organizing media files.
 
-#### Automatically bulk renames and organises your Movie and TV-Shows Library.<br>Ideal for maintaining your xbmc library.
+## Web App
 
-## What it does
-
-Running `./organizer.py` will show possible commands and flags:
-```
-Usage: organizer.py [OPTIONS] COMMAND [ARGS]...
-
-  Rename Media Files
-
-Options:
-  --help  Show this message and exit.
-
-Commands:
-  movies  Rename Movies
-  series  Rename TV Series
-```
-Currently renaming movies and series is supported.
-
-Help for series:
-```
-Usage: organizer.py series [OPTIONS]
-
-  Rename TV Series
-
-Options:
-  -p, --path TEXT  Path
-  -f, --force      Automatically rename
-  --help           Show this message and exit.
+```bash
+cd web
+pnpm install
+eval "$(bioenv load)"    # Load TMDB_API_KEY
+pnpm dev                 # http://localhost:4000
 ```
 
--  Movies are renamed and organized in format:
+### Features
+
+- **Library** — browse your collection with posters, personal + global ratings, search, sort (6 options), genre filter, pagination
+- **Recommendations** — genre-based, director/actor-based, and per-movie suggestions from TMDb
+- **Import** — scan a local directory for video files, or import Filmweb ratings export
+- **Sync** — re-scan library path to detect added/removed files
+- **Actions** on recommendations: liked, watched, disliked, dismiss
+
+### Tech Stack
+
+Next.js 16, React 19, TypeScript, Tailwind CSS 4, SQLite (better-sqlite3), TMDb API, Filmweb import
+
+## CLI Tool
+
+Python CLI for bulk renaming and organizing movie/series files using IMDb metadata.
+
+```bash
+cd src && pip install -r requirements.txt
+python movies_organizer.py movies -p /path/to/movies
+python movies_organizer.py series -p /path/to/series
 ```
-<Movie_name> (<year>)/<Movie_name> (<year>)
-```
 
-- All episodes of a series are moved inside a folder with their corresponding Season number in it:
-```
-<TV_Series_name>/S<Season_number>/S<Season_number>E<Episode_Number>
-```
+## License
 
-## Getting Started
-
-### Prerequisites
-What things you need to run the program:
-- At least Python 3.8
-- Install requirements `pip install -r requirements.txt`
-
-### Development
-
-- `pre-commit install --hook-type commit-msg`
-
-<p align="center">
-  Made with ❤️ by <a href="https://github.com/3h4x">3h4x</a></br>
-  Loosely based on work of <a href="https://github.com/bearlike/Media-Library-Organiser">bearlike</a>
-</p>
-
-![wave](http://cdn.thekrishna.in/img/common/border.png)
+See [LICENSE.md](LICENSE.md)
