@@ -204,10 +204,10 @@ export default function MovieDetail({ movie, onClose, onUpdate, onMerge, onSearc
         method: 'POST',
         body: formData,
       });
-      
+
       const text = await res.text();
       console.log(`[Subtitles] Response received:`, text.slice(0, 100));
-      
+
       let data;
       try {
         data = JSON.parse(text);
@@ -248,7 +248,7 @@ export default function MovieDetail({ movie, onClose, onUpdate, onMerge, onSearc
     e.preventDefault();
     e.stopPropagation();
     setIsDraggingSub(false);
-    
+
     const file = e.dataTransfer.files?.[0];
     if (file) {
       console.log(`[Subtitles] File dropped: ${file.name}`);
@@ -259,13 +259,13 @@ export default function MovieDetail({ movie, onClose, onUpdate, onMerge, onSearc
   const potentialMerges = useMemo(() => {
     const cleanCurrentTitle = cleanTitle(movieTitle).toLowerCase();
     const cleanCurrentPlTitle = plTitle ? cleanTitle(plTitle).toLowerCase() : "";
-    
+
     return (allMovies || [])
       .filter(m => m.id !== movie.id)
       .map(m => {
         const cleanMTitle = cleanTitle(m.title).toLowerCase();
         const cleanMPlTitle = m.pl_title ? cleanTitle(m.pl_title).toLowerCase() : "";
-        
+
         let score = 0;
         if (mergeQuery) {
           if (m.title.toLowerCase().includes(mergeQuery.toLowerCase())) score += 10;
@@ -289,14 +289,14 @@ export default function MovieDetail({ movie, onClose, onUpdate, onMerge, onSearc
   const hasMatches = useMemo(() => {
     const cleanCurrentTitle = cleanTitle(movieTitle).toLowerCase();
     const cleanCurrentPlTitle = plTitle ? cleanTitle(plTitle).toLowerCase() : "";
-    
+
     return (allMovies || [])
       .some(m => {
         if (m.id === movie.id) return false;
-        
+
         const cleanMTitle = cleanTitle(m.title).toLowerCase();
         const cleanMPlTitle = m.pl_title ? cleanTitle(m.pl_title).toLowerCase() : "";
-        
+
         return (
           cleanMTitle === cleanCurrentTitle ||
           (cleanMPlTitle && cleanMPlTitle === cleanCurrentPlTitle) ||
@@ -334,7 +334,7 @@ export default function MovieDetail({ movie, onClose, onUpdate, onMerge, onSearc
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ user_rating: rating, wishlist: 0 })
       });
-      
+
       if (res.ok) {
         const updated = await res.json();
         setUserRating(rating);
@@ -354,12 +354,12 @@ export default function MovieDetail({ movie, onClose, onUpdate, onMerge, onSearc
     const timeoutId = setTimeout(() => controller.abort(), 60000); // 60s timeout
 
     try {
-      const res = await fetch(`/api/movies/${movie.id}/standardize`, { 
+      const res = await fetch(`/api/movies/${movie.id}/standardize`, {
         method: 'POST',
-        signal: controller.signal 
+        signal: controller.signal
       });
       clearTimeout(timeoutId);
-      
+
       let data;
       const text = await res.text();
       try {
@@ -382,17 +382,17 @@ export default function MovieDetail({ movie, onClose, onUpdate, onMerge, onSearc
             onMerge(movie.id, data.mergedId);
         }
       } else {
-        setStandardizeMsg({ 
-          type: 'error', 
+        setStandardizeMsg({
+          type: 'error',
           text: data.error || 'Failed to standardize',
-          code: data.code 
+          code: data.code
         });
       }
     } catch (e: any) {
       console.error('Standardization fetch error:', e);
-      setStandardizeMsg({ 
-        type: 'error', 
-        text: e.name === 'AbortError' ? 'Request timed out' : 'Network error (check server logs)' 
+      setStandardizeMsg({
+        type: 'error',
+        text: e.name === 'AbortError' ? 'Request timed out' : 'Network error (check server logs)'
       });
     } finally {
       setIsStandardizing(false);
@@ -406,12 +406,12 @@ export default function MovieDetail({ movie, onClose, onUpdate, onMerge, onSearc
     const timeoutId = setTimeout(() => controller.abort(), 60000); // 60s timeout
 
     try {
-      const res = await fetch(`/api/movies/${movie.id}/standardize?delete_missing=true`, { 
+      const res = await fetch(`/api/movies/${movie.id}/standardize?delete_missing=true`, {
         method: 'POST',
-        signal: controller.signal 
+        signal: controller.signal
       });
       clearTimeout(timeoutId);
-      
+
       let data;
       const text = await res.text();
       try {
@@ -423,9 +423,9 @@ export default function MovieDetail({ movie, onClose, onUpdate, onMerge, onSearc
       if (data.ok) {
         onClose();
         if (onMerge) {
-          // Effectively removing a missing file record is like merging into nothing or 
+          // Effectively removing a missing file record is like merging into nothing or
           // just removing it from the list.
-          onMerge(movie.id, -1); 
+          onMerge(movie.id, -1);
         }
       } else {
         setStandardizeMsg({ type: 'error', text: data.error || 'Failed to remove' });
@@ -501,13 +501,13 @@ export default function MovieDetail({ movie, onClose, onUpdate, onMerge, onSearc
     }
   }, [movie.tmdb_id, plTitle, description]);
   const safeTitle = movieTitle.replace(/[\\/:*?"<>|]/g, " ");
-  
+
   // Standard format: Title [Year]/Title.ext
-  const isStandard = filePath && movie.year && libraryRoot && 
+  const isStandard = filePath && movie.year && libraryRoot &&
     filePath === path.join(libraryRoot, `${safeTitle} [${movie.year}]`, `${safeTitle}${path.extname(filePath)}`);
-  
+
   // Also check for standard format WITHOUT year in folder if movie.year is missing: Title/Title.ext
-  const isStandardNoYear = filePath && !movie.year && libraryRoot && 
+  const isStandardNoYear = filePath && !movie.year && libraryRoot &&
     filePath === path.join(libraryRoot, safeTitle, `${safeTitle}${path.extname(filePath)}`);
 
 
@@ -561,7 +561,7 @@ export default function MovieDetail({ movie, onClose, onUpdate, onMerge, onSearc
 
         {/* Menu Dropdown */}
         {isMenuOpen && (
-          <div 
+          <div
             className="absolute top-16 right-6 z-[60] w-64 bg-gray-900 border border-gray-700/50 rounded-2xl shadow-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-200"
             onClick={(e) => e.stopPropagation()}
           >
@@ -672,7 +672,7 @@ export default function MovieDetail({ movie, onClose, onUpdate, onMerge, onSearc
               {filePath && !showEmbedded && (
                 <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity bg-black/40 rounded-2xl backdrop-blur-[2px]">
                   <div className="flex flex-col gap-3">
-                    <button 
+                    <button
                       onClick={() => handlePlay("play")}
                       disabled={isPlaying}
                       className="bg-indigo-500 hover:bg-indigo-600 text-white px-6 py-3 rounded-xl font-black uppercase tracking-widest shadow-xl shadow-indigo-500/20 flex items-center gap-3 transition-transform hover:scale-105 active:scale-95 disabled:opacity-50"
@@ -680,7 +680,7 @@ export default function MovieDetail({ movie, onClose, onUpdate, onMerge, onSearc
                       <span className="text-xl">{isPlaying ? '⏳' : '▶️'}</span>
                       {isPlaying ? 'Opening...' : 'Play in VLC'}
                     </button>
-                    <button 
+                    <button
                       onClick={() => setShowEmbedded(true)}
                       className="bg-white/10 hover:bg-white/20 text-white px-6 py-3 rounded-xl font-black uppercase tracking-widest backdrop-blur-md border border-white/10 flex items-center gap-3 transition-transform hover:scale-105 active:scale-95"
                     >
@@ -814,7 +814,7 @@ export default function MovieDetail({ movie, onClose, onUpdate, onMerge, onSearc
                       <p className="text-[10px] text-gray-500 font-bold uppercase tracking-tighter">Bitrate</p>
                       <p className="text-sm text-gray-200 font-medium">{(videoMetadata.bitrate / 1000).toFixed(0)} kbps</p>
                     </div>
-                    
+
                     {videoMetadata.audio && videoMetadata.audio.length > 0 && (
                       <div className="col-span-2 space-y-2 pt-2 border-t border-gray-700/30">
                         <p className="text-[10px] text-gray-500 font-bold uppercase tracking-tighter">Audio Tracks</p>
@@ -994,16 +994,16 @@ export default function MovieDetail({ movie, onClose, onUpdate, onMerge, onSearc
                   <p className="text-[10px] text-gray-500 font-black uppercase tracking-widest">Quick Links</p>
                   <div className="grid grid-cols-2 gap-2">
                     {movie.tmdb_id && (
-                      <a href={`https://www.themoviedb.org/movie/${movie.tmdb_id}`} target="_blank" rel="noopener noreferrer" 
+                      <a href={`https://www.themoviedb.org/movie/${movie.tmdb_id}`} target="_blank" rel="noopener noreferrer"
                         className="bg-gray-800/50 hover:bg-gray-800 border border-gray-700/30 hover:border-blue-500/30 px-3 py-2 rounded-xl text-xs font-bold text-gray-400 hover:text-blue-400 transition-all text-center">TMDb</a>
                     )}
                     {movie.filmweb_url && (
-                      <a href={movie.filmweb_url} target="_blank" rel="noopener noreferrer" 
+                      <a href={movie.filmweb_url} target="_blank" rel="noopener noreferrer"
                         className="bg-gray-800/50 hover:bg-gray-800 border border-gray-700/30 hover:border-indigo-500/30 px-3 py-2 rounded-xl text-xs font-bold text-gray-400 hover:text-indigo-400 transition-all text-center">Filmweb</a>
                     )}
-                    <a href={movie.cda_url || `https://www.cda.pl/szukaj?q=${encodeURIComponent(plTitle || movie.title)}`} target="_blank" rel="noopener noreferrer" 
+                    <a href={movie.cda_url || `https://www.cda.pl/szukaj?q=${encodeURIComponent(plTitle || movie.title)}`} target="_blank" rel="noopener noreferrer"
                       className="bg-gray-800/50 hover:bg-gray-800 border border-gray-700/30 hover:border-indigo-500/30 px-3 py-2 rounded-xl text-xs font-bold text-gray-400 hover:text-indigo-400 transition-all text-center">CDA.pl</a>
-                    <a href={`https://www.youtube.com/results?search_query=${encodeURIComponent(movie.title + (movie.year ? ` ${movie.year}` : "") + " trailer")}`} target="_blank" rel="noopener noreferrer" 
+                    <a href={`https://www.youtube.com/results?search_query=${encodeURIComponent(movie.title + (movie.year ? ` ${movie.year}` : "") + " trailer")}`} target="_blank" rel="noopener noreferrer"
                       className="bg-gray-800/50 hover:bg-gray-800 border border-gray-700/30 hover:border-red-500/30 px-3 py-2 rounded-xl text-xs font-bold text-gray-400 hover:text-red-400 transition-all text-center">Trailer</a>
                   </div>
                 </div>
@@ -1032,7 +1032,7 @@ export default function MovieDetail({ movie, onClose, onUpdate, onMerge, onSearc
                       </div>
                     )}
                   </div>
-                  <button 
+                  <button
                     onClick={() => setShowEmbedded(false)}
                     className="text-[10px] text-gray-500 hover:text-white font-black uppercase tracking-widest"
                   >
@@ -1040,16 +1040,16 @@ export default function MovieDetail({ movie, onClose, onUpdate, onMerge, onSearc
                   </button>
                 </div>
                 <div className="bg-black rounded-2xl overflow-hidden aspect-video border border-gray-800 shadow-2xl relative group">
-                  <video 
+                  <video
                     key={`${movie.id}-${activePart}`}
-                    controls 
+                    controls
                     className="w-full h-full"
                     poster={movie.poster_url || undefined}
                     autoPlay
                   >
                     <source src={`/api/movies/${movie.id}/stream?part=${activePart}`} type="video/mp4" />
                     {subtitlesList.map((sub, i) => (
-                      <track 
+                      <track
                         key={i}
                         kind="subtitles"
                         src={`/api/movies/${movie.id}/stream?part=${activePart}&sub=${encodeURIComponent(sub.name)}`}
@@ -1076,14 +1076,14 @@ export default function MovieDetail({ movie, onClose, onUpdate, onMerge, onSearc
               <div className="bg-gray-800/40 rounded-2xl p-6 border border-indigo-500/30 space-y-4 animate-in fade-in slide-in-from-top-4 duration-300">
                 <div className="flex items-center justify-between">
                   <h4 className="text-[10px] font-black uppercase tracking-[0.2em] text-indigo-400">Merge movie records</h4>
-                  <button 
+                  <button
                     onClick={() => setIsMergeMode(false)}
                     className="text-gray-500 hover:text-white transition-colors"
                   >
                     ✕
                   </button>
                 </div>
-                  
+
                 <div className="relative">
                   <input
                     type="text"
@@ -1122,7 +1122,7 @@ export default function MovieDetail({ movie, onClose, onUpdate, onMerge, onSearc
                     </p>
                   )}
                 </div>
-                  
+
                 <p className="text-[9px] text-gray-500 leading-relaxed italic">
                   Note: Metadata from this record will be moved to the target if it's more complete. This record will be permanently deleted.
                 </p>
@@ -1144,7 +1144,7 @@ export default function MovieDetail({ movie, onClose, onUpdate, onMerge, onSearc
                     </span>
                   )}
                 </div>
-                
+
                 {filePath ? (
                   <div className="space-y-4">
                     {subtitlesList.length > 0 ? (
@@ -1173,11 +1173,11 @@ export default function MovieDetail({ movie, onClose, onUpdate, onMerge, onSearc
                         <span className="text-xs font-black text-indigo-400 uppercase tracking-widest">Search OpenSubtitles</span>
                         <span className="text-sm">↗</span>
                       </a>
-                      
-                      <label 
+
+                      <label
                         className={`cursor-pointer border-2 border-dashed rounded-xl transition-all flex items-center justify-center gap-3 py-3 ${
-                          isSubtitleUploading 
-                            ? 'bg-gray-800/50 border-gray-700 text-gray-500 cursor-not-allowed' 
+                          isSubtitleUploading
+                            ? 'bg-gray-800/50 border-gray-700 text-gray-500 cursor-not-allowed'
                             : isDraggingSub
                               ? 'bg-indigo-500/10 border-indigo-500 text-indigo-400 scale-[1.02]'
                               : 'bg-gray-800/30 border-gray-700/50 text-gray-400 hover:bg-indigo-500/5 hover:border-indigo-500/30 hover:text-indigo-300'
@@ -1190,10 +1190,10 @@ export default function MovieDetail({ movie, onClose, onUpdate, onMerge, onSearc
                         <span className="text-xs font-black uppercase tracking-widest">
                           {isSubtitleUploading ? 'Uploading...' : isDraggingSub ? 'Drop Subtitle' : 'Drop .srt here'}
                         </span>
-                        <input 
-                          type="file" 
-                          accept=".srt,.sub,.txt,.ass" 
-                          className="hidden" 
+                        <input
+                          type="file"
+                          accept=".srt,.sub,.txt,.ass"
+                          className="hidden"
                           onChange={(e) => {
                             const file = e.target.files?.[0];
                             if (file) handleSubtitleUpload(file);
@@ -1216,7 +1216,7 @@ export default function MovieDetail({ movie, onClose, onUpdate, onMerge, onSearc
                     </a>
                   </div>
                 )}
-                
+
                 {subtitleError && (
                   <p className="mt-3 px-3 py-2 bg-red-500/10 text-red-400 text-[10px] font-bold uppercase rounded-lg border border-red-500/20 text-center">
                     {subtitleError}
@@ -1277,8 +1277,8 @@ export default function MovieDetail({ movie, onClose, onUpdate, onMerge, onSearc
 
                   {standardizeMsg && (
                     <div className={`p-4 rounded-xl border animate-in fade-in slide-in-from-top-2 duration-300 ${
-                      standardizeMsg.type === 'success' 
-                        ? 'bg-green-500/5 border-green-500/20 text-green-400' 
+                      standardizeMsg.type === 'success'
+                        ? 'bg-green-500/5 border-green-500/20 text-green-400'
                         : 'bg-red-500/5 border-red-500/20 text-red-400'
                     }`}>
                       <div className="flex items-start gap-3">

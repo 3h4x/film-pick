@@ -16,7 +16,7 @@ jobs:
         with:
           fetch-depth: 0
 
-      - uses: google-github-actions/release-please-action@v3
+      - uses: googleapis/release-please-action@v4
         with:
-          release-type: python
           token: ${{ secrets.CUSTOM_PAT_WITH_WORKFLOWS_ACCESS }}
+          config-file: release-please-config.json

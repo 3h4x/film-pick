@@ -32,14 +32,14 @@ export async function GET(
       const subPath = path.join(path.dirname(activeFilePath), subName);
       try {
         let subContent = await fs.promises.readFile(subPath, "utf-8");
-        
+
         // Convert SRT to VTT if needed
         if (subPath.toLowerCase().endsWith(".srt")) {
           subContent = "WEBVTT\n\n" + subContent.replace(/(\d{2}:\d{2}:\d{2}),(\d{3})/g, "$1.$2");
         }
-        
+
         return new NextResponse(subContent, {
-          headers: { 
+          headers: {
             "Content-Type": "text/vtt",
             "Content-Disposition": "inline"
           },

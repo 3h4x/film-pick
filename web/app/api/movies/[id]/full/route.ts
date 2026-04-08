@@ -10,7 +10,7 @@ export async function DELETE(
   const { id } = await params;
   const db = getDb();
   const movieId = parseInt(id, 10);
-  
+
   const movie = db.prepare("SELECT * FROM movies WHERE id = ?").get(movieId) as any;
   if (!movie) {
     return Response.json({ error: "Movie not found" }, { status: 404 });
@@ -23,11 +23,11 @@ export async function DELETE(
   if (movie.file_path) {
     const filePath = movie.file_path;
     const parentDir = path.dirname(filePath);
-    
+
     // Safety check: Don't delete the library root!
     const resolvedLibraryRoot = path.resolve(libraryRoot);
     const resolvedParentDir = path.resolve(parentDir);
-    
+
     if (resolvedParentDir === resolvedLibraryRoot) {
       // The movie is directly in the library root (not in its own folder)
       // We should only delete the file, not the folder.
@@ -36,7 +36,7 @@ export async function DELETE(
         if (fs.existsSync(filePath)) {
           fs.unlinkSync(filePath);
         }
-        
+
         // Also delete extra files
         if (movie.extra_files) {
           try {
@@ -50,7 +50,7 @@ export async function DELETE(
             console.error(`[Delete] Error parsing extra files:`, e);
           }
         }
-        
+
         // Also try to find and delete subtitles (same name, diff extension)
         const baseExt = path.extname(filePath);
         const baseName = path.basename(filePath, baseExt);
@@ -78,8 +78,8 @@ export async function DELETE(
             if (forbidden.some(f => folderName === f.toLowerCase())) {
                throw new Error(`Folder name "${folderName}" is protected and cannot be deleted.`);
             }
-            
-            // Try to delete recursively. Sometimes network shares fail with ENOTEMPTY 
+
+            // Try to delete recursively. Sometimes network shares fail with ENOTEMPTY
             // even with recursive: true if there are hidden files or race conditions.
             // Also handle ENOENT if files disappear mid-operation (like .afpDeleted*)
             try {

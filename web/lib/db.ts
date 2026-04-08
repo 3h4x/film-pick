@@ -88,7 +88,7 @@ export function initDb(db: Database.Database): void {
     }
     db.prepare("INSERT OR IGNORE INTO _migrations (name) VALUES ('add_video_metadata')").run();
   }
-  
+
   const hasCredits = db.prepare("SELECT 1 FROM _migrations WHERE name = 'add_credits'").get();
   if (!hasCredits) {
     try {

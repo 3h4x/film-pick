@@ -119,7 +119,7 @@ def rename_movies(ctx, path, force):
             continue
         file_name = get_movie_name(file_name, movies)  # Sometimes causes error
         file_name = removeIllegal(file_name)
-        
+
         # Split Title and [Year] for separate folder/file naming
         if " [" in file_name and file_name.endswith("]"):
             movie_title_clean = file_name.rsplit(" [", 1)[0]

@@ -36,10 +36,10 @@ export async function POST(
     }
 
     if (missing.length === allFiles.length) {
-      return NextResponse.json({ 
-        error: "No files found on disk", 
+      return NextResponse.json({
+        error: "No files found on disk",
         path: filePath,
-        code: "FILE_NOT_FOUND" 
+        code: "FILE_NOT_FOUND"
       }, { status: 404 });
     }
 

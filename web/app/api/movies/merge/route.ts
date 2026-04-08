@@ -20,7 +20,7 @@ export async function POST(request: NextRequest) {
 
   // Fields to merge with specific strategies
   // 1. Prefer non-null, then prefer higher/more complete
-  
+
   // user_rating: take max
   if (source.user_rating || target.user_rating) {
     updates.user_rating = Math.max(Number(source.user_rating || 0), Number(target.user_rating || 0)) || null;
@@ -94,7 +94,7 @@ export async function POST(request: NextRequest) {
       if (updates.title && updates.year) {
          db.prepare("UPDATE movies SET title = 'merged-placeholder', year = NULL WHERE id = ?").run(sourceId);
       }
-      
+
       // Combine extra_files if both exist
       if (source.extra_files || target.extra_files) {
         const sExtra = source.extra_files ? JSON.parse(source.extra_files) : [];
@@ -114,10 +114,10 @@ export async function POST(request: NextRequest) {
 
     transaction();
 
-    return Response.json({ 
-      ok: true, 
+    return Response.json({
+      ok: true,
       message: "Movies merged successfully",
-      targetId 
+      targetId
     });
   } catch (error: any) {
     console.error("Merge failed:", error);
