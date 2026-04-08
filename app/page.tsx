@@ -82,7 +82,7 @@ const PAGE_SIZE = 36;
 type AppTab = "library" | "recommendations" | "wishlist" | "config" | "person";
 
 function parseHash(): { tab: AppTab; category: string } {
-  if (typeof window === "undefined") return { tab: "library", category: "all" };
+  if (typeof window === "undefined") return { tab: "recommendations", category: "all" };
   const hash = window.location.hash.replace("#", "");
   if (hash === "wishlist") return { tab: "wishlist", category: "all" };
   if (hash === "config") return { tab: "config", category: "all" };
@@ -93,13 +93,12 @@ function parseHash(): { tab: AppTab; category: string } {
   if (hash.startsWith("person/")) {
     return { tab: "person", category: decodeURIComponent(hash.substring(7)) };
   }
-  return { tab: "library", category: "all" };
+  return { tab: "recommendations", category: "all" };
 }
 
 export default function Home() {
-  console.log("[movies-organizer] Home component mounted");
-  const initial = parseHash();
-  const [activeTab, setActiveTab] = useState<AppTab>(initial.tab);
+
+  const [activeTab, setActiveTab] = useState<AppTab>("recommendations");
   const [movies, setMovies] = useState<Movie[]>([]);
   const [recGroups, setRecGroups] = useState<
     Record<string, RecommendationGroup[]>
@@ -111,11 +110,10 @@ export default function Home() {
   const [syncOpen, setSyncOpen] = useState(false);
   const [searchTargetId, setSearchTargetId] = useState<number | null>(null);
   const [selectedMovie, setSelectedMovie] = useState<Movie | null>(null);
-  const [personFilter, setPersonFilter] = useState<string>(
-    initial.tab === "person" ? initial.category : "",
-  );
+  const [personFilter, setPersonFilter] = useState<string>("");
   const [initialLoad, setInitialLoad] = useState(true);
   const [libraryPath, setLibraryPath] = useState<string | null>(null);
+  const [tmdbKeySource, setTmdbKeySource] = useState<"env" | "db" | null>(null);
 
   // Sort, filter, search
   const [sort, setSort] = useState<SortOption>("created_at");
@@ -139,7 +137,7 @@ export default function Home() {
   const toastId = useRef(0);
 
   // Rec state
-  const [recCategory, setRecCategory] = useState(initial.category);
+  const [recCategory, setRecCategory] = useState("all");
   const [cdaOnly, setCdaOnly] = useState(false);
   const [recConfig, setRecConfig] = useState<RecConfig>({
     excluded_genres: [],
@@ -148,6 +146,14 @@ export default function Home() {
     max_per_group: 15,
   });
   const [groupOrder, setGroupOrder] = useState<string[]>([]);
+
+  // Read hash on mount (after hydration to avoid mismatch)
+  useEffect(() => {
+    const { tab, category } = parseHash();
+    if (tab !== "recommendations") setActiveTab(tab);
+    if (tab === "person") setPersonFilter(category);
+    else if (tab === "recommendations" && category !== "all") setRecCategory(category);
+  }, []);
 
   // Sync URL hash with state
   useEffect(() => {
@@ -341,12 +347,12 @@ export default function Home() {
   );
 
   const fetchMovies = useCallback(async () => {
-    console.log("[movies-organizer] fetchMovies: starting");
+
     try {
       const res = await fetch("/api/movies");
-      console.log("[movies-organizer] fetchMovies: status", res.status);
+
       const data = await res.json();
-      console.log("[movies-organizer] fetchMovies: got", data.length, "movies");
+
       setMovies(data);
       setInitialLoad(false);
     } catch (err) {
@@ -358,6 +364,7 @@ export default function Home() {
     const res = await fetch("/api/settings");
     const data = await res.json();
     setLibraryPath(data.library_path);
+    setTmdbKeySource(data.tmdb_api_key_source ?? null);
     if (data.rec_group_order?.length) {
       setGroupOrder(data.rec_group_order);
     }
@@ -394,7 +401,7 @@ export default function Home() {
   );
 
   useEffect(() => {
-    console.log("[movies-organizer] initial useEffect firing");
+
     fetchMovies();
     fetchSettings();
     // Fetch total recs count (lightweight, reads from cache/DB)
@@ -762,8 +769,9 @@ export default function Home() {
           {/* Row 1: Logo + Actions */}
           <div className="flex items-center justify-between mb-4">
             <div className="flex items-center gap-4">
-              <h1 className="text-lg font-bold text-white tracking-tight">
-                Movies Organizer
+              <h1 className="text-lg font-bold text-white tracking-tight flex items-center gap-2">
+                <img src="/icon-192.png" alt="FilmPick" className="w-7 h-7 rounded" />
+                FilmPick
               </h1>
               {!initialLoad &&
                 (activeTab === "library" || activeTab === "wishlist") && (
@@ -878,7 +886,7 @@ export default function Home() {
                       d="M12 4v16m8-8H4"
                     />
                   </svg>
-                  Add
+                  Find
                 </button>
               </div>
             )}
@@ -888,6 +896,11 @@ export default function Home() {
           <div className="flex gap-1">
             {[
               {
+                key: "recommendations" as const,
+                label: "Discover",
+                count: totalRecsCount,
+              },
+              {
                 key: "library" as const,
                 label: "Library",
                 count: initialLoad ? -1 : movies.length,
@@ -896,11 +909,6 @@ export default function Home() {
                 key: "wishlist" as const,
                 label: "Watchlist",
                 count: initialLoad ? -1 : wishlistMovies.length,
-              },
-              {
-                key: "recommendations" as const,
-                label: "Discover",
-                count: totalRecsCount,
               },
               { key: "config" as const, label: "Config", count: -1 },
             ].map((tab) => {
@@ -1346,6 +1354,7 @@ export default function Home() {
         {activeTab === "config" && (
           <ConfigPanel
             config={recConfig}
+            tmdbKeySource={tmdbKeySource}
             onSave={async (cfg) => {
               setRecConfig(cfg);
               await fetch("/api/settings", {

@@ -1,3 +1,5 @@
+import { getDb, getSetting } from "@/lib/db";
+
 const TMDB_BASE = "https://api.themoviedb.org/3";
 const TMDB_GENRE_MAP: Record<number, string> = {
   28: "Action",
@@ -22,7 +24,18 @@ const TMDB_GENRE_MAP: Record<number, string> = {
 };
 
 function getApiKey(): string {
-  return process.env.TMDB_API_KEY || "";
+  const key = process.env.TMDB_API_KEY || getDbApiKey();
+  if (!key) throw new Error("TMDB_API_KEY not set — configure in Config tab or run: eval \"$(bioenv load)\"");
+  return key;
+}
+
+function getDbApiKey(): string | null {
+  try {
+    const db = getDb();
+    return getSetting(db, "tmdb_api_key");
+  } catch {
+    return null;
+  }
 }
 
 function genreIdsToString(ids: number[]): string {

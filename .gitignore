@@ -3,8 +3,6 @@
 *.mp4
 **/*.pyc
 .playwright-mcp/
-web/data/*.db
-web/data/*.db-*
-web/data/*.db.bak.*
-web/data/backups/
+data/
 node_modules
+.next
