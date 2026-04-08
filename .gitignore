@@ -7,3 +7,4 @@ web/data/*.db
 web/data/*.db-*
 web/data/*.db.bak.*
 web/data/backups/
+node_modules

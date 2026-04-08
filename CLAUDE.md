@@ -1,20 +1,19 @@
 # Movies Organizer
 
-Movie and TV series recommendation system with a Next.js web UI and SQLite database. Includes a Python CLI tool for bulk renaming/organizing media files.
+Movie and TV series recommendation system with a Next.js web UI and SQLite database.
 
 ## Tech Stack
 
 - **Web app:** Next.js 16 (App Router), React 19, TypeScript, Tailwind CSS 4
 - **Database:** SQLite via `better-sqlite3`
-- **Data sources:** TMDb API, Filmweb (import), IMDb (cinemagoer — CLI tool)
+- **Data sources:** TMDb API, Filmweb (import)
 - **Testing:** Vitest (14 tests, 5 files)
 - **Package manager:** pnpm (do not use npm)
 - **Secrets:** bioenv (Touch ID-protected Keychain)
 
-## Web App (`web/`)
+## Commands
 
 ```bash
-cd web
 pnpm install
 eval "$(bioenv load)"    # Load TMDB_API_KEY
 pnpm dev                 # http://localhost:4000
@@ -26,7 +25,6 @@ pnpm backup              # Backup SQLite DB
 ### Structure
 
 ```
-web/
 ├── app/
 │   ├── page.tsx                      — Dashboard (Library + Recommendations tabs)
 │   └── api/
@@ -99,21 +97,6 @@ bash scripts/backup-db.sh
 pm2 start scripts/backup-db.sh --name movies-backup --cron-restart='*/15 * * * *' --no-autorestart
 ```
 
-## CLI Tool (`src/`)
-
-Python CLI for bulk renaming and organizing movie/series files using IMDb metadata. Still actively used.
-
-```bash
-cd src && pip install -r requirements.txt
-python movies_organizer.py movies -p /path/to/movies
-python movies_organizer.py series -p /path/to/series
-```
-
-- **Naming formats:**
-  - Movies: `Movie Name (Year)/Movie Name (Year).ext`
-  - Series: `Series Name/Season N/Series Name S01E01.ext`
-- **Video extensions:** `.mp4`, `.mkv`, `.srt`, `.avi`, `.wmv`, `.m4v`, `.mov`, `.flv`, `.webm`
-
 ### Logs
 
 Next.js dev server logs to stdout. When running in the background:
@@ -132,6 +115,7 @@ grep -i error /tmp/movies-dev.log
 Each request is logged as `GET /path STATUS in Xms`. API errors show as 500 with a stack trace including the failing source file and line number.
 
 Common errors:
+
 - **`better-sqlite3` native addon not found** — run `npx node-gyp rebuild` inside the `better-sqlite3` package dir (happens after `pnpm install` skips build scripts)
 - **SWC binary missing** — install `@next/swc-linux-arm64-gnu` (or musl) for ARM64 Linux environments
 
@@ -139,5 +123,4 @@ Common errors:
 
 - Use `pnpm` exclusively (not npm)
 - Conventional commits required (release-please on master)
-- Run `pre-commit install --hook-type commit-msg` after cloning
 - Type check with `pnpm type-check` before committing

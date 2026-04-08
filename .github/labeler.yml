@@ -1,15 +1,19 @@
 dependencies:
-  - "**/requirements.txt"
+  - "**/package.json"
+  - "**/pnpm-lock.yaml"
 
 documentation:
   - "**/*.md"
 
-python:
-  - "**/*.py"
+nextjs:
+  - "app/**"
+  - "components/**"
+  - "lib/**"
+  - "next.config.ts"
 
 tests:
-  - "**/test*"
+  - "__tests__/**"
 
 automerge:
   - "CHANGELOG.md"
-  - ".release-please-manifest"
+  - ".release-please-manifest.json"

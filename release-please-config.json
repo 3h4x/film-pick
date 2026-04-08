@@ -1,7 +1,7 @@
 {
   "packages": {
     ".": {
-      "releaseType": "python",
+      "releaseType": "node",
       "draft": false,
       "prerelease": false,
       "bumpMinorPreMajor": false,

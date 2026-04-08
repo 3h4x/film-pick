@@ -1,11 +1,10 @@
 # Movies Organizer
 
-Movie and TV series recommendation system with a Next.js web UI and SQLite database. Includes a Python CLI tool for bulk renaming/organizing media files.
+Movie and TV series recommendation system with a Next.js web UI and SQLite database.
 
-## Web App
+## Getting Started
 
 ```bash
-cd web
 pnpm install
 eval "$(bioenv load)"    # Load TMDB_API_KEY
 pnpm dev                 # http://localhost:4000
@@ -23,16 +22,6 @@ pnpm dev                 # http://localhost:4000
 ### Tech Stack
 
 Next.js 16, React 19, TypeScript, Tailwind CSS 4, SQLite (better-sqlite3), TMDb API, Filmweb import
-
-## CLI Tool
-
-Python CLI for bulk renaming and organizing movie/series files using IMDb metadata.
-
-```bash
-cd src && pip install -r requirements.txt
-python movies_organizer.py movies -p /path/to/movies
-python movies_organizer.py series -p /path/to/series
-```
 
 ## License
 
