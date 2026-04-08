@@ -122,5 +122,5 @@ Common errors:
 ## Development
 
 - Use `pnpm` exclusively (not npm)
-- Conventional commits required (release-please on master)
+- Conventional commits suggested
 - Type check with `pnpm type-check` before committing

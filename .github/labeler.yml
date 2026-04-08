@@ -13,7 +13,3 @@ nextjs:
 
 tests:
   - "__tests__/**"
-
-automerge:
-  - "CHANGELOG.md"
-  - ".release-please-manifest.json"
