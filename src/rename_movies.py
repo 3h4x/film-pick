@@ -40,9 +40,9 @@ def get_imdb_title(imdb_client, name):
             str2 = movie["title"]
             try:
                 year_str = movie["year"]
+                movies.append(str2 + " [" + str(year_str) + "]")
             except:
-                year_str = "----"
-            movies.append(str2 + " (" + str(year_str) + ")")
+                movies.append(str2)
     return movies
 
 
@@ -109,7 +109,7 @@ def rename_movies(ctx, path, force):
             movieTitle = yearNumber.group(1)
             movieTitle = movieTitle.strip()
             movieYear = yearNumber.group(2)
-            movieYear = "(" + movieYear + ")"
+            movieYear = "[" + movieYear + "]"
             file_name = movieTitle + " " + movieYear  # count 1 more movie with year
 
         movies = get_imdb_title(ctx.obj["imdb_client"], file_name)
@@ -119,10 +119,17 @@ def rename_movies(ctx, path, force):
             continue
         file_name = get_movie_name(file_name, movies)  # Sometimes causes error
         file_name = removeIllegal(file_name)
-        output_file = file_name + extension
+        
+        # Split Title and [Year] for separate folder/file naming
+        if " [" in file_name and file_name.endswith("]"):
+            movie_title_clean = file_name.rsplit(" [", 1)[0]
+        else:
+            movie_title_clean = file_name
+
+        output_file = movie_title_clean + extension
         output_path = os.path.join(file_name)
 
-        rename_file(path, file, output_path, output_file, force=False)
+        rename_file(path, file, output_path, output_file, force=force)
 
         click.echo()
 

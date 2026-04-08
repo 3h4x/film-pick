@@ -16,11 +16,19 @@ export interface RecommendationGroup {
   recommendations: TmdbSearchResult[];
 }
 
+export interface RecConfig {
+  excluded_genres: string[];
+  min_year: number | null;
+  min_rating: number | null;
+  max_per_group: number;
+}
+
 export interface EngineContext {
   library: Movie[];
   dismissedIds: Set<number>;
   libraryTmdbIds: Set<number>;
   libraryTitles: Set<string>;
+  config?: RecConfig;
 }
 
 export type RecommendationEngine = (ctx: EngineContext) => Promise<RecommendationGroup[]>;
@@ -70,12 +78,13 @@ export function enrichWithCda(
   });
 }
 
-export function buildContext(library: Movie[], dismissedIds: Set<number>): EngineContext {
+export function buildContext(library: Movie[], dismissedIds: Set<number>, config?: RecConfig): EngineContext {
   return {
     library,
     dismissedIds,
     libraryTmdbIds: new Set(library.map((m) => m.tmdb_id).filter(Boolean) as number[]),
     libraryTitles: new Set(library.map((m) => m.title.toLowerCase())),
+    config,
   };
 }
 
@@ -84,11 +93,22 @@ export function filterResults(
   ctx: EngineContext,
   seen: Set<number> = new Set()
 ): TmdbSearchResult[] {
+  const cfg = ctx.config;
+  const excludedGenres = cfg?.excluded_genres?.length
+    ? new Set(cfg.excluded_genres.map((g) => g.toLowerCase()))
+    : null;
+
   return results.filter((r) => {
     if (ctx.libraryTmdbIds.has(r.tmdb_id)) return false;
     if (ctx.libraryTitles.has(r.title.toLowerCase())) return false;
     if (ctx.dismissedIds.has(r.tmdb_id)) return false;
     if (seen.has(r.tmdb_id)) return false;
+    if (cfg?.min_year && r.year && r.year < cfg.min_year) return false;
+    if (cfg?.min_rating && r.rating < cfg.min_rating) return false;
+    if (excludedGenres && r.genre) {
+      const movieGenres = r.genre.split(", ").map((g) => g.trim().toLowerCase());
+      if (movieGenres.some((g) => excludedGenres.has(g))) return false;
+    }
     seen.add(r.tmdb_id);
     return true;
   });

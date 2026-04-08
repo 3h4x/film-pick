@@ -4,10 +4,14 @@ import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import MovieCard from "@/components/MovieCard";
 import MovieDetail from "@/components/MovieDetail";
 import SearchModal from "@/components/SearchModal";
+import { cleanTitle } from "@/lib/utils";
 import ImportModal from "@/components/ImportModal";
+import SyncModal from "@/components/SyncModal";
 import RecommendationRow from "@/components/RecommendationRow";
 import SortFilterBar from "@/components/SortFilterBar";
 import RecommendationSkeleton from "@/components/RecommendationSkeleton";
+import ConfigPanel, { type RecConfig } from "@/components/ConfigPanel";
+import PersonView from "@/components/PersonView";
 import { ToastContainer } from "@/components/Toast";
 
 type SortOption = "user_rating" | "rating" | "year" | "title" | "created_at" | "rated_at";
@@ -18,6 +22,8 @@ interface Movie {
   year: number | null;
   genre: string | null;
   director: string | null;
+  writer: string | null;
+  actors: string | null;
   rating: number | null;
   user_rating: number | null;
   poster_url: string | null;
@@ -30,6 +36,7 @@ interface Movie {
   cda_url?: string | null;
   pl_title?: string | null;
   wishlist?: number;
+  file_path?: string | null;
 }
 
 type RecType = "genre" | "director" | "actor" | "movie" | "hidden_gem" | "star_studded" | "random" | "cda";
@@ -58,20 +65,25 @@ interface ToastItem {
 
 const PAGE_SIZE = 36;
 
-type AppTab = "library" | "recommendations" | "wishlist";
+type AppTab = "library" | "recommendations" | "wishlist" | "config" | "person";
 
 function parseHash(): { tab: AppTab; category: string } {
   if (typeof window === "undefined") return { tab: "library", category: "all" };
   const hash = window.location.hash.replace("#", "");
   if (hash === "wishlist") return { tab: "wishlist", category: "all" };
+  if (hash === "config") return { tab: "config", category: "all" };
   if (hash.startsWith("recommendations")) {
     const parts = hash.split("/");
     return { tab: "recommendations", category: parts[1] || "all" };
+  }
+  if (hash.startsWith("person/")) {
+    return { tab: "person", category: decodeURIComponent(hash.substring(7)) };
   }
   return { tab: "library", category: "all" };
 }
 
 export default function Home() {
+  console.log("[movies-organizer] Home component mounted");
   const initial = parseHash();
   const [activeTab, setActiveTab] = useState<AppTab>(initial.tab);
   const [movies, setMovies] = useState<Movie[]>([]);
@@ -80,19 +92,29 @@ export default function Home() {
   const [totalRecsCount, setTotalRecsCount] = useState(0);
   const [searchOpen, setSearchOpen] = useState(false);
   const [importOpen, setImportOpen] = useState(false);
+  const [syncOpen, setSyncOpen] = useState(false);
+  const [searchTargetId, setSearchTargetId] = useState<number | null>(null);
   const [selectedMovie, setSelectedMovie] = useState<Movie | null>(null);
+  const [personFilter, setPersonFilter] = useState<string>(initial.tab === "person" ? initial.category : "");
   const [initialLoad, setInitialLoad] = useState(true);
-  const [syncing, setSyncing] = useState(false);
   const [libraryPath, setLibraryPath] = useState<string | null>(null);
 
   // Sort, filter, search
-  const [sort, setSort] = useState<SortOption>("user_rating");
+  const [sort, setSort] = useState<SortOption>("created_at");
   const [sortDir, setSortDir] = useState<"asc" | "desc">("desc");
   const [genreFilter, setGenreFilter] = useState("");
+  const [sourceFilter, setSourceFilter] = useState("");
+  const [yearFilter, setYearFilter] = useState("");
+  const [unratedOnly, setUnratedOnly] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
 
   // Pagination
   const [visibleCount, setVisibleCount] = useState(PAGE_SIZE);
+
+  // Reset pagination on search/filter changes
+  useEffect(() => {
+    setVisibleCount(PAGE_SIZE);
+  }, [searchQuery, sort, genreFilter, sourceFilter, yearFilter, unratedOnly]);
 
   // Toasts
   const [toasts, setToasts] = useState<ToastItem[]>([]);
@@ -101,38 +123,64 @@ export default function Home() {
   // Rec state
   const [recCategory, setRecCategory] = useState(initial.category);
   const [cdaOnly, setCdaOnly] = useState(false);
+  const [recConfig, setRecConfig] = useState<RecConfig>({
+    excluded_genres: [],
+    min_year: null,
+    min_rating: null,
+    max_per_group: 15,
+  });
+  const [groupOrder, setGroupOrder] = useState<string[]>([]);
 
   // Sync URL hash with state
   useEffect(() => {
-    const hash = activeTab === "library"
-      ? "#library"
-      : activeTab === "wishlist"
-        ? "#wishlist"
-        : recCategory === "all"
-          ? "#recommendations"
-          : `#recommendations/${recCategory}`;
+    const hash = activeTab === "person"
+      ? `#person/${encodeURIComponent(personFilter)}`
+      : activeTab === "library"
+        ? "#library"
+        : activeTab === "wishlist"
+          ? "#wishlist"
+          : activeTab === "config"
+            ? "#config"
+            : recCategory === "all"
+                ? "#recommendations"
+                : `#recommendations/${recCategory}`;
     if (window.location.hash !== hash) {
       window.history.replaceState(null, "", hash);
     }
-  }, [activeTab, recCategory]);
+  }, [activeTab, recCategory, personFilter]);
 
   // Handle browser back/forward
   useEffect(() => {
     function onHashChange() {
       const { tab, category } = parseHash();
       setActiveTab(tab);
-      setRecCategory(category);
+      if (tab === "person") {
+        setPersonFilter(category);
+      } else {
+        setRecCategory(category);
+      }
     }
     window.addEventListener("hashchange", onHashChange);
     return () => window.removeEventListener("hashchange", onHashChange);
   }, []);
 
   const recommendations = useMemo(() => {
+    // Filter out movies the user has already rated
+    const ratedTmdbIds = new Set(
+      movies.filter(m => m.user_rating != null && (m.user_rating as number) > 0 && m.tmdb_id)
+        .map(m => m.tmdb_id)
+    );
+    const filterRated = (groups: RecommendationGroup[]) =>
+      groups.map(g => ({
+        ...g,
+        recommendations: g.recommendations.filter((r: any) => !ratedTmdbIds.has(r.tmdb_id)),
+      })).filter(g => g.recommendations.length > 0);
+
     if (recCategory === "all") {
-      return Object.values(recGroups).flat();
+      return filterRated(Object.values(recGroups).flat());
     }
-    return recGroups[recCategory] ?? [];
-  }, [recGroups, recCategory]);
+    return filterRated(recGroups[recCategory] ?? []);
+  }, [recGroups, recCategory, movies]);
 
   const wishlistMovies = useMemo(
     () => movies.filter((m) => (m as any).wishlist === 1),
@@ -156,7 +204,7 @@ export default function Home() {
   // Reset pagination when filters change
   useEffect(() => {
     setVisibleCount(PAGE_SIZE);
-  }, [sort, sortDir, genreFilter, searchQuery]);
+  }, [sort, sortDir, genreFilter, sourceFilter, yearFilter, unratedOnly, searchQuery]);
 
   const genres = useMemo(() => {
     const all = new Set<string>();
@@ -168,8 +216,25 @@ export default function Home() {
     return Array.from(all).sort();
   }, [movies]);
 
+  const sources = useMemo(() => {
+    const all = new Set<string>();
+    movies.forEach((m) => {
+      if (m.source) all.add(m.source);
+    });
+    return Array.from(all).sort();
+  }, [movies]);
+
+  const years = useMemo(() => {
+    const all = new Set<number>();
+    movies.forEach((m) => {
+      if (m.year) all.add(m.year);
+    });
+    return Array.from(all).sort((a, b) => b - a);
+  }, [movies]);
+
   const sortedMovies = useMemo(() => {
-    let filtered = movies;
+    // Exclude unrated recommendations from library view
+    let filtered = movies.filter(m => m.source !== "recommendation" || (m.user_rating != null && (m.user_rating as number) > 0));
 
     if (searchQuery) {
       const q = searchQuery.toLowerCase();
@@ -180,6 +245,18 @@ export default function Home() {
 
     if (genreFilter) {
       filtered = filtered.filter((m) => m.genre?.includes(genreFilter));
+    }
+
+    if (sourceFilter) {
+      filtered = filtered.filter((m) => m.source === sourceFilter);
+    }
+
+    if (yearFilter) {
+      filtered = filtered.filter((m) => m.year?.toString() === yearFilter);
+    }
+
+    if (unratedOnly) {
+      filtered = filtered.filter((m) => !m.user_rating || m.user_rating === 0);
     }
 
     return [...filtered].sort((a, b) => {
@@ -201,7 +278,7 @@ export default function Home() {
           return 0;
       }
     });
-  }, [movies, sort, sortDir, genreFilter, searchQuery]);
+  }, [movies, sort, sortDir, genreFilter, sourceFilter, yearFilter, unratedOnly, searchQuery]);
 
   const visibleMovies = useMemo(
     () => sortedMovies.slice(0, visibleCount),
@@ -209,16 +286,29 @@ export default function Home() {
   );
 
   const fetchMovies = useCallback(async () => {
-    const res = await fetch("/api/movies");
-    const data = await res.json();
-    setMovies(data);
-    setInitialLoad(false);
+    console.log("[movies-organizer] fetchMovies: starting");
+    try {
+      const res = await fetch("/api/movies");
+      console.log("[movies-organizer] fetchMovies: status", res.status);
+      const data = await res.json();
+      console.log("[movies-organizer] fetchMovies: got", data.length, "movies");
+      setMovies(data);
+      setInitialLoad(false);
+    } catch (err) {
+      console.error("[movies-organizer] fetchMovies: error", err);
+    }
   }, []);
 
   const fetchSettings = useCallback(async () => {
     const res = await fetch("/api/settings");
     const data = await res.json();
     setLibraryPath(data.library_path);
+    if (data.rec_group_order?.length) {
+      setGroupOrder(data.rec_group_order);
+    }
+    if (data.rec_config) {
+      setRecConfig(data.rec_config);
+    }
   }, []);
 
   const fetchEngine = useCallback(async (engine: string, refresh = false) => {
@@ -244,6 +334,7 @@ export default function Home() {
   }, [fetchEngine, recGroups]);
 
   useEffect(() => {
+    console.log("[movies-organizer] initial useEffect firing");
     fetchMovies();
     fetchSettings();
     // Fetch total recs count (lightweight, reads from cache/DB)
@@ -272,8 +363,99 @@ export default function Home() {
     }
   }, [activeTab, recCategory, movies.length, fetchEngine, recGroups, recLoading]);
 
-  async function handleAddMovie(searchResult: any) {
-    await fetch("/api/movies", {
+  async function handleAddMovie(searchResult: any, isWishlist: boolean) {
+    if (searchTargetId) {
+      // Update existing movie instead of adding new one
+      const res = await fetch(`/api/movies/${searchTargetId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          title: searchResult.title,
+          year: searchResult.year,
+          genre: searchResult.genre,
+          rating: searchResult.rating,
+          poster_url: searchResult.poster_url,
+          tmdb_id: searchResult.tmdb_id,
+          imdb_id: searchResult.imdb_id,
+          source: "tmdb"
+        }),
+      });
+      
+      if (res.ok) {
+        const updated = await res.json();
+        setMovies(prev => prev.map(m => m.id === searchTargetId ? { ...m, ...updated } : m));
+        addToast(`Updated metadata for "${searchResult.title}"`);
+        if (selectedMovie && selectedMovie.id === searchTargetId) {
+          setSelectedMovie({ ...selectedMovie, ...updated });
+        }
+      } else {
+        const error = await res.json();
+        if (error.code === 'SQLITE_CONSTRAINT_UNIQUE' || error.error?.includes('UNIQUE constraint failed')) {
+          // If we have a conflict, let's offer to merge
+          const cleanSearchTitle = cleanTitle(searchResult.title).toLowerCase();
+          const existing = movies.find(m => 
+            (m.id !== searchTargetId) && (
+              (m.tmdb_id && m.tmdb_id === searchResult.tmdb_id) ||
+              (cleanTitle(m.title).toLowerCase() === cleanSearchTitle && m.year === searchResult.year)
+            )
+          );
+          
+          if (existing) {
+            if (confirm(`"${searchResult.title}" already exists in your library as a separate entry. Do you want to merge these two records?`)) {
+              const mergeRes = await fetch("/api/movies/merge", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ sourceId: searchTargetId, targetId: existing.id }),
+              });
+              
+              if (mergeRes.ok) {
+                const mergeData = await mergeRes.json();
+                addToast("Movies merged successfully");
+                
+                // Re-fetch the target movie to get latest merged metadata
+                const refreshedRes = await fetch(`/api/movies/${existing.id}`);
+                if (refreshedRes.ok) {
+                  const refreshed = await refreshedRes.json();
+                  const updatedMovie = refreshed.movie || existing;
+                  setMovies(prev => prev.filter(m => m.id !== searchTargetId).map(m => m.id === existing.id ? updatedMovie : m));
+                  setSelectedMovie(updatedMovie);
+                } else {
+                  setMovies(prev => prev.filter(m => m.id !== searchTargetId));
+                  setSelectedMovie(null);
+                }
+              } else {
+                addToast("Failed to merge movies");
+              }
+            }
+          } else {
+            addToast(`Error updating metadata: ${error.error || 'Conflict'}`);
+          }
+        } else {
+          addToast(`Error: ${error.error || 'Failed to update metadata'}`);
+        }
+      }
+      
+      setSearchOpen(false);
+      setSearchTargetId(null);
+      return;
+    }
+
+    // Check if we already have this movie (by tmdb_id or title/year)
+    const cleanSearchTitle = cleanTitle(searchResult.title).toLowerCase();
+    const existing = movies.find(m => 
+      (m.tmdb_id && m.tmdb_id === searchResult.tmdb_id) ||
+      (cleanTitle(m.title).toLowerCase() === cleanSearchTitle && m.year === searchResult.year)
+    );
+
+    if (existing && !isWishlist) {
+      if (confirm(`"${searchResult.title}" is already in your library. Do you want to update its metadata instead?`)) {
+        setSearchTargetId(existing.id);
+        handleAddMovie(searchResult, false);
+        return;
+      }
+    }
+
+    const res = await fetch("/api/movies", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
@@ -287,11 +469,33 @@ export default function Home() {
         imdb_id: searchResult.imdb_id,
         tmdb_id: searchResult.tmdb_id,
         type: "movie",
+        wishlist: isWishlist ? 1 : 0,
       }),
     });
+    const data = await res.json();
     setSearchOpen(false);
-    fetchMovies();
-    addToast(`Added "${searchResult.title}" to library`);
+    
+    const newMovie: Movie = {
+      id: data.id || Date.now(),
+      title: searchResult.title,
+      year: searchResult.year,
+      genre: searchResult.genre,
+      director: null,
+      writer: null,
+      actors: null,
+      rating: searchResult.rating,
+      user_rating: null,
+      poster_url: searchResult.poster_url,
+      source: "tmdb",
+      type: "movie",
+      tmdb_id: searchResult.tmdb_id,
+      rated_at: null,
+      created_at: new Date().toISOString(),
+      wishlist: isWishlist ? 1 : 0,
+    };
+    setMovies((prev) => [newMovie, ...prev]);
+
+    addToast(isWishlist ? `Added "${searchResult.title}" to watchlist` : `Added "${searchResult.title}" to library`);
   }
 
   async function handleDeleteMovie(id: number, title: string) {
@@ -300,12 +504,47 @@ export default function Home() {
     addToast(`Removed "${title}"`);
   }
 
+  async function handleMoveToWatchlist(id: number, title: string) {
+    setMovies((prev) =>
+      prev.map((m) => (m.id === id ? { ...m, wishlist: 1 } : m))
+    );
+    fetch(`/api/movies/${id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ wishlist: 1 }),
+    });
+    addToast(`Moved "${title}" to watchlist`);
+  }
+
+  async function handleWishlistAction(movie: Movie, action: "liked" | "watched" | "disliked" | "remove") {
+    if (action === "remove") {
+      handleDeleteMovie(movie.id, movie.title);
+      return;
+    }
+
+    const userRating = action === "liked" ? 8 : action === "disliked" ? 3 : 5;
+    const actionLabels = {
+      liked: `Liked "${movie.title}" — moved to library`,
+      watched: `Marked "${movie.title}" as watched`,
+      disliked: `Disliked "${movie.title}" — moved to library`,
+    };
+    addToast(actionLabels[action]);
+
+    setMovies((prev) =>
+      prev.map((m) =>
+        m.id === movie.id ? { ...m, user_rating: userRating, wishlist: 0 } : m
+      )
+    );
+
+    fetch(`/api/movies/${movie.id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ user_rating: userRating, wishlist: 0 }),
+    });
+  }
+
   async function handleSync() {
-    setSyncing(true);
-    await fetch("/api/sync", { method: "POST" });
-    await fetchMovies();
-    setSyncing(false);
-    addToast("Library synced");
+    setSyncOpen(true);
   }
 
   function handleImportComplete() {
@@ -372,7 +611,12 @@ export default function Home() {
         wishlist: isWishlist ? 1 : 0,
         cda_url: (rec as any).cda_url || null,
       } as any;
-      setMovies((prev) => [newMovie, ...prev]);
+      setMovies((prev) => {
+        const exists = prev.some(m => m.tmdb_id === rec.tmdb_id);
+        return exists
+          ? prev.map(m => m.tmdb_id === rec.tmdb_id ? { ...m, ...newMovie } : m)
+          : [newMovie, ...prev];
+      });
 
       fetch("/api/movies", {
         method: "POST",
@@ -409,20 +653,47 @@ export default function Home() {
         <div className="max-w-7xl mx-auto">
           {/* Row 1: Logo + Actions */}
           <div className="flex items-center justify-between mb-4">
-            <h1 className="text-lg font-bold text-white tracking-tight">
-              Movies Organizer
-            </h1>
+            <div className="flex items-center gap-4">
+              <h1 className="text-lg font-bold text-white tracking-tight">
+                Movies Organizer
+              </h1>
+              {!initialLoad && (activeTab === "library" || activeTab === "wishlist") && (
+                <div className="relative group flex-1 max-w-[200px] sm:max-w-xs transition-all">
+                  <div className="absolute inset-y-0 left-3 flex items-center pointer-events-none">
+                    <svg className="w-3.5 h-3.5 text-gray-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                    </svg>
+                  </div>
+                  <input
+                    type="text"
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    placeholder={activeTab === "library" ? "Search library..." : "Search wishlist..."}
+                    className="w-full bg-gray-800/40 text-white text-xs pl-8 pr-8 py-1.5 rounded-lg border border-gray-700/50 focus:border-indigo-500/50 focus:ring-1 focus:ring-indigo-500/20 focus:outline-none placeholder-gray-600 transition-all"
+                  />
+                  {searchQuery && (
+                    <button 
+                      onClick={() => setSearchQuery("")}
+                      className="absolute inset-y-0 right-2 flex items-center px-1 text-gray-500 hover:text-white"
+                    >
+                      <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                      </svg>
+                    </button>
+                  )}
+                </div>
+              )}
+            </div>
             {!initialLoad && (
               <div className="flex items-center gap-2">
                 {activeTab === "library" && libraryPath && (
                   <button
-                    onClick={handleSync}
-                    disabled={syncing}
+                    onClick={() => setSyncOpen(true)}
                     className="text-gray-500 hover:text-white p-2 rounded-lg hover:bg-gray-800/60 transition-all"
-                    title={syncing ? "Syncing..." : "Sync library"}
+                    title="Sync library"
                   >
                     <svg
-                      className={`w-4 h-4 ${syncing ? "animate-spin" : ""}`}
+                      className="w-4 h-4"
                       fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}
                     >
                       <path strokeLinecap="round" strokeLinejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
@@ -459,6 +730,7 @@ export default function Home() {
               { key: "library" as const, label: "Library", count: initialLoad ? -1 : movies.length },
               { key: "wishlist" as const, label: "Watchlist", count: initialLoad ? -1 : wishlistMovies.length },
               { key: "recommendations" as const, label: "Discover", count: totalRecsCount },
+              { key: "config" as const, label: "Config", count: -1 },
             ]).map((tab) => {
               const active = activeTab === tab.key;
               return (
@@ -533,6 +805,20 @@ export default function Home() {
                   </button>
                 </div>
               </div>
+            ) : sortedMovies.length === 0 && searchQuery ? (
+              <div className="text-center py-24">
+                <div className="w-20 h-20 mx-auto mb-6 rounded-2xl bg-gray-800/50 flex items-center justify-center">
+                  <span className="text-4xl">🔍</span>
+                </div>
+                <p className="text-gray-400 text-lg font-medium">No results for &ldquo;{searchQuery}&rdquo;</p>
+                <p className="text-gray-600 text-sm mt-2">Try searching for it on TMDb to add it to your library or watchlist</p>
+                <button
+                  onClick={() => setSearchOpen(true)}
+                  className="mt-6 bg-indigo-500 text-white px-5 py-2.5 rounded-xl hover:bg-indigo-400 transition-all shadow-lg shadow-indigo-500/20 font-medium text-sm"
+                >
+                  Search in TMDb
+                </button>
+              </div>
             ) : (
               <>
                 <SortFilterBar
@@ -540,32 +826,58 @@ export default function Home() {
                   sortDir={sortDir}
                   genre={genreFilter}
                   genres={genres}
+                  source={sourceFilter}
+                  sources={sources}
+                  year={yearFilter}
+                  years={years}
+                  unratedOnly={unratedOnly}
                   searchQuery={searchQuery}
                   onSortChange={setSort}
                   onSortDirChange={() => setSortDir((d) => d === "desc" ? "asc" : "desc")}
                   onGenreChange={setGenreFilter}
+                  onSourceChange={setSourceFilter}
+                  onYearChange={setYearFilter}
+                  onUnratedChange={setUnratedOnly}
                   onSearchChange={setSearchQuery}
                 />
-                <p className="text-gray-600 text-xs mb-4">
-                  Showing {Math.min(visibleCount, sortedMovies.length)} of {sortedMovies.length}
-                  {sortedMovies.length !== movies.length && ` (${movies.length} total)`}
-                </p>
-                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-5">
-                  {visibleMovies.map((m) => (
-                    <MovieCard
-                      key={m.id}
-                      title={m.title}
-                      year={m.year}
-                      genre={m.genre}
-                      rating={m.rating}
-                      userRating={m.user_rating}
-                      posterUrl={m.poster_url}
-                      source={m.source}
-                      onDelete={() => handleDeleteMovie(m.id, m.title)}
-                      onClick={() => setSelectedMovie(m)}
-                    />
-                  ))}
+                <div className="flex flex-wrap items-end justify-between gap-4 mb-4">
+                  <p className="text-gray-600 text-xs">
+                    Showing {Math.min(visibleCount, sortedMovies.length)} of {sortedMovies.length}
+                    {sortedMovies.length !== movies.length && ` (${movies.length} total)`}
+                  </p>
+                  {searchQuery && (
+                    <button
+                      onClick={() => setSearchOpen(true)}
+                      className="text-indigo-400 hover:text-indigo-300 text-xs font-medium transition-colors flex items-center gap-1.5 px-2 py-1 rounded-lg hover:bg-indigo-500/10"
+                    >
+                      <span>🔍</span>
+                      Search &ldquo;{searchQuery}&rdquo; in TMDb
+                    </button>
+                  )}
                 </div>
+                {sortedMovies.length === 0 ? (
+                  <div className="text-center py-12">
+                    <p className="text-gray-500">No movies match your filters</p>
+                  </div>
+                ) : (
+                  <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-5">
+                    {visibleMovies.map((m) => (
+                      <MovieCard
+                        key={m.id}
+                        title={m.title}
+                        year={m.year}
+                        genre={m.genre}
+                        rating={m.rating}
+                        userRating={m.user_rating}
+                        posterUrl={m.poster_url}
+                        source={m.source}
+                        onAddToWatchlist={(!m.user_rating || m.user_rating === 0) && m.wishlist !== 1 ? () => handleMoveToWatchlist(m.id, m.title) : undefined}
+                        onDelete={() => handleDeleteMovie(m.id, m.title)}
+                        onClick={() => setSelectedMovie(m)}
+                      />
+                    ))}
+                  </div>
+                )}
                 {visibleCount < sortedMovies.length && (
                   <div className="text-center mt-8">
                     <button
@@ -642,37 +954,103 @@ export default function Home() {
                     </button>
                   </div>
                 </div>
-                {(cdaOnly
+                {(() => {
+                const filtered = cdaOnly
                   ? recommendations.filter((g) => g.type === "cda")
-                  : recommendations.filter((g) => recCategory === "all" || g.type === recCategory)
-                ).map((group, i) => (
+                  : recommendations.filter((g) => recCategory === "all" || g.type === recCategory);
+                // Sort by user-defined order (groups not in order go to end)
+                const sorted = [...filtered].sort((a, b) => {
+                  const ai = groupOrder.indexOf(a.reason);
+                  const bi = groupOrder.indexOf(b.reason);
+                  if (ai === -1 && bi === -1) return 0;
+                  if (ai === -1) return 1;
+                  if (bi === -1) return -1;
+                  return ai - bi;
+                });
+                return sorted.map((group, i) => (
                   <RecommendationRow
-                    key={i}
+                    key={group.reason}
                     reason={group.reason}
                     type={group.type}
                     recommendations={group.recommendations}
                     onAction={handleRecAction}
-                    onClickMovie={(rec) => setSelectedMovie({
-                      id: 0,
-                      title: rec.title,
-                      year: rec.year,
-                      genre: rec.genre,
-                      director: null,
-                      rating: rec.rating,
-                      user_rating: null,
-                      poster_url: rec.poster_url,
-                      source: "tmdb",
-                      type: "movie",
-                      tmdb_id: rec.tmdb_id || null,
-                      cda_url: (rec as any).cda_url || null,
-                      rated_at: null,
-                      created_at: "",
-                    })}
+                    isFirst={i === 0}
+                    isLast={i === sorted.length - 1}
+                    onMoveUp={() => {
+                      const order = sorted.map((g) => g.reason);
+                      const idx = order.indexOf(group.reason);
+                      if (idx > 0) {
+                        [order[idx - 1], order[idx]] = [order[idx], order[idx - 1]];
+                      }
+                      setGroupOrder(order);
+                      fetch("/api/settings", {
+                        method: "PATCH",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify({ rec_group_order: order }),
+                      });
+                    }}
+                    onMoveDown={() => {
+                      const order = sorted.map((g) => g.reason);
+                      const idx = order.indexOf(group.reason);
+                      if (idx < order.length - 1) {
+                        [order[idx], order[idx + 1]] = [order[idx + 1], order[idx]];
+                      }
+                      setGroupOrder(order);
+                      fetch("/api/settings", {
+                        method: "PATCH",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify({ rec_group_order: order }),
+                      });
+                    }}
+                    onClickMovie={async (rec) => {
+                      // Check if already in library by tmdb_id
+                      const existing = movies.find(m => m.tmdb_id === rec.tmdb_id);
+                      if (existing) {
+                        setSelectedMovie(existing);
+                        return;
+                      }
+                      // Create real DB entry
+                      const res = await fetch("/api/movies", {
+                        method: "POST",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify({
+                          title: rec.title,
+                          year: rec.year,
+                          genre: rec.genre,
+                          rating: rec.rating,
+                          poster_url: rec.poster_url,
+                          source: "recommendation",
+                          tmdb_id: rec.tmdb_id,
+                          type: "movie",
+                          cda_url: (rec as any).cda_url || null,
+                        }),
+                      });
+                      if (!res.ok) return;
+                      const { id } = await res.json();
+                      const movieRes = await fetch(`/api/movies/${id}`);
+                      const { movie } = await movieRes.json();
+                      // Avoid duplicates — replace if already in state, otherwise prepend
+                      setMovies(prev => {
+                        const exists = prev.some(m => m.id === id);
+                        return exists ? prev.map(m => m.id === id ? movie : m) : [movie, ...prev];
+                      });
+                      setSelectedMovie(movie);
+                    }}
                   />
-                ))}
+                ));
+              })()}
               </div>
             )}
           </>
+        )}
+
+        {activeTab === "person" && personFilter && (
+          <PersonView
+            name={personFilter}
+            movies={movies}
+            onBack={() => setActiveTab("library")}
+            onClickMovie={(m) => setSelectedMovie(m)}
+          />
         )}
 
         {activeTab === "wishlist" && (
@@ -688,29 +1066,82 @@ export default function Home() {
             ) : (
               <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-5">
                 {wishlistMovies.map((m) => (
-                  <MovieCard
-                    key={m.id}
-                    title={m.title}
-                    year={m.year}
-                    genre={m.genre}
-                    rating={m.rating}
-                    userRating={m.user_rating}
-                    posterUrl={m.poster_url}
-                    source={m.source}
-                    onClick={() => setSelectedMovie(m)}
-                    onDelete={() => handleDeleteMovie(m.id, m.title)}
-                  />
+                  <div key={m.id} className="relative group/wish">
+                    <MovieCard
+                      title={m.title}
+                      year={m.year}
+                      genre={m.genre}
+                      rating={m.rating}
+                      userRating={m.user_rating}
+                      posterUrl={m.poster_url}
+                      source={m.source}
+                      onClick={() => setSelectedMovie(m)}
+                    />
+                    <div className="absolute bottom-14 right-1 flex flex-col gap-1 opacity-0 group-hover/wish:opacity-100 transition-all duration-200">
+                      <button
+                        onClick={() => handleWishlistAction(m, "liked")}
+                        className="bg-green-600/90 backdrop-blur-sm text-white rounded-lg w-7 h-7 text-sm flex items-center justify-center hover:bg-green-500 transition-colors"
+                        title="Watched &amp; liked"
+                      >
+                        👍
+                      </button>
+                      <button
+                        onClick={() => handleWishlistAction(m, "watched")}
+                        className="bg-gray-600/90 backdrop-blur-sm text-white rounded-lg w-7 h-7 text-sm flex items-center justify-center hover:bg-gray-500 transition-colors"
+                        title="Watched"
+                      >
+                        👁
+                      </button>
+                      <button
+                        onClick={() => handleWishlistAction(m, "disliked")}
+                        className="bg-orange-600/90 backdrop-blur-sm text-white rounded-lg w-7 h-7 text-sm flex items-center justify-center hover:bg-orange-500 transition-colors"
+                        title="Watched &amp; disliked"
+                      >
+                        👎
+                      </button>
+                      <button
+                        onClick={() => handleWishlistAction(m, "remove")}
+                        className="bg-red-600/90 backdrop-blur-sm text-white rounded-lg w-7 h-7 text-sm flex items-center justify-center hover:bg-red-500 transition-colors"
+                        title="Remove from watchlist"
+                      >
+                        ✕
+                      </button>
+                    </div>
+                  </div>
                 ))}
               </div>
             )}
           </>
         )}
+
+        {activeTab === "config" && (
+          <ConfigPanel
+            config={recConfig}
+            onSave={async (cfg) => {
+              setRecConfig(cfg);
+              await fetch("/api/settings", {
+                method: "PATCH",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ rec_config: cfg }),
+              });
+              addToast("Config saved — refreshing recommendations");
+              setRecGroups({});
+              REC_CATEGORIES.slice(1).forEach((c) => fetchEngine(c.value, true));
+            }}
+          />
+        )}
+
       </div>
 
       <SearchModal
         isOpen={searchOpen}
-        onClose={() => setSearchOpen(false)}
+        onClose={() => {
+          setSearchOpen(false);
+          setSearchTargetId(null);
+        }}
         onAdd={handleAddMovie}
+        initialQuery={searchQuery}
+        targetMovieId={searchTargetId}
       />
 
       <ImportModal
@@ -720,10 +1151,51 @@ export default function Home() {
         currentPath={libraryPath}
       />
 
+      <SyncModal
+        isOpen={syncOpen}
+        onClose={() => setSyncOpen(false)}
+        onComplete={fetchMovies}
+      />
+
       {selectedMovie && (
         <MovieDetail
           movie={selectedMovie}
           onClose={() => setSelectedMovie(null)}
+          onUpdate={(updated) => {
+            setMovies(prev => prev.map(m => m.id === updated.id ? updated : m));
+            setSelectedMovie(updated);
+          }}
+          allMovies={movies}
+          onPersonClick={(name) => {
+            setSelectedMovie(null);
+            setPersonFilter(name);
+            setActiveTab("person");
+          }}
+          onSearchTMDb={(query, targetId) => {
+            setSearchQuery(query);
+            setSearchTargetId(targetId || null);
+            setSearchOpen(true);
+          }}
+          onMerge={async (sourceId, targetId) => {
+            if (targetId === -1) {
+              setMovies(prev => prev.filter(m => m.id !== sourceId));
+              setSelectedMovie(null);
+              return;
+            }
+            // After merge, both are likely updated in DB, but the simplest is to refresh 
+            // since the sourceId is now deleted and targetId has new metadata.
+            const res = await fetch(`/api/movies/${targetId}`);
+            const data = await res.json();
+            if (data.movie) {
+              setMovies(prev => prev.filter(m => m.id !== sourceId).map(m => m.id === targetId ? data.movie : m));
+              setSelectedMovie(data.movie);
+              addToast("Movies merged successfully");
+            } else {
+              setMovies(prev => prev.filter(m => m.id !== sourceId));
+              setSelectedMovie(null);
+              fetchMovies(); // Fallback to full refresh if target is not found
+            }
+          }}
         />
       )}
 

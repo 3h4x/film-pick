@@ -1,21 +1,34 @@
 import { NextRequest } from "next/server";
-import { getDb, getMovies, getDismissedIds, getCachedEngine, setCachedEngine, clearCachedEngine, saveRecommendedMovies, getRecommendedMovies } from "@/lib/db";
-import { engines, buildContext, getCdaLookup, enrichWithCda, type RecommendationGroup } from "@/lib/engines";
+import { getDb, getMovies, getDismissedIds, getCachedEngine, setCachedEngine, clearCachedEngine, saveRecommendedMovies, getRecommendedMovies, getSetting, insertMovie } from "@/lib/db";
+import { engines, buildContext, getCdaLookup, enrichWithCda, type RecommendationGroup, type RecConfig } from "@/lib/engines";
 
 export async function GET(request: NextRequest) {
   const db = getDb();
   const engineKey = request.nextUrl.searchParams.get("engine") || "all";
   const refresh = request.nextUrl.searchParams.get("refresh") === "true";
-  const movies = getMovies(db);
+  const allMovies = getMovies(db);
+  // For recommendation engine context, only count non-recommendation movies (the real library)
+  const movies = allMovies.filter(m => m.source !== "recommendation");
   const movieCount = movies.length;
   const dismissedIds = getDismissedIds(db);
+  // Movies the user has rated — these should not appear in recommendations
+  const ratedTmdbIds = new Set(
+    allMovies.filter(m => {
+      const ur = (m as any).user_rating;
+      return ur != null && ur > 0 && m.tmdb_id;
+    }).map(m => m.tmdb_id as number)
+  );
   const cdaLookup = getCdaLookup();
+  const configRaw = getSetting(db, "rec_config");
+  const config: RecConfig | undefined = configRaw ? JSON.parse(configRaw) : undefined;
 
-  function filterDismissed(groups: RecommendationGroup[]): RecommendationGroup[] {
+  function filterExcluded(groups: RecommendationGroup[]): RecommendationGroup[] {
     return groups
       .map((g) => ({
         ...g,
-        recommendations: g.recommendations.filter((r) => !dismissedIds.has(r.tmdb_id)),
+        recommendations: g.recommendations.filter((r) =>
+          !dismissedIds.has(r.tmdb_id) && !ratedTmdbIds.has(r.tmdb_id)
+        ),
       }))
       .filter((g) => g.recommendations.length > 0);
   }
@@ -42,13 +55,28 @@ export async function GET(request: NextRequest) {
   function persistResults(groups: RecommendationGroup[]): void {
     for (const group of groups) {
       saveRecommendedMovies(db, group.type, group.reason, group.recommendations);
+      // Store in main movies table — insertMovie dedup prevents duplicates
+      for (const rec of group.recommendations) {
+        insertMovie(db, {
+          title: rec.title,
+          year: rec.year,
+          genre: rec.genre,
+          director: null,
+          rating: rec.rating,
+          poster_url: rec.poster_url,
+          source: "recommendation",
+          imdb_id: null,
+          tmdb_id: rec.tmdb_id,
+          type: "movie",
+        });
+      }
     }
   }
 
   async function runEngine(key: string, def: typeof engines[string]): Promise<RecommendationGroup[]> {
     // DB-backed engines skip cache
     if (def.dbBacked) {
-      const ctx = buildContext(movies, dismissedIds);
+      const ctx = buildContext(movies, dismissedIds, config);
       return addCdaUrls(await def.engine(ctx));
     }
 
@@ -56,20 +84,28 @@ export async function GET(request: NextRequest) {
 
     const cached = getCachedEngine(db, key, movieCount);
     if (cached) {
-      return addCdaUrls(filterDismissed(enrichFromDb(cached as RecommendationGroup[], key)));
+      return addCdaUrls(filterExcluded(enrichFromDb(cached as RecommendationGroup[], key)));
     }
 
-    const ctx = buildContext(movies, dismissedIds);
+    const ctx = buildContext(movies, dismissedIds, config);
     const groups = await def.engine(ctx);
     setCachedEngine(db, key, groups, movieCount);
     persistResults(groups);
     return addCdaUrls(groups);
   }
 
+  function applyMaxPerGroup(groups: RecommendationGroup[]): RecommendationGroup[] {
+    const max = config?.max_per_group ?? 15;
+    return groups.map((g) => ({
+      ...g,
+      recommendations: g.recommendations.slice(0, max),
+    }));
+  }
+
   // Single engine request
   if (engineKey !== "all" && engines[engineKey]) {
     const groups = await runEngine(engineKey, engines[engineKey]);
-    return Response.json(groups);
+    return Response.json(applyMaxPerGroup(groups));
   }
 
   // All engines
@@ -79,5 +115,5 @@ export async function GET(request: NextRequest) {
     allGroups.push(...groups);
   }
 
-  return Response.json(allGroups);
+  return Response.json(applyMaxPerGroup(allGroups));
 }

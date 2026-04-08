@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
 import MovieCard from "./MovieCard";
 
 interface SearchResult {
@@ -16,24 +16,51 @@ interface SearchResult {
 interface SearchModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onAdd: (movie: SearchResult) => void;
+  onAdd: (movie: SearchResult, isWishlist: boolean) => void;
+  initialQuery?: string;
+  targetMovieId?: number | null;
 }
 
-export default function SearchModal({ isOpen, onClose, onAdd }: SearchModalProps) {
-  const [query, setQuery] = useState("");
+export default function SearchModal({ isOpen, onClose, onAdd, initialQuery = "", targetMovieId = null }: SearchModalProps) {
+  const [query, setQuery] = useState(initialQuery);
   const [results, setResults] = useState<SearchResult[]>([]);
   const [loading, setLoading] = useState(false);
+  const [hasSearched, setHasSearched] = useState(false);
 
-  if (!isOpen) return null;
+  const [lastInitialQuery, setLastInitialQuery] = useState(initialQuery);
+  const searchExecuted = useRef(false);
 
-  async function handleSearch() {
-    if (!query.trim()) return;
+  async function handleSearch(searchQuery = query) {
+    if (!searchQuery.trim()) return;
     setLoading(true);
-    const res = await fetch(`/api/search?q=${encodeURIComponent(query)}`);
+    setHasSearched(true);
+    const res = await fetch(`/api/search?q=${encodeURIComponent(searchQuery)}`);
     const data = await res.json();
     setResults(data);
     setLoading(false);
   }
+
+  // Sync initialQuery when modal opens
+  if (isOpen && initialQuery !== lastInitialQuery) {
+    setQuery(initialQuery);
+    setLastInitialQuery(initialQuery);
+    setHasSearched(false);
+  }
+
+  // Auto-search if initialQuery is provided when modal opens
+  useEffect(() => {
+    if (isOpen && initialQuery && !searchExecuted.current) {
+      handleSearch(initialQuery);
+      searchExecuted.current = true;
+    }
+    if (!isOpen) {
+      searchExecuted.current = false;
+      setHasSearched(false);
+      setResults([]);
+    }
+  }, [isOpen, initialQuery]);
+
+  if (!isOpen) return null;
 
   function handleKeyDown(e: React.KeyboardEvent) {
     if (e.key === "Enter") handleSearch();
@@ -41,10 +68,10 @@ export default function SearchModal({ isOpen, onClose, onAdd }: SearchModalProps
   }
 
   return (
-    <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-start justify-center z-50 pt-[10vh] animate-[fadeIn_150ms_ease-out]">
+    <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-start justify-center z-[60] pt-[10vh] animate-[fadeIn_150ms_ease-out]">
       <div className="bg-gray-900 border border-gray-700/50 rounded-2xl p-6 w-full max-w-2xl max-h-[75vh] overflow-y-auto shadow-2xl shadow-black/50">
         <div className="flex justify-between items-center mb-5">
-          <h2 className="text-white text-lg font-semibold">Add to Library</h2>
+          <h2 className="text-white text-lg font-semibold">{targetMovieId ? "Relink Metadata" : "Add to Library"}</h2>
           <button
             onClick={onClose}
             className="text-gray-500 hover:text-white transition-colors w-8 h-8 rounded-lg hover:bg-gray-800 flex items-center justify-center"
@@ -66,7 +93,7 @@ export default function SearchModal({ isOpen, onClose, onAdd }: SearchModalProps
             />
           </div>
           <button
-            onClick={handleSearch}
+            onClick={() => handleSearch()}
             disabled={loading}
             className="bg-indigo-500 text-white px-5 py-2.5 rounded-xl hover:bg-indigo-400 disabled:opacity-50 transition-all font-medium text-sm min-w-[80px]"
           >
@@ -90,8 +117,7 @@ export default function SearchModal({ isOpen, onClose, onAdd }: SearchModalProps
             {results.map((r) => (
               <div
                 key={r.tmdb_id}
-                className="cursor-pointer"
-                onClick={() => onAdd(r)}
+                className="relative group/search"
               >
                 <MovieCard
                   title={r.title}
@@ -101,19 +127,36 @@ export default function SearchModal({ isOpen, onClose, onAdd }: SearchModalProps
                   userRating={null}
                   posterUrl={r.poster_url}
                   source="tmdb"
+                  onClick={() => onAdd(r, false)}
                 />
+                <div className="absolute bottom-14 right-1 flex flex-col gap-1 opacity-0 group-hover/search:opacity-100 transition-all duration-200">
+                  <button
+                    onClick={(e) => { e.stopPropagation(); onAdd(r, false); }}
+                    className="bg-indigo-600/90 backdrop-blur-sm text-white rounded-lg w-7 h-7 text-sm flex items-center justify-center hover:bg-indigo-500 transition-colors"
+                    title={targetMovieId ? "Update existing movie" : "Add to library"}
+                  >
+                    {targetMovieId ? "✨" : "➕"}
+                  </button>
+                  <button
+                    onClick={(e) => { e.stopPropagation(); onAdd(r, true); }}
+                    className="bg-blue-600/90 backdrop-blur-sm text-white rounded-lg w-7 h-7 text-sm flex items-center justify-center hover:bg-blue-500 transition-colors"
+                    title="Add to watchlist"
+                  >
+                    🔖
+                  </button>
+                </div>
               </div>
             ))}
           </div>
         )}
 
-        {results.length === 0 && !loading && query && (
+        {results.length === 0 && !loading && hasSearched && query && (
           <div className="text-center py-12">
             <p className="text-gray-500">No results for &ldquo;{query}&rdquo;</p>
           </div>
         )}
 
-        {!query && !loading && results.length === 0 && (
+        {!hasSearched && !loading && results.length === 0 && (
           <div className="text-center py-12">
             <p className="text-gray-600 text-sm">Type a movie name and press Enter</p>
           </div>

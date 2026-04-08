@@ -114,27 +114,6 @@ python movies_organizer.py series -p /path/to/series
   - Series: `Series Name/Season N/Series Name S01E01.ext`
 - **Video extensions:** `.mp4`, `.mkv`, `.srt`, `.avi`, `.wmv`, `.m4v`, `.mov`, `.flv`, `.webm`
 
-### Logs
-
-Next.js dev server logs to stdout. When running in the background:
-
-```bash
-# Start dev server with logs to file
-nohup npx next dev --port 4000 > /tmp/movies-dev.log 2>&1 &
-
-# Tail logs
-tail -f /tmp/movies-dev.log
-
-# Check for errors
-grep -i error /tmp/movies-dev.log
-```
-
-Each request is logged as `GET /path STATUS in Xms`. API errors show as 500 with a stack trace including the failing source file and line number.
-
-Common errors:
-- **`better-sqlite3` native addon not found** — run `npx node-gyp rebuild` inside the `better-sqlite3` package dir (happens after `pnpm install` skips build scripts)
-- **SWC binary missing** — install `@next/swc-linux-arm64-gnu` (or musl) for ARM64 Linux environments
-
 ## Development
 
 - Use `pnpm` exclusively (not npm)

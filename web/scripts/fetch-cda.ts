@@ -172,14 +172,31 @@ async function enrichFromTmdb(title: string, year: number | null): Promise<TmdbE
   const apiKey = process.env.TMDB_API_KEY;
   if (!apiKey) return null;
 
-  let url = `${TMDB_BASE}/search/movie?query=${encodeURIComponent(title)}&language=pl-PL&page=1`;
-  if (year) url += `&year=${year}`;
+  async function searchWithYear(y: number | null) {
+    let url = `${TMDB_BASE}/search/movie?query=${encodeURIComponent(title)}&language=pl-PL&page=1`;
+    if (y) url += `&year=${y}`;
+    const res = await fetch(url, { headers: { Authorization: `Bearer ${apiKey}` } });
+    if (!res.ok) return null;
+    return await res.json();
+  }
 
-  const res = await fetch(url, { headers: { Authorization: `Bearer ${apiKey}` } });
-  if (!res.ok) return null;
+  // Try original year first
+  let data = await searchWithYear(year);
 
-  const data = await res.json();
-  const match = data.results?.[0];
+  // If no match and year is provided, try +/- 1 year
+  if ((!data || !data.results?.length) && year) {
+    data = await searchWithYear(year + 1);
+    if (!data || !data.results?.length) {
+      data = await searchWithYear(year - 1);
+    }
+  }
+
+  // If still no match, try without year
+  if (!data || !data.results?.length) {
+    data = await searchWithYear(null);
+  }
+
+  const match = data?.results?.[0];
   if (!match) return null;
 
   return {

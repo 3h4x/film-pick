@@ -47,16 +47,35 @@ export interface TmdbSearchResult {
   cda_url?: string;
 }
 
-export async function searchTmdb(query: string): Promise<TmdbSearchResult[]> {
-  const url = `${TMDB_BASE}/search/movie?query=${encodeURIComponent(query)}&language=en-US&page=1`;
-  const res = await fetch(url, {
-    headers: { Authorization: `Bearer ${getApiKey()}` },
-  });
+export async function searchTmdb(query: string, year?: number | null): Promise<TmdbSearchResult[]> {
+  const apiKey = getApiKey();
+  
+  async function searchWithYear(y: number | null | undefined) {
+    let url = `${TMDB_BASE}/search/movie?query=${encodeURIComponent(query)}&language=en-US&page=1`;
+    if (y) url += `&year=${y}`;
+    const res = await fetch(url, {
+      headers: { Authorization: `Bearer ${apiKey}` },
+    });
+    if (!res.ok) return [];
+    const data = await res.json();
+    return (data.results || []).slice(0, 10).map(mapResult);
+  }
 
-  if (!res.ok) return [];
+  // Try original year first
+  let results = await searchWithYear(year);
 
-  const data = await res.json();
-  return (data.results || []).slice(0, 10).map(mapResult);
+  // If no match and year is provided, try +/- 1 year and then without year
+  if (results.length === 0 && year) {
+    results = await searchWithYear(year + 1);
+    if (results.length === 0) {
+      results = await searchWithYear(year - 1);
+    }
+    if (results.length === 0) {
+      results = await searchWithYear(null);
+    }
+  }
+
+  return results;
 }
 
 export async function getMovieLocalized(tmdbId: number): Promise<{ pl_title: string | null; description: string | null }> {
@@ -78,18 +97,24 @@ export async function getPolishTitle(tmdbId: number): Promise<string | null> {
 
 export async function getTmdbMovieDetails(
   tmdbId: number
-): Promise<{ director: string | null }> {
+): Promise<{ director: string | null; writer: string | null; actors: string | null }> {
   const url = `${TMDB_BASE}/movie/${tmdbId}?append_to_response=credits`;
   const res = await fetch(url, {
     headers: { Authorization: `Bearer ${getApiKey()}` },
   });
 
-  if (!res.ok) return { director: null };
+  if (!res.ok) return { director: null, writer: null, actors: null };
 
   const data = await res.json();
   const director =
     data.credits?.crew?.find((c: any) => c.job === "Director")?.name || null;
-  return { director };
+  const writer = 
+    data.credits?.crew?.filter((c: any) => ["Screenplay", "Writer", "Story"].includes(c.job))
+      .map((c: any) => c.name).join(", ") || null;
+  const actors = 
+    data.credits?.cast?.slice(0, 5).map((c: any) => c.name).join(", ") || null;
+
+  return { director, writer, actors };
 }
 
 export async function getTmdbRecommendations(
