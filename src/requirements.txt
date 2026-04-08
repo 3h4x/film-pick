@@ -1,4 +1,0 @@
-strsim
-imdbpy
-click
-similarity

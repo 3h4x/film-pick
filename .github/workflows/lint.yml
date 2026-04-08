@@ -1,23 +1,35 @@
-name: Lint
+name: Lint and Test
 
 on:
   push:
 
 jobs:
-  build:
-      name: Lint and Test
-      runs-on: ubuntu-latest
+  lint-and-test:
+    runs-on: ubuntu-latest
 
-      steps:
-        - name: Check out code
-          uses: actions/checkout@v3
-          with:
-            fetch-depth: 2
+    steps:
+      - name: Check out code
+        uses: actions/checkout@v4
 
-        - name: Lint
-          uses: gabriel-milan/action-pylint@v1
-          with:
-            GITHUB_TOKEN: ${{secrets.GITHUB_TOKEN}} # GitHub token
-            path: "src/*.py" # Glob pattern for files to lint
-            fail: true # Fail the action if pylint errors are found
-            pr-message: true # Send a PR message if pylint errors are found
+      - name: Install pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 9
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: "pnpm"
+
+      - name: Install dependencies
+        run: pnpm install
+
+      - name: Lint
+        run: pnpm lint
+
+      - name: Type check
+        run: pnpm type-check
+
+      - name: Test
+        run: pnpm test
