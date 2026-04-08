@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="logo-trimmed.png" alt="FilmPick" width="200" />
+  <img src="logo.png" alt="FilmPick" width="200" />
 </p>
 
 <h1 align="center">FilmPick</h1>
