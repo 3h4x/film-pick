@@ -13,8 +13,16 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Movies Organizer",
-  description: "Movie and series recommendation system",
+  title: "FilmPick",
+  description: "Your personal movie discovery engine",
+  icons: {
+    icon: [
+      { url: "/icon-192.png", sizes: "192x192", type: "image/png" },
+      { url: "/icon-512.png", sizes: "512x512", type: "image/png" },
+    ],
+    apple: "/apple-touch-icon.png",
+  },
+  manifest: "/manifest.json",
 };
 
 export default function RootLayout({
@@ -31,7 +39,7 @@ export default function RootLayout({
         {children}
         <footer className="mt-auto border-t border-gray-800/50 py-6 px-6">
           <div className="max-w-7xl mx-auto flex items-center justify-between text-xs text-gray-600">
-            <span>Movies Organizer</span>
+            <span>FilmPick</span>
             <span>Data from TMDb &amp; Filmweb</span>
           </div>
         </footer>

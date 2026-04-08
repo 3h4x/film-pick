@@ -1,4 +1,2 @@
-*.db
-*.db-wal
-*.db-shm
+*
 backups/

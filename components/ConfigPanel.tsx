@@ -41,16 +41,24 @@ const DEFAULTS: RecConfig = {
 interface ConfigPanelProps {
   config: RecConfig;
   onSave: (config: RecConfig) => void;
+  tmdbKeySource: "env" | "db" | null;
 }
 
-export default function ConfigPanel({ config, onSave }: ConfigPanelProps) {
+export default function ConfigPanel({ config, onSave, tmdbKeySource }: ConfigPanelProps) {
   const [draft, setDraft] = useState<RecConfig>(config);
   const [dirty, setDirty] = useState(false);
+  const [apiKey, setApiKey] = useState("");
+  const [apiKeySource, setApiKeySource] = useState(tmdbKeySource);
+  const [apiKeySaving, setApiKeySaving] = useState(false);
 
   useEffect(() => {
     setDraft(config);
     setDirty(false);
   }, [config]);
+
+  useEffect(() => {
+    setApiKeySource(tmdbKeySource);
+  }, [tmdbKeySource]);
 
   function update(partial: Partial<RecConfig>) {
     setDraft((prev) => ({ ...prev, ...partial }));
@@ -74,8 +82,61 @@ export default function ConfigPanel({ config, onSave }: ConfigPanelProps) {
     setDirty(true);
   }
 
+  async function saveApiKey() {
+    setApiKeySaving(true);
+    await fetch("/api/settings", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ tmdb_api_key: apiKey }),
+    });
+    setApiKeySource(apiKey.trim() ? "db" : null);
+    setApiKey("");
+    setApiKeySaving(false);
+  }
+
   return (
     <div className="max-w-2xl space-y-8">
+      {/* TMDb API Key */}
+      <section>
+        <h3 className="text-white font-semibold text-sm mb-1">TMDb API Key</h3>
+        <p className="text-gray-500 text-xs mb-3">
+          Required for search and recommendations.{" "}
+          {apiKeySource === "env" ? (
+            <span className="text-green-400">Loaded from environment (bioenv)</span>
+          ) : apiKeySource === "db" ? (
+            <span className="text-yellow-400">Loaded from database (less secure)</span>
+          ) : (
+            <span className="text-red-400">Not configured</span>
+          )}
+        </p>
+        {apiKeySource !== "env" && (
+          <div className="flex items-center gap-2">
+            <input
+              type="password"
+              placeholder={apiKeySource === "db" ? "••••••••  (replace)" : "Paste TMDb read access token"}
+              value={apiKey}
+              onChange={(e) => setApiKey(e.target.value)}
+              className="bg-gray-800/60 border border-gray-700/30 rounded-lg px-3 py-2 text-white text-sm flex-1 focus:outline-none focus:border-indigo-500/50"
+            />
+            <button
+              onClick={saveApiKey}
+              disabled={!apiKey.trim() || apiKeySaving}
+              className="px-4 py-2 text-sm rounded-lg bg-indigo-600 text-white hover:bg-indigo-500 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+            >
+              {apiKeySaving ? "Saving..." : "Save"}
+            </button>
+            {apiKeySource === "db" && (
+              <button
+                onClick={() => { setApiKey(""); saveApiKey(); }}
+                className="px-3 py-2 text-sm rounded-lg bg-red-600/20 text-red-300 hover:bg-red-600/30 transition-colors"
+              >
+                Remove
+              </button>
+            )}
+          </div>
+        )}
+      </section>
+
       {/* Excluded Genres */}
       <section>
         <h3 className="text-white font-semibold text-sm mb-1">

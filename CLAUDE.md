@@ -1,6 +1,6 @@
-# Movies Organizer
+# FilmPick
 
-Movie and TV series recommendation system with a Next.js web UI and SQLite database.
+Personal movie discovery engine with a Next.js web UI and SQLite database.
 
 ## Tech Stack
 

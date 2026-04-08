@@ -41,6 +41,11 @@ export default function SearchModal({
     setLoading(true);
     setHasSearched(true);
     const res = await fetch(`/api/search?q=${encodeURIComponent(searchQuery)}`);
+    if (!res.ok) {
+      setResults([]);
+      setLoading(false);
+      return;
+    }
     const data = await res.json();
     setResults(data);
     setLoading(false);
@@ -66,6 +71,12 @@ export default function SearchModal({
     }
   }, [isOpen, initialQuery]);
 
+  useEffect(() => {
+    if (!isOpen) return;
+    document.body.style.overflow = "hidden";
+    return () => { document.body.style.overflow = ""; };
+  }, [isOpen]);
+
   if (!isOpen) return null;
 
   function handleKeyDown(e: React.KeyboardEvent) {
@@ -74,8 +85,10 @@ export default function SearchModal({
   }
 
   return (
-    <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-start justify-center z-[60] pt-[10vh] animate-[fadeIn_150ms_ease-out]">
-      <div className="bg-gray-900 border border-gray-700/50 rounded-2xl p-6 w-full max-w-2xl max-h-[75vh] overflow-y-auto shadow-2xl shadow-black/50">
+    <div className="fixed inset-0 z-[60]">
+      <div className="absolute inset-0 bg-black/70 backdrop-blur-sm" onClick={onClose} />
+      <div className="relative flex items-start justify-center pt-[10vh] h-full pointer-events-none">
+        <div className="bg-gray-900 border border-gray-700/50 rounded-2xl p-6 w-full max-w-2xl max-h-[75vh] overflow-y-auto shadow-2xl shadow-black/50 pointer-events-auto">
         <div className="flex justify-between items-center mb-5">
           <h2 className="text-white text-lg font-semibold">
             {targetMovieId ? "Relink Metadata" : "Add to Library"}
@@ -178,6 +191,7 @@ export default function SearchModal({
             </p>
           </div>
         )}
+      </div>
       </div>
     </div>
   );
