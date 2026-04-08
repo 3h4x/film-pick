@@ -8,12 +8,14 @@ export async function GET() {
   const recConfig = getSetting(db, "rec_config");
   const dbKey = getSetting(db, "tmdb_api_key");
   const envKey = process.env.TMDB_API_KEY;
+  const disabledEngines = getSetting(db, "disabled_engines");
   return Response.json({
     library_path: libraryPath,
     rec_group_order: groupOrder ? JSON.parse(groupOrder) : [],
     rec_config: recConfig ? JSON.parse(recConfig) : null,
     tmdb_api_key_set: !!(envKey || dbKey),
     tmdb_api_key_source: envKey ? "env" : dbKey ? "db" : null,
+    disabled_engines: disabledEngines ? JSON.parse(disabledEngines) : [],
   });
 }
 
@@ -25,6 +27,9 @@ export async function PATCH(request: NextRequest) {
   }
   if (body.rec_config) {
     setSetting(db, "rec_config", JSON.stringify(body.rec_config));
+  }
+  if (body.disabled_engines) {
+    setSetting(db, "disabled_engines", JSON.stringify(body.disabled_engines));
   }
   if (typeof body.tmdb_api_key === "string") {
     if (body.tmdb_api_key.trim()) {

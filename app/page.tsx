@@ -114,6 +114,7 @@ export default function Home() {
   const [initialLoad, setInitialLoad] = useState(true);
   const [libraryPath, setLibraryPath] = useState<string | null>(null);
   const [tmdbKeySource, setTmdbKeySource] = useState<"env" | "db" | null>(null);
+  const [disabledEngines, setDisabledEngines] = useState<string[]>([]);
 
   // Sort, filter, search
   const [sort, setSort] = useState<SortOption>("created_at");
@@ -365,6 +366,7 @@ export default function Home() {
     const data = await res.json();
     setLibraryPath(data.library_path);
     setTmdbKeySource(data.tmdb_api_key_source ?? null);
+    setDisabledEngines(data.disabled_engines ?? []);
     if (data.rec_group_order?.length) {
       setGroupOrder(data.rec_group_order);
     }
@@ -385,19 +387,15 @@ export default function Home() {
   const fetchRecsForCategory = useCallback(
     async (category: string, refresh = false) => {
       if (category === "all") {
-        // Fetch each engine that isn't cached yet (or all if refresh)
-        const engineKeys = Object.keys(
-          REC_CATEGORIES.slice(1).map((c) => c.value),
-        );
         const toFetch = REC_CATEGORIES.slice(1)
           .map((c) => c.value)
-          .filter((key) => refresh || !recGroups[key]);
+          .filter((key) => !disabledEngines.includes(key) && (refresh || !recGroups[key]));
         await Promise.all(toFetch.map((key) => fetchEngine(key, refresh)));
-      } else {
+      } else if (!disabledEngines.includes(category)) {
         await fetchEngine(category, refresh);
       }
     },
-    [fetchEngine, recGroups],
+    [fetchEngine, recGroups, disabledEngines],
   );
 
   useEffect(() => {
@@ -415,16 +413,16 @@ export default function Home() {
   useEffect(() => {
     if (activeTab === "recommendations" && movies.length > 0) {
       // Always ensure CDA engine is loaded (it's fast, DB-backed)
-      if (!recGroups["cda"] && !recLoading["cda"]) {
+      if (!disabledEngines.includes("cda") && !recGroups["cda"] && !recLoading["cda"]) {
         fetchEngine("cda");
       }
 
       if (recCategory === "all") {
         const missing = REC_CATEGORIES.slice(1)
           .map((c) => c.value)
-          .filter((key) => !recGroups[key] && !recLoading[key]);
+          .filter((key) => !disabledEngines.includes(key) && !recGroups[key] && !recLoading[key]);
         missing.forEach((key) => fetchEngine(key));
-      } else if (!recGroups[recCategory] && !recLoading[recCategory]) {
+      } else if (!disabledEngines.includes(recCategory) && !recGroups[recCategory] && !recLoading[recCategory]) {
         fetchEngine(recCategory);
       }
     }
@@ -435,6 +433,7 @@ export default function Home() {
     fetchEngine,
     recGroups,
     recLoading,
+    disabledEngines,
   ]);
 
   async function handleAddMovie(searchResult: any, isWishlist: boolean) {
@@ -1129,7 +1128,7 @@ export default function Home() {
                 {/* Category tabs + refresh */}
                 <div className="flex items-center justify-between gap-4">
                   <div className="flex gap-1 overflow-x-auto bg-gray-800/40 p-1 rounded-xl">
-                    {REC_CATEGORIES.map((cat) => (
+                    {REC_CATEGORIES.filter((cat) => cat.value === "all" || !disabledEngines.includes(cat.value)).map((cat) => (
                       <button
                         key={cat.value}
                         onClick={() => setRecCategory(cat.value)}
@@ -1355,6 +1354,8 @@ export default function Home() {
           <ConfigPanel
             config={recConfig}
             tmdbKeySource={tmdbKeySource}
+            disabledEngines={disabledEngines}
+            engines={REC_CATEGORIES.slice(1)}
             onSave={async (cfg) => {
               setRecConfig(cfg);
               await fetch("/api/settings", {
@@ -1364,9 +1365,31 @@ export default function Home() {
               });
               addToast("Config saved — refreshing recommendations");
               setRecGroups({});
-              REC_CATEGORIES.slice(1).forEach((c) =>
-                fetchEngine(c.value, true),
-              );
+              REC_CATEGORIES.slice(1)
+                .filter((c) => !disabledEngines.includes(c.value))
+                .forEach((c) => fetchEngine(c.value, true));
+            }}
+            onToggleEngine={async (engineKey) => {
+              const updated = disabledEngines.includes(engineKey)
+                ? disabledEngines.filter((e) => e !== engineKey)
+                : [...disabledEngines, engineKey];
+              setDisabledEngines(updated);
+              await fetch("/api/settings", {
+                method: "PATCH",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ disabled_engines: updated }),
+              });
+              if (disabledEngines.includes(engineKey)) {
+                // Re-enabled — fetch it
+                fetchEngine(engineKey, true);
+              } else {
+                // Disabled — clear its results
+                setRecGroups((prev) => {
+                  const next = { ...prev };
+                  delete next[engineKey];
+                  return next;
+                });
+              }
             }}
           />
         )}

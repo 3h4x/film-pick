@@ -43,6 +43,8 @@ export async function GET(request: NextRequest) {
   const config: RecConfig | undefined = configRaw
     ? JSON.parse(configRaw)
     : undefined;
+  const disabledRaw = getSetting(db, "disabled_engines");
+  const disabledEngines: string[] = disabledRaw ? JSON.parse(disabledRaw) : [];
 
   function filterExcluded(
     groups: RecommendationGroup[],
@@ -145,6 +147,9 @@ export async function GET(request: NextRequest) {
 
   // Single engine request
   if (engineKey !== "all" && engines[engineKey]) {
+    if (disabledEngines.includes(engineKey)) {
+      return Response.json([]);
+    }
     const groups = await runEngine(engineKey, engines[engineKey]);
     return Response.json(applyMaxPerGroup(groups));
   }
@@ -152,6 +157,7 @@ export async function GET(request: NextRequest) {
   // All engines
   const allGroups: RecommendationGroup[] = [];
   for (const [key, def] of Object.entries(engines)) {
+    if (disabledEngines.includes(key)) continue;
     const groups = await runEngine(key, def);
     allGroups.push(...groups);
   }
