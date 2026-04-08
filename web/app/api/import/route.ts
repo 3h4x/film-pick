@@ -12,8 +12,8 @@ export async function POST(request: NextRequest) {
   }
 
   if (!fs.existsSync(dirPath)) {
-    return Response.json({ 
-      error: `Directory not found: ${dirPath}. If it is a network share, make sure it is mounted.` 
+    return Response.json({
+      error: `Directory not found: ${dirPath}. If it is a network share, make sure it is mounted.`
     }, { status: 404 });
   }
 
@@ -34,20 +34,20 @@ export async function POST(request: NextRequest) {
       // Process each file as it's discovered
       for (const file of scanDirectoryGenerator(dirPath)) {
         results.total++;
-        
+
         // Immediate discovery update
-        sendUpdate({ 
-          type: "discovery", 
+        sendUpdate({
+          type: "discovery",
           count: results.total,
-          filename: file.filename 
+          filename: file.filename
         });
 
         // Progress update before processing
-        sendUpdate({ 
-          type: "progress", 
-          current: results.total, 
+        sendUpdate({
+          type: "progress",
+          current: results.total,
           total: results.total, // Total is growing as we discover
-          filename: file.filename 
+          filename: file.filename
         });
 
         // Skip if already imported

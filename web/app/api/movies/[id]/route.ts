@@ -96,25 +96,25 @@ export async function GET(
       if (results.length > 0) {
         // Find best match: exact title match (ignoring case/punctuation) or first result
         const normalizedTitle = cleanedTitle.toLowerCase().replace(/[:;!?()[\]{}]/g, "").trim();
-        const bestMatch = results.find(r => 
+        const bestMatch = results.find(r =>
           r.title.toLowerCase().replace(/[:;!?()[\]{}]/g, "").trim() === normalizedTitle
         ) || results[0];
 
         if (bestMatch) {
           console.log(`[Auto-Link] Found match for "${movie.title}": "${bestMatch.title}" (${bestMatch.tmdb_id})`);
-          
+
           // Get localized info
           const localized = await getMovieLocalized(bestMatch.tmdb_id);
-          
+
           db.prepare(`
-            UPDATE movies SET 
-              tmdb_id = ?, 
-              title = ?, 
-              year = ?, 
-              genre = ?, 
-              rating = ?, 
-              poster_url = ?, 
-              pl_title = ?, 
+            UPDATE movies SET
+              tmdb_id = ?,
+              title = ?,
+              year = ?,
+              genre = ?,
+              rating = ?,
+              poster_url = ?,
+              pl_title = ?,
               description = ?,
               source = 'tmdb'
             WHERE id = ?

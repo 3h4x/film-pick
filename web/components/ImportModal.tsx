@@ -95,7 +95,7 @@ export default function ImportModal({ isOpen, onClose, onComplete, currentPath }
               setDiscoveryCount(update.count);
               setDiscoveryFile(update.filename);
               // Clear progress when discovery is active to show "Scanning" state
-              // But with interleaved, they might arrive together. 
+              // But with interleaved, they might arrive together.
               // We'll prioritize progress display if it's available.
             } else if (update.type === "progress") {
               setProgress(update);
@@ -167,7 +167,7 @@ export default function ImportModal({ isOpen, onClose, onComplete, currentPath }
         {loading && (
           <div className="bg-gray-800/50 rounded-xl p-4 text-center">
             <div className="w-8 h-8 border-2 border-indigo-500 border-t-transparent rounded-full animate-spin mx-auto mb-3" />
-            
+
             <div className="space-y-3">
               {discoveryCount > 0 && (
                 <div className="space-y-1">

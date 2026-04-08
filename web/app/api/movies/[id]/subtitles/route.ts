@@ -35,7 +35,7 @@ export async function GET(
       return SUBTITLE_EXTENSIONS.includes(ext) && (nameNoExt === movieFileNameNoExt || nameNoExt.startsWith(movieFileNameNoExt));
     });
 
-    return Response.json({ 
+    return Response.json({
       hasSubtitles: subtitles.length > 0,
       subtitles: subtitles.map(s => ({
         name: s,
@@ -75,7 +75,7 @@ export async function POST(
     const movieDir = path.dirname(filePath);
     const movieFileNameNoExt = path.basename(filePath, path.extname(filePath));
     const originalExt = path.extname(file.name).toLowerCase();
-    
+
     if (!SUBTITLE_EXTENSIONS.includes(originalExt)) {
       return Response.json({ error: "Invalid subtitle extension. Supported: .srt, .sub, .txt, .ass" }, { status: 400 });
     }
@@ -88,16 +88,16 @@ export async function POST(
 
     const bytes = await file.arrayBuffer();
     const buffer = Buffer.from(bytes);
-    
+
     console.log(`[Subtitles] Uploading for movie ${movieId}: ${file.name} -> ${newFileName}`);
     console.log(`[Subtitles] Target path: ${targetPath}`);
-    
+
     await fs.writeFile(targetPath, buffer);
 
     console.log(`[Subtitles] Successfully added subtitle for movie ${movieId}: ${newFileName}`);
 
-    return Response.json({ 
-      ok: true, 
+    return Response.json({
+      ok: true,
       message: "Subtitle added successfully",
       fileName: newFileName,
       path: targetPath

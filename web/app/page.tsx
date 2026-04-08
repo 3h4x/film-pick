@@ -380,7 +380,7 @@ export default function Home() {
           source: "tmdb"
         }),
       });
-      
+
       if (res.ok) {
         const updated = await res.json();
         setMovies(prev => prev.map(m => m.id === searchTargetId ? { ...m, ...updated } : m));
@@ -393,13 +393,13 @@ export default function Home() {
         if (error.code === 'SQLITE_CONSTRAINT_UNIQUE' || error.error?.includes('UNIQUE constraint failed')) {
           // If we have a conflict, let's offer to merge
           const cleanSearchTitle = cleanTitle(searchResult.title).toLowerCase();
-          const existing = movies.find(m => 
+          const existing = movies.find(m =>
             (m.id !== searchTargetId) && (
               (m.tmdb_id && m.tmdb_id === searchResult.tmdb_id) ||
               (cleanTitle(m.title).toLowerCase() === cleanSearchTitle && m.year === searchResult.year)
             )
           );
-          
+
           if (existing) {
             if (confirm(`"${searchResult.title}" already exists in your library as a separate entry. Do you want to merge these two records?`)) {
               const mergeRes = await fetch("/api/movies/merge", {
@@ -407,11 +407,11 @@ export default function Home() {
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({ sourceId: searchTargetId, targetId: existing.id }),
               });
-              
+
               if (mergeRes.ok) {
                 const mergeData = await mergeRes.json();
                 addToast("Movies merged successfully");
-                
+
                 // Re-fetch the target movie to get latest merged metadata
                 const refreshedRes = await fetch(`/api/movies/${existing.id}`);
                 if (refreshedRes.ok) {
@@ -434,7 +434,7 @@ export default function Home() {
           addToast(`Error: ${error.error || 'Failed to update metadata'}`);
         }
       }
-      
+
       setSearchOpen(false);
       setSearchTargetId(null);
       return;
@@ -442,7 +442,7 @@ export default function Home() {
 
     // Check if we already have this movie (by tmdb_id or title/year)
     const cleanSearchTitle = cleanTitle(searchResult.title).toLowerCase();
-    const existing = movies.find(m => 
+    const existing = movies.find(m =>
       (m.tmdb_id && m.tmdb_id === searchResult.tmdb_id) ||
       (cleanTitle(m.title).toLowerCase() === cleanSearchTitle && m.year === searchResult.year)
     );
@@ -474,7 +474,7 @@ export default function Home() {
     });
     const data = await res.json();
     setSearchOpen(false);
-    
+
     const newMovie: Movie = {
       id: data.id || Date.now(),
       title: searchResult.title,
@@ -672,7 +672,7 @@ export default function Home() {
                     className="w-full bg-gray-800/40 text-white text-xs pl-8 pr-8 py-1.5 rounded-lg border border-gray-700/50 focus:border-indigo-500/50 focus:ring-1 focus:ring-indigo-500/20 focus:outline-none placeholder-gray-600 transition-all"
                   />
                   {searchQuery && (
-                    <button 
+                    <button
                       onClick={() => setSearchQuery("")}
                       className="absolute inset-y-0 right-2 flex items-center px-1 text-gray-500 hover:text-white"
                     >
@@ -1182,7 +1182,7 @@ export default function Home() {
               setSelectedMovie(null);
               return;
             }
-            // After merge, both are likely updated in DB, but the simplest is to refresh 
+            // After merge, both are likely updated in DB, but the simplest is to refresh
             // since the sourceId is now deleted and targetId has new metadata.
             const res = await fetch(`/api/movies/${targetId}`);
             const data = await res.json();

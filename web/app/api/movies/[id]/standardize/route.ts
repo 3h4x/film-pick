@@ -47,7 +47,7 @@ export async function POST(
 
     // 4. Simple non-null fields
     const fields = [
-      "tmdb_id", "imdb_id", "director", "poster_url", "pl_title", 
+      "tmdb_id", "imdb_id", "director", "poster_url", "pl_title",
       "rated_at", "file_path", "source", "filmweb_id", "filmweb_url", "cda_url", "extra_files"
     ];
     for (const f of fields) {
@@ -73,7 +73,7 @@ export async function POST(
       const setClause = updateKeys.map(k => `${k} = ?`).join(", ");
       db.prepare(`UPDATE movies SET ${setClause} WHERE id = ?`).run(...updateParams, targetId);
     }
-    
+
     // Always delete the source after merging into target
     db.prepare("DELETE FROM movies WHERE id = ?").run(sourceId);
   };
@@ -95,7 +95,7 @@ export async function POST(
   // or the current parent of the movie file if it's deeper.
   // Actually, let's use the library_path setting from the DB if available.
   const setting = db.prepare("SELECT value FROM settings WHERE key = 'library_path'").get() as { value: string } | undefined;
-  
+
   // Root can be library_path setting OR current parent's parent (assuming it was Movie/Folder/File)
   const libraryRoot = setting?.value || path.dirname(path.dirname(oldPath));
 
@@ -103,16 +103,16 @@ export async function POST(
   const safeTitle = finalTitle.replace(/[\\/:*?"<>|]/g, " ");
   const movieYear = finalYear || "";
   const folderName = movieYear ? `${safeTitle} [${movieYear}]` : safeTitle;
-  
+
   // Detection for split-CD files (CD1, CD2, etc.)
   const movieDir = path.dirname(oldPath);
   const fileNameNoExt = path.basename(oldPath, ext);
   const lowerName = fileNameNoExt.toLowerCase();
   const isCD1 = lowerName.includes("cd1") || /[\s._-]a$/i.test(fileNameNoExt);
   const isCD2 = lowerName.includes("cd2") || /[\s._-]b$/i.test(fileNameNoExt);
-  
+
   const targetFileName = isCD1 ? `${safeTitle} CD1${ext}` : isCD2 ? `${safeTitle} CD2${ext}` : `${safeTitle}${ext}`;
-  
+
   const targetDir = path.join(libraryRoot, folderName);
   const newPath = path.join(targetDir, targetFileName);
 
@@ -127,19 +127,19 @@ export async function POST(
     // This happens if the move succeeded in a previous attempt but the DB update failed.
     if (fsSync.existsSync(newPath)) {
       console.log(`Recovery: Movie file already found at target destination: ${newPath}`);
-      
+
       // Conflict check: if another movie already has this title + year
       if (finalTitle !== movie.title || finalYear !== movie.year || true) { // Always check for conflicts with the final title
           const conflict = db.prepare("SELECT id, file_path FROM movies WHERE title = ? AND year = ? AND id != ? AND type = 'movie'").get(finalTitle, finalYear, movieId) as any;
           if (conflict) {
               console.log(`- Merge conflict detected during recovery (ID=${conflict.id})`);
-              
+
               // If the conflict has the SAME path, we just merge and delete the current one
               if (conflict.file_path === newPath) {
                   mergeMovies(movieId, conflict.id);
                   return Response.json({ ok: true, message: "Movies merged (target already had path)", newPath, newTitle: finalTitle, mergedId: conflict.id });
               }
-              
+
               // Otherwise, we merge the conflict into the current one and update the current one's path
               mergeMovies(conflict.id, movieId);
               db.prepare("UPDATE movies SET file_path = ?, title = ?, year = ? WHERE id = ?").run(newPath, finalTitle, finalYear, movieId);
@@ -158,7 +158,7 @@ export async function POST(
       return Response.json({ ok: true, message: "Entry removed from database (file missing)" });
     }
 
-    return Response.json({ 
+    return Response.json({
       error: `File not found: ${oldPath}`,
       code: "FILE_NOT_FOUND",
       details: "The file is missing or unmounted. You can remove this entry from your library."
@@ -180,14 +180,14 @@ export async function POST(
       } else {
          // Both exist on disk! We will merge metadata and use the EXISTING record as the winner
          // since it already has a correct path (presumably standardized or at least valid).
-         // Actually, the current movie is being moved to a standard path. 
+         // Actually, the current movie is being moved to a standard path.
          // Let's merge metadata and proceed with the current move.
          // To avoid UNIQUE constraint, we delete the conflict (after merging from it if needed)
          mergeMovies(conflict.id, movieId);
       }
     }
   }
-  
+
   // Normalize Unicode (macOS uses NFD for filenames, DB may store NFC)
   const normOld = oldPath.normalize("NFC");
   const normNew = newPath.normalize("NFC");
@@ -207,7 +207,7 @@ export async function POST(
     // 2. Check for collision (use normalized comparison to handle macOS NFD vs NFC)
     if (normOld !== normNew && fsSync.existsSync(newPath)) {
         console.warn(`- Collision: Target file already exists: ${newPath}`);
-        return Response.json({ 
+        return Response.json({
           error: `Target file already exists: ${newPath}`,
           details: "A file already exists at the standardized location. This might be a duplicate."
         }, { status: 409 });
@@ -226,14 +226,14 @@ export async function POST(
       const filesInOldDir = await fs.readdir(oldDir);
       const siblingCD = isCD1 ? "cd2" : "cd1";
       const siblingFile = filesInOldDir.find(f => f.toLowerCase().includes(siblingCD) && VIDEO_EXTENSIONS.has(path.extname(f).toLowerCase()));
-      
+
       if (siblingFile) {
         const siblingExt = path.extname(siblingFile);
         const newSiblingName = `${safeTitle} ${siblingCD.toUpperCase()}${siblingExt}`;
         const newSiblingPath = path.join(targetDir, newSiblingName);
         console.log(`- Moving sibling part: ${siblingFile} -> ${newSiblingPath}`);
         await fs.rename(path.join(oldDir, siblingFile), newSiblingPath);
-        
+
         // Update extra_files JSON
         const extra = movie.extra_files ? JSON.parse(movie.extra_files) : [];
         if (!extra.includes(newSiblingPath)) {
@@ -249,12 +249,12 @@ export async function POST(
       const oldDir = path.dirname(oldPath);
       const oldFileNameNoExt = path.basename(oldPath, ext);
       const filesInOldDir = await fs.readdir(oldDir);
-      
+
       const subtitleExts = [".srt", ".sub", ".txt", ".ass"]; // common subtitle extensions
       for (const file of filesInOldDir) {
         const fileExt = path.extname(file).toLowerCase();
         const fileNameNoExt = path.basename(file, path.extname(file));
-        
+
         // If subtitle matches the old movie filename or starts with it
         if (subtitleExts.includes(fileExt) && (fileNameNoExt === oldFileNameNoExt || fileNameNoExt.startsWith(oldFileNameNoExt))) {
           // Always rename to .srt as per user request

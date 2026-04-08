@@ -49,7 +49,7 @@ export interface TmdbSearchResult {
 
 export async function searchTmdb(query: string, year?: number | null): Promise<TmdbSearchResult[]> {
   const apiKey = getApiKey();
-  
+
   async function searchWithYear(y: number | null | undefined) {
     let url = `${TMDB_BASE}/search/movie?query=${encodeURIComponent(query)}&language=en-US&page=1`;
     if (y) url += `&year=${y}`;
@@ -108,10 +108,10 @@ export async function getTmdbMovieDetails(
   const data = await res.json();
   const director =
     data.credits?.crew?.find((c: any) => c.job === "Director")?.name || null;
-  const writer = 
+  const writer =
     data.credits?.crew?.filter((c: any) => ["Screenplay", "Writer", "Story"].includes(c.job))
       .map((c: any) => c.name).join(", ") || null;
-  const actors = 
+  const actors =
     data.credits?.cast?.slice(0, 5).map((c: any) => c.name).join(", ") || null;
 
   return { director, writer, actors };

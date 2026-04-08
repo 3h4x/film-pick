@@ -32,11 +32,11 @@ export function* scanDirectoryGenerator(dirPath: string): Generator<ScannedFile>
         if (VIDEO_EXTENSIONS.has(ext)) {
           const { title, year } = parseFilename(entry.name);
           if (title) {
-            yield { 
-              filePath: fullPath, 
+            yield {
+              filePath: fullPath,
               filename: entry.name,
-              parsedTitle: title, 
-              parsedYear: year 
+              parsedTitle: title,
+              parsedYear: year
             };
           }
         }
