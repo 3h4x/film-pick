@@ -42,9 +42,12 @@ interface ConfigPanelProps {
   config: RecConfig;
   onSave: (config: RecConfig) => void;
   tmdbKeySource: "env" | "db" | null;
+  disabledEngines: string[];
+  engines: { value: string; label: string }[];
+  onToggleEngine: (engineKey: string) => void;
 }
 
-export default function ConfigPanel({ config, onSave, tmdbKeySource }: ConfigPanelProps) {
+export default function ConfigPanel({ config, onSave, tmdbKeySource, disabledEngines, engines, onToggleEngine }: ConfigPanelProps) {
   const [draft, setDraft] = useState<RecConfig>(config);
   const [dirty, setDirty] = useState(false);
   const [apiKey, setApiKey] = useState("");
@@ -135,6 +138,32 @@ export default function ConfigPanel({ config, onSave, tmdbKeySource }: ConfigPan
             )}
           </div>
         )}
+      </section>
+
+      {/* Recommendation Engines */}
+      <section>
+        <h3 className="text-white font-semibold text-sm mb-1">Recommendation Engines</h3>
+        <p className="text-gray-500 text-xs mb-3">
+          Disabled engines won&apos;t run on page load or refresh
+        </p>
+        <div className="flex flex-wrap gap-2">
+          {engines.map((eng) => {
+            const disabled = disabledEngines.includes(eng.value);
+            return (
+              <button
+                key={eng.value}
+                onClick={() => onToggleEngine(eng.value)}
+                className={`text-xs px-3 py-1.5 rounded-lg transition-all border ${
+                  disabled
+                    ? "bg-red-500/20 text-red-300 border-red-500/30"
+                    : "bg-green-500/20 text-green-300 border-green-500/30"
+                }`}
+              >
+                {disabled ? "✕" : "✓"} {eng.label}
+              </button>
+            );
+          })}
+        </div>
       </section>
 
       {/* Excluded Genres */}
