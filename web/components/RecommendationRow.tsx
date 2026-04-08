@@ -19,7 +19,11 @@ interface RecommendationRowProps {
   type: string;
   recommendations: Recommendation[];
   onAction: (tmdbId: number, action: RecAction, rec: Recommendation) => void;
-  onClickMovie: (rec: Recommendation) => void;
+  onClickMovie: (rec: Recommendation) => void | Promise<void>;
+  onMoveUp?: () => void;
+  onMoveDown?: () => void;
+  isFirst?: boolean;
+  isLast?: boolean;
 }
 
 const TYPE_ICONS: Record<string, string> = {
@@ -38,10 +42,36 @@ export default function RecommendationRow({
   recommendations,
   onAction,
   onClickMovie,
+  onMoveUp,
+  onMoveDown,
+  isFirst,
+  isLast,
 }: RecommendationRowProps) {
   return (
     <div className="mb-10">
       <div className="flex items-center gap-3 mb-4">
+        <div className="flex flex-col -my-1">
+          <button
+            onClick={onMoveUp}
+            disabled={isFirst}
+            className={`p-0.5 rounded transition-colors ${isFirst ? "text-gray-700 cursor-default" : "text-gray-500 hover:text-white hover:bg-gray-800/60"}`}
+            title="Move up"
+          >
+            <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M5 15l7-7 7 7" />
+            </svg>
+          </button>
+          <button
+            onClick={onMoveDown}
+            disabled={isLast}
+            className={`p-0.5 rounded transition-colors ${isLast ? "text-gray-700 cursor-default" : "text-gray-500 hover:text-white hover:bg-gray-800/60"}`}
+            title="Move down"
+          >
+            <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
+            </svg>
+          </button>
+        </div>
         <div className="w-1 h-5 bg-indigo-500 rounded-full" />
         <span className="text-base">{TYPE_ICONS[type] || "💡"}</span>
         <h3 className="text-white font-semibold text-base">{reason}</h3>

@@ -7,6 +7,8 @@ export interface Movie {
   year: number | null;
   genre: string | null;
   director: string | null;
+  writer: string | null;
+  actors: string | null;
   rating: number | null;
   poster_url: string | null;
   source: string | null;
@@ -14,6 +16,7 @@ export interface Movie {
   tmdb_id: number | null;
   type: string;
   file_path: string | null;
+  extra_files: string | null; // JSON array of additional file paths
   created_at: string;
 }
 
@@ -22,6 +25,8 @@ export interface MovieInput {
   year: number | null;
   genre: string | null;
   director: string | null;
+  writer?: string | null;
+  actors?: string | null;
   rating: number | null;
   poster_url: string | null;
   source: string | null;
@@ -29,6 +34,7 @@ export interface MovieInput {
   tmdb_id: number | null;
   type: string;
   file_path?: string | null;
+  extra_files?: string | null;
 }
 
 
@@ -49,7 +55,9 @@ export function initDb(db: Database.Database): void {
       tmdb_id INTEGER,
       type TEXT DEFAULT 'movie',
       file_path TEXT,
-      created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+      extra_files TEXT,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      video_metadata TEXT
     );
 
     CREATE TABLE IF NOT EXISTS settings (
@@ -69,6 +77,37 @@ export function initDb(db: Database.Database): void {
       // Column already exists
     }
     db.prepare("INSERT OR IGNORE INTO _migrations (name) VALUES ('add_file_path')").run();
+  }
+
+  const hasVideoMetadata = db.prepare("SELECT 1 FROM _migrations WHERE name = 'add_video_metadata'").get();
+  if (!hasVideoMetadata) {
+    try {
+      db.exec("ALTER TABLE movies ADD COLUMN video_metadata TEXT");
+    } catch {
+      // Column already exists
+    }
+    db.prepare("INSERT OR IGNORE INTO _migrations (name) VALUES ('add_video_metadata')").run();
+  }
+  
+  const hasCredits = db.prepare("SELECT 1 FROM _migrations WHERE name = 'add_credits'").get();
+  if (!hasCredits) {
+    try {
+      db.exec("ALTER TABLE movies ADD COLUMN writer TEXT");
+      db.exec("ALTER TABLE movies ADD COLUMN actors TEXT");
+    } catch {
+      // Column already exists
+    }
+    db.prepare("INSERT OR IGNORE INTO _migrations (name) VALUES ('add_credits')").run();
+  }
+
+  const hasExtraFiles = db.prepare("SELECT 1 FROM _migrations WHERE name = 'add_extra_files'").get();
+  if (!hasExtraFiles) {
+    try {
+      db.exec("ALTER TABLE movies ADD COLUMN extra_files TEXT");
+    } catch {
+      // Column already exists
+    }
+    db.prepare("INSERT OR IGNORE INTO _migrations (name) VALUES ('add_extra_files')").run();
   }
 
   db.exec(`
@@ -125,11 +164,36 @@ export function getDb(): Database.Database {
 }
 
 export function insertMovie(db: Database.Database, movie: MovieInput): number {
+  if (movie.file_path) {
+    const existing = db.prepare("SELECT id FROM movies WHERE file_path = ?").get(movie.file_path);
+    if (existing) return (existing as any).id;
+  }
+
+  // If a movie with the same title+year already exists, return existing id
+  // and update file_path if the new entry has one
+  if (movie.title) {
+    const byTitleYear = db.prepare(
+      "SELECT id FROM movies WHERE LOWER(title) = LOWER(?) AND year IS ?"
+    ).get(movie.title, movie.year ?? null) as { id: number } | undefined;
+    if (byTitleYear) {
+      if (movie.file_path) {
+        db.prepare("UPDATE movies SET file_path = ? WHERE id = ?").run(movie.file_path, byTitleYear.id);
+      }
+      return byTitleYear.id;
+    }
+  }
+
   const stmt = db.prepare(`
-    INSERT INTO movies (title, year, genre, director, rating, poster_url, source, imdb_id, tmdb_id, type, file_path)
-    VALUES (@title, @year, @genre, @director, @rating, @poster_url, @source, @imdb_id, @tmdb_id, @type, @file_path)
+    INSERT INTO movies (title, year, genre, director, writer, actors, rating, poster_url, source, imdb_id, tmdb_id, type, file_path, extra_files)
+    VALUES (@title, @year, @genre, @director, @writer, @actors, @rating, @poster_url, @source, @imdb_id, @tmdb_id, @type, @file_path, @extra_files)
   `);
-  const result = stmt.run({ ...movie, file_path: movie.file_path ?? null });
+  const result = stmt.run({
+    ...movie,
+    writer: movie.writer ?? null,
+    actors: movie.actors ?? null,
+    file_path: movie.file_path ?? null,
+    extra_files: movie.extra_files ?? null,
+  });
   return Number(result.lastInsertRowid);
 }
 

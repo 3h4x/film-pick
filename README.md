@@ -18,6 +18,7 @@ pnpm dev                 # http://localhost:4000
 - **Import** — scan a local directory for video files, or import Filmweb ratings export
 - **Sync** — re-scan library path to detect added/removed files
 - **Actions** on recommendations: liked, watched, disliked, dismiss
+- **Subtitles** — automatic detection of subtitle files (.srt, .sub, .txt), direct link to OpenSubtitles.com, and "drop-to-add" functionality that automatically renames and organizes subtitles to match your movie files.
 
 ### Tech Stack
 

@@ -8,6 +8,7 @@ interface MovieCardProps {
   source: string | null;
   cdaUrl?: string | null;
   onDelete?: () => void;
+  onAddToWatchlist?: () => void;
   onClick?: () => void;
 }
 
@@ -21,6 +22,7 @@ export default function MovieCard({
   source,
   cdaUrl,
   onDelete,
+  onAddToWatchlist,
   onClick,
 }: MovieCardProps) {
   return (
@@ -58,15 +60,27 @@ export default function MovieCard({
           )}
         </div>
 
-        {/* Delete button */}
-        {onDelete && (
-          <button
-            onClick={(e) => { e.stopPropagation(); onDelete(); }}
-            className="absolute top-2 right-2 bg-red-500/80 backdrop-blur-sm text-white rounded-lg w-7 h-7 text-xs font-bold opacity-0 group-hover:opacity-100 transition-all duration-200 hover:bg-red-400 flex items-center justify-center"
-          >
-            ✕
-          </button>
-        )}
+        {/* Watchlist/Delete buttons */}
+        <div className="absolute top-2 right-2 flex gap-1.5 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
+          {onAddToWatchlist && (
+            <button
+              onClick={(e) => { e.stopPropagation(); onAddToWatchlist(); }}
+              className="bg-indigo-500/80 backdrop-blur-sm text-white rounded-lg w-7 h-7 text-xs font-bold hover:bg-indigo-400 flex items-center justify-center shadow-lg"
+              title="Add to Watchlist"
+            >
+              +
+            </button>
+          )}
+          {onDelete && (
+            <button
+              onClick={(e) => { e.stopPropagation(); onDelete(); }}
+              className="bg-red-500/80 backdrop-blur-sm text-white rounded-lg w-7 h-7 text-xs font-bold hover:bg-red-400 flex items-center justify-center shadow-lg"
+              title="Remove"
+            >
+              ✕
+            </button>
+          )}
+        </div>
 
         {/* Source + CDA badges */}
         <div className="absolute bottom-2 right-2 flex gap-1">
