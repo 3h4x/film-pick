@@ -7,7 +7,7 @@ Personal movie discovery engine with a Next.js web UI and SQLite database.
 - **Web app:** Next.js 16 (App Router), React 19, TypeScript, Tailwind CSS 4
 - **Database:** SQLite via `better-sqlite3`
 - **Data sources:** TMDb API, Filmweb (import)
-- **Testing:** Vitest (14 tests, 5 files)
+- **Testing:** Vitest
 - **Package manager:** pnpm (do not use npm)
 - **Secrets:** bioenv (Touch ID-protected Keychain)
 
@@ -29,29 +29,57 @@ pnpm backup              # Backup SQLite DB
 │   ├── page.tsx                      — Dashboard (Library + Recommendations tabs)
 │   └── api/
 │       ├── movies/route.ts           — GET/POST library
-│       ├── movies/[id]/route.ts      — DELETE
+│       ├── movies/[id]/route.ts      — GET/DELETE single movie
+│       ├── movies/[id]/full/route.ts — Full movie details with enrichment
+│       ├── movies/[id]/play/route.ts — Launch local player
+│       ├── movies/[id]/stream/route.ts — Stream video file
+│       ├── movies/[id]/subtitles/route.ts — Subtitle management
+│       ├── movies/[id]/standardize/route.ts — Standardize file naming
+│       ├── movies/merge/route.ts     — Merge duplicate entries
 │       ├── search/route.ts           — TMDb search
 │       ├── recommendations/route.ts  — Generate recommendations
+│       ├── recommendations/dismiss/route.ts — Dismiss recommendation
+│       ├── recommendations/count/route.ts — Recommendation count
+│       ├── person-ratings/route.ts   — Director/actor/writer ratings
+│       ├── pl-title/route.ts         — Polish title lookup
 │       ├── import/route.ts           — Import from filesystem directory
+│       ├── import-filmweb/route.ts   — Import Filmweb ratings
 │       ├── sync/route.ts             — Re-scan library path, add/remove
-│       └── settings/route.ts         — GET library path
+│       └── settings/route.ts         — GET/PUT app settings
 ├── components/
 │   ├── TabNav.tsx                    — Pill-style tab navigation
 │   ├── MovieCard.tsx                 — Poster card (user rating + global rating badges)
+│   ├── MovieDetail.tsx               — Full movie detail view
+│   ├── PersonView.tsx                — Person filmography view
 │   ├── SearchModal.tsx               — TMDb search + add modal
 │   ├── ImportModal.tsx               — Filesystem import modal
+│   ├── SyncModal.tsx                 — Sync progress modal
+│   ├── ConfigPanel.tsx               — Settings/config panel
 │   ├── RecommendationRow.tsx         — Grouped recommendation row
-│   └── SortFilterBar.tsx             — Sort (6 options) + genre filter
+│   ├── RecommendationSkeleton.tsx    — Loading skeleton
+│   ├── SortFilterBar.tsx             — Sort (6 options) + genre filter
+│   └── Toast.tsx                     — Toast notifications
 ├── lib/
 │   ├── db.ts                         — SQLite schema, CRUD, settings, migrations
 │   ├── tmdb.ts                       — TMDb API client
-│   ├── recommend.ts                  — Recommendation engine
-│   └── scanner.ts                    — Filesystem video scanner + filename parser
+│   ├── cda.ts                        — CDA Premium streaming links
+│   ├── utils.ts                      — Shared utilities
+│   ├── scanner.ts                    — Filesystem video scanner + filename parser
+│   └── engines/                      — Recommendation engines
+│       ├── index.ts                  — Engine registry
+│       ├── director.ts               — By director
+│       ├── actor.ts                  — By actor
+│       ├── genre.ts                  — By genre
+│       ├── movie.ts                  — Similar movies (TMDb)
+│       ├── hidden-gem.ts             — Hidden gems
+│       ├── star-studded.ts           — Star-studded blockbusters
+│       ├── random.ts                 — Surprise me
+│       └── cda.ts                    — CDA Premium available
 ├── scripts/
 │   ├── backup-db.sh                  — SQLite backup with tiered retention
 │   ├── import-filmweb.ts             — Import Filmweb ratings export (JSON)
 │   └── enrich-tmdb.ts                — Enrich existing movies with TMDb posters/genres
-├── __tests__/                        — 14 tests across 5 files
+├── __tests__/                        — Vitest tests
 └── data/
     ├── movies.db                     — SQLite DB (gitignored)
     └── backups/                      — Tiered backup retention (gitignored)
@@ -118,6 +146,19 @@ Common errors:
 
 - **`better-sqlite3` native addon not found** — run `npx node-gyp rebuild` inside the `better-sqlite3` package dir (happens after `pnpm install` skips build scripts)
 - **SWC binary missing** — install `@next/swc-linux-arm64-gnu` (or musl) for ARM64 Linux environments
+
+## Docker
+
+```bash
+docker build -t filmpick .           # Local build
+docker compose up -d                 # Run with docker-compose
+```
+
+- **Image:** `ghcr.io/3h4x/film-pick` (built by GHA on push to master)
+- **Port:** 4000
+- **Data volume:** `./data` → `/app/data` (SQLite persistence)
+- **Env:** `TMDB_API_KEY` required
+- **Next.js output:** standalone mode (`next.config.ts`)
 
 ## Development
 
