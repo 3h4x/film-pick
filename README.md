@@ -69,6 +69,21 @@ pnpm dev
 
 Environment variable takes priority over the database setting.
 
+## Docker
+
+```bash
+docker pull ghcr.io/3h4x/film-pick:master
+```
+
+Run with docker-compose:
+
+```bash
+echo "TMDB_API_KEY=your-key" > .env
+docker compose up -d    # http://localhost:4000
+```
+
+SQLite data is persisted in `./data/` via volume mount.
+
 ## Tech Stack
 
 Next.js 16 | React 19 | TypeScript | SQLite | Tailwind CSS 4 | TMDb API
