@@ -1,0 +1,11 @@
+services:
+  filmpick:
+    image: ghcr.io/3h4x/film-pick:master
+    container_name: filmpick
+    restart: unless-stopped
+    ports:
+      - "4000:4000"
+    volumes:
+      - ./data:/app/data
+    environment:
+      - TMDB_API_KEY=${TMDB_API_KEY}

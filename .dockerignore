@@ -1,0 +1,11 @@
+node_modules
+.next
+data
+.git
+.github
+__tests__
+*.md
+.husky
+.dockerignore
+Dockerfile
+docker-compose.yml
