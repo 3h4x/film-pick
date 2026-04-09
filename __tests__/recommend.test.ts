@@ -1,6 +1,12 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { genreEngine } from "@/lib/engines/genre";
-import { buildContext, type EngineContext } from "@/lib/engines";
+import {
+  buildContext,
+  filterResults,
+  enrichWithCda,
+  type EngineContext,
+} from "@/lib/engines";
+import type { TmdbSearchResult } from "@/lib/tmdb";
 import type { Movie } from "@/lib/db";
 
 vi.mock("@/lib/tmdb", () => ({
@@ -161,5 +167,210 @@ describe("genre engine", () => {
       g.recommendations.map((r: any) => r.tmdb_id),
     );
     expect(allTmdbIds).not.toContain(27205);
+  });
+});
+
+function makeResult(overrides: Partial<TmdbSearchResult> & { tmdb_id: number; title: string }): TmdbSearchResult {
+  return {
+    year: 2020,
+    genre: "Drama",
+    rating: 7.5,
+    poster_url: null,
+    imdb_id: null,
+    ...overrides,
+  };
+}
+
+describe("filterResults", () => {
+  const emptyCtx = buildContext([], new Set());
+
+  it("returns all results when context is empty", () => {
+    const results = [
+      makeResult({ tmdb_id: 1, title: "Movie A" }),
+      makeResult({ tmdb_id: 2, title: "Movie B" }),
+    ];
+    expect(filterResults(results, emptyCtx)).toHaveLength(2);
+  });
+
+  it("filters out movies already in the library by tmdb_id", () => {
+    const library = [makeMovie({ id: 1, title: "Inception", tmdb_id: 27205 })];
+    const ctx = buildContext(library, new Set());
+    const results = [
+      makeResult({ tmdb_id: 27205, title: "Inception" }),
+      makeResult({ tmdb_id: 329865, title: "Arrival" }),
+    ];
+    const filtered = filterResults(results, ctx);
+    expect(filtered).toHaveLength(1);
+    expect(filtered[0].title).toBe("Arrival");
+  });
+
+  it("filters out movies already in the library by title", () => {
+    const library = [makeMovie({ id: 1, title: "Inception", tmdb_id: null })];
+    const ctx = buildContext(library, new Set());
+    const results = [
+      makeResult({ tmdb_id: 99999, title: "Inception" }),
+      makeResult({ tmdb_id: 329865, title: "Arrival" }),
+    ];
+    const filtered = filterResults(results, ctx);
+    expect(filtered).toHaveLength(1);
+    expect(filtered[0].title).toBe("Arrival");
+  });
+
+  it("filters out dismissed movies", () => {
+    const dismissed = new Set([27205]);
+    const ctx = buildContext([], dismissed);
+    const results = [
+      makeResult({ tmdb_id: 27205, title: "Inception" }),
+      makeResult({ tmdb_id: 329865, title: "Arrival" }),
+    ];
+    const filtered = filterResults(results, ctx);
+    expect(filtered).toHaveLength(1);
+    expect(filtered[0].tmdb_id).toBe(329865);
+  });
+
+  it("deduplicates using the seen set", () => {
+    const seen = new Set([27205]);
+    const results = [
+      makeResult({ tmdb_id: 27205, title: "Inception" }),
+      makeResult({ tmdb_id: 329865, title: "Arrival" }),
+    ];
+    const filtered = filterResults(results, emptyCtx, seen);
+    expect(filtered).toHaveLength(1);
+    expect(filtered[0].title).toBe("Arrival");
+  });
+
+  it("adds seen ids as results are returned", () => {
+    const seen = new Set<number>();
+    const results = [
+      makeResult({ tmdb_id: 1, title: "A" }),
+      makeResult({ tmdb_id: 1, title: "A duplicate" }),
+      makeResult({ tmdb_id: 2, title: "B" }),
+    ];
+    const filtered = filterResults(results, emptyCtx, seen);
+    expect(filtered).toHaveLength(2);
+    expect(seen.has(1)).toBe(true);
+    expect(seen.has(2)).toBe(true);
+  });
+
+  it("filters by min_year config", () => {
+    const ctx = buildContext([], new Set(), {
+      excluded_genres: [],
+      min_year: 2000,
+      min_rating: null,
+      max_per_group: 10,
+    });
+    const results = [
+      makeResult({ tmdb_id: 1, title: "Old Film", year: 1985 }),
+      makeResult({ tmdb_id: 2, title: "New Film", year: 2010 }),
+    ];
+    const filtered = filterResults(results, ctx);
+    expect(filtered).toHaveLength(1);
+    expect(filtered[0].title).toBe("New Film");
+  });
+
+  it("does not filter movies with null year when min_year is set", () => {
+    const ctx = buildContext([], new Set(), {
+      excluded_genres: [],
+      min_year: 2000,
+      min_rating: null,
+      max_per_group: 10,
+    });
+    const results = [makeResult({ tmdb_id: 1, title: "Unknown Year", year: null })];
+    expect(filterResults(results, ctx)).toHaveLength(1);
+  });
+
+  it("filters by min_rating config", () => {
+    const ctx = buildContext([], new Set(), {
+      excluded_genres: [],
+      min_year: null,
+      min_rating: 7.0,
+      max_per_group: 10,
+    });
+    const results = [
+      makeResult({ tmdb_id: 1, title: "Low Rated", rating: 5.0 }),
+      makeResult({ tmdb_id: 2, title: "High Rated", rating: 8.5 }),
+    ];
+    const filtered = filterResults(results, ctx);
+    expect(filtered).toHaveLength(1);
+    expect(filtered[0].title).toBe("High Rated");
+  });
+
+  it("filters by excluded_genres config", () => {
+    const ctx = buildContext([], new Set(), {
+      excluded_genres: ["Horror"],
+      min_year: null,
+      min_rating: null,
+      max_per_group: 10,
+    });
+    const results = [
+      makeResult({ tmdb_id: 1, title: "Scary Movie", genre: "Horror, Thriller" }),
+      makeResult({ tmdb_id: 2, title: "Safe Film", genre: "Drama" }),
+    ];
+    const filtered = filterResults(results, ctx);
+    expect(filtered).toHaveLength(1);
+    expect(filtered[0].title).toBe("Safe Film");
+  });
+
+  it("returns all results when excluded_genres is empty", () => {
+    const ctx = buildContext([], new Set(), {
+      excluded_genres: [],
+      min_year: null,
+      min_rating: null,
+      max_per_group: 10,
+    });
+    const results = [
+      makeResult({ tmdb_id: 1, title: "Horror Film", genre: "Horror" }),
+      makeResult({ tmdb_id: 2, title: "Drama Film", genre: "Drama" }),
+    ];
+    expect(filterResults(results, ctx)).toHaveLength(2);
+  });
+});
+
+describe("enrichWithCda", () => {
+  it("leaves results unchanged when no cda matches", () => {
+    const results = [makeResult({ tmdb_id: 1, title: "Movie A" })];
+    const lookup = { byTmdbId: new Map<number, string>(), byTitle: new Map<string, string>() };
+    const enriched = enrichWithCda(results, lookup);
+    expect(enriched[0].cda_url).toBeUndefined();
+  });
+
+  it("adds cda_url matched by tmdb_id", () => {
+    const results = [makeResult({ tmdb_id: 329865, title: "Arrival" })];
+    const lookup = {
+      byTmdbId: new Map([[329865, "https://www.cda.pl/video/arrival"]]),
+      byTitle: new Map<string, string>(),
+    };
+    const enriched = enrichWithCda(results, lookup);
+    expect(enriched[0].cda_url).toBe("https://www.cda.pl/video/arrival");
+  });
+
+  it("adds cda_url matched by title (case-insensitive key)", () => {
+    const results = [makeResult({ tmdb_id: 999, title: "Interstellar" })];
+    const lookup = {
+      byTmdbId: new Map<number, string>(),
+      byTitle: new Map([["interstellar", "https://www.cda.pl/video/interstellar"]]),
+    };
+    const enriched = enrichWithCda(results, lookup);
+    expect(enriched[0].cda_url).toBe("https://www.cda.pl/video/interstellar");
+  });
+
+  it("prefers tmdb_id match over title match", () => {
+    const results = [makeResult({ tmdb_id: 329865, title: "Arrival" })];
+    const lookup = {
+      byTmdbId: new Map([[329865, "https://cda.pl/by-id"]]),
+      byTitle: new Map([["arrival", "https://cda.pl/by-title"]]),
+    };
+    const enriched = enrichWithCda(results, lookup);
+    expect(enriched[0].cda_url).toBe("https://cda.pl/by-id");
+  });
+
+  it("does not mutate original results array", () => {
+    const results = [makeResult({ tmdb_id: 1, title: "Film" })];
+    const lookup = {
+      byTmdbId: new Map([[1, "https://cda.pl/film"]]),
+      byTitle: new Map<string, string>(),
+    };
+    enrichWithCda(results, lookup);
+    expect(results[0].cda_url).toBeUndefined();
   });
 });
