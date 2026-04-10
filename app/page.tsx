@@ -217,7 +217,7 @@ export default function Home() {
   }, [recGroups, recCategory, movies]);
 
   const wishlistMovies = useMemo(
-    () => movies.filter((m) => (m as any).wishlist === 1),
+    () => movies.filter((m) => (m as any).wishlist === 1 && !m.user_rating),
     [movies],
   );
 
