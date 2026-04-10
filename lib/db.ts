@@ -227,6 +227,22 @@ export function insertMovie(db: Database.Database, movie: MovieInput): number {
     if (existing) return existing.id;
   }
 
+  // If a movie with the same tmdb_id already exists, link the file to it
+  if (movie.tmdb_id) {
+    const byTmdbId = db
+      .prepare("SELECT id FROM movies WHERE tmdb_id = ?")
+      .get(movie.tmdb_id) as { id: number } | undefined;
+    if (byTmdbId) {
+      if (movie.file_path) {
+        db.prepare("UPDATE movies SET file_path = ? WHERE id = ?").run(
+          movie.file_path,
+          byTmdbId.id,
+        );
+      }
+      return byTmdbId.id;
+    }
+  }
+
   // If a movie with the same title+year already exists, return existing id
   // and update file_path if the new entry has one
   if (movie.title) {
