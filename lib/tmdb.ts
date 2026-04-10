@@ -23,6 +23,29 @@ const TMDB_GENRE_MAP: Record<number, string> = {
   37: "Western",
 };
 
+// Raw TMDb API response shapes
+interface TmdbRawResult {
+  id: number;
+  title: string;
+  release_date: string | null;
+  genre_ids: number[];
+  vote_average: number;
+  poster_path: string | null;
+}
+
+interface TmdbRawCrewMember {
+  id: number;
+  name: string;
+  job: string;
+  department?: string;
+}
+
+interface TmdbRawCastMember {
+  id: number;
+  name: string;
+  character: string;
+}
+
 function getApiKey(): string {
   const key = process.env.TMDB_API_KEY || getDbApiKey();
   if (!key) throw new Error("TMDB_API_KEY not set — configure in Config tab or run: eval \"$(bioenv load)\"");
@@ -51,7 +74,7 @@ export function genreNameToId(name: string): number | null {
   return GENRE_NAME_TO_ID[name] ?? null;
 }
 
-function mapResult(r: any): TmdbSearchResult {
+function mapResult(r: TmdbRawResult): TmdbSearchResult {
   return {
     title: r.title,
     year: r.release_date ? parseInt(r.release_date.substring(0, 4), 10) : null,
@@ -73,7 +96,26 @@ export interface TmdbSearchResult {
   poster_url: string | null;
   tmdb_id: number;
   imdb_id: string | null;
-  cda_url?: string;
+  cda_url?: string | null;
+  pl_title?: string | null;
+}
+
+// Shared pagination helper: fetch a pre-built list of URLs sequentially,
+// stopping on the first non-ok response.
+async function fetchDiscoverPages(
+  urls: string[],
+  apiKey: string,
+): Promise<TmdbSearchResult[]> {
+  const all: TmdbSearchResult[] = [];
+  for (const url of urls) {
+    const res = await fetch(url, {
+      headers: { Authorization: `Bearer ${apiKey}` },
+    });
+    if (!res.ok) break;
+    const data = (await res.json()) as { results?: TmdbRawResult[] };
+    all.push(...(data.results || []).map(mapResult));
+  }
+  return all;
 }
 
 export async function searchTmdb(
@@ -89,7 +131,7 @@ export async function searchTmdb(
       headers: { Authorization: `Bearer ${apiKey}` },
     });
     if (!res.ok) return [];
-    const data = await res.json();
+    const data = (await res.json()) as { results?: TmdbRawResult[] };
     return (data.results || []).slice(0, 10).map(mapResult);
   }
 
@@ -118,7 +160,7 @@ export async function getMovieLocalized(
     headers: { Authorization: `Bearer ${getApiKey()}` },
   });
   if (!res.ok) return { pl_title: null, description: null };
-  const data = await res.json();
+  const data = (await res.json()) as { title?: string; overview?: string };
   return {
     pl_title: data.title || null,
     description: data.overview || null,
@@ -145,18 +187,23 @@ export async function getTmdbMovieDetails(
 
   if (!res.ok) return { director: null, writer: null, actors: null };
 
-  const data = await res.json();
+  const data = (await res.json()) as {
+    credits?: {
+      crew?: TmdbRawCrewMember[];
+      cast?: TmdbRawCastMember[];
+    };
+  };
   const director =
-    data.credits?.crew?.find((c: any) => c.job === "Director")?.name || null;
+    data.credits?.crew?.find((c) => c.job === "Director")?.name || null;
   const writer =
     data.credits?.crew
-      ?.filter((c: any) => ["Screenplay", "Writer", "Story"].includes(c.job))
-      .map((c: any) => c.name)
+      ?.filter((c) => ["Screenplay", "Writer", "Story"].includes(c.job))
+      .map((c) => c.name)
       .join(", ") || null;
   const actors =
     data.credits?.cast
       ?.slice(0, 5)
-      .map((c: any) => c.name)
+      .map((c) => c.name)
       .join(", ") || null;
 
   return { director, writer, actors };
@@ -172,7 +219,7 @@ export async function getTmdbRecommendations(
 
   if (!res.ok) return [];
 
-  const data = await res.json();
+  const data = (await res.json()) as { results?: TmdbRawResult[] };
   const results = (data.results || []).slice(0, 5);
   return results.map(mapResult);
 }
@@ -181,34 +228,26 @@ export async function discoverByGenre(
   genreId: number,
   pages = 3,
 ): Promise<TmdbSearchResult[]> {
-  const all: TmdbSearchResult[] = [];
-  for (let page = 1; page <= pages; page++) {
-    const url = `${TMDB_BASE}/discover/movie?with_genres=${genreId}&sort_by=vote_average.desc&vote_count.gte=500&language=en-US&page=${page}`;
-    const res = await fetch(url, {
-      headers: { Authorization: `Bearer ${getApiKey()}` },
-    });
-    if (!res.ok) break;
-    const data = await res.json();
-    all.push(...(data.results || []).map(mapResult));
-  }
-  return all;
+  const apiKey = getApiKey();
+  const urls = Array.from(
+    { length: pages },
+    (_, i) =>
+      `${TMDB_BASE}/discover/movie?with_genres=${genreId}&sort_by=vote_average.desc&vote_count.gte=500&language=en-US&page=${i + 1}`,
+  );
+  return fetchDiscoverPages(urls, apiKey);
 }
 
 export async function discoverByPerson(
   personId: number,
   pages = 2,
 ): Promise<TmdbSearchResult[]> {
-  const all: TmdbSearchResult[] = [];
-  for (let page = 1; page <= pages; page++) {
-    const url = `${TMDB_BASE}/discover/movie?with_people=${personId}&sort_by=vote_average.desc&vote_count.gte=50&language=en-US&page=${page}`;
-    const res = await fetch(url, {
-      headers: { Authorization: `Bearer ${getApiKey()}` },
-    });
-    if (!res.ok) break;
-    const data = await res.json();
-    all.push(...(data.results || []).map(mapResult));
-  }
-  return all;
+  const apiKey = getApiKey();
+  const urls = Array.from(
+    { length: pages },
+    (_, i) =>
+      `${TMDB_BASE}/discover/movie?with_people=${personId}&sort_by=vote_average.desc&vote_count.gte=50&language=en-US&page=${i + 1}`,
+  );
+  return fetchDiscoverPages(urls, apiKey);
 }
 
 export interface TmdbCredit {
@@ -222,47 +261,33 @@ export interface TmdbCredit {
 export async function discoverHiddenGems(
   genreId?: number,
 ): Promise<TmdbSearchResult[]> {
-  const all: TmdbSearchResult[] = [];
-  for (let p = 0; p < 3; p++) {
+  const apiKey = getApiKey();
+  const urls = Array.from({ length: 3 }, () => {
     const page = Math.floor(Math.random() * 10) + 1;
     let url = `${TMDB_BASE}/discover/movie?sort_by=vote_average.desc&vote_count.gte=50&vote_count.lte=500&vote_average.gte=7.5&language=en-US&page=${page}`;
     if (genreId) url += `&with_genres=${genreId}`;
-    const res = await fetch(url, {
-      headers: { Authorization: `Bearer ${getApiKey()}` },
-    });
-    if (!res.ok) break;
-    const data = await res.json();
-    all.push(...(data.results || []).map(mapResult));
-  }
-  return all;
+    return url;
+  });
+  return fetchDiscoverPages(urls, apiKey);
 }
 
 export async function discoverStarStudded(): Promise<TmdbSearchResult[]> {
-  const all: TmdbSearchResult[] = [];
-  for (let page = 1; page <= 3; page++) {
-    const url = `${TMDB_BASE}/discover/movie?sort_by=popularity.desc&vote_count.gte=5000&vote_average.gte=7&language=en-US&page=${page}`;
-    const res = await fetch(url, {
-      headers: { Authorization: `Bearer ${getApiKey()}` },
-    });
-    if (!res.ok) break;
-    const data = await res.json();
-    all.push(...(data.results || []).map(mapResult));
-  }
-  return all;
+  const apiKey = getApiKey();
+  const urls = Array.from(
+    { length: 3 },
+    (_, i) =>
+      `${TMDB_BASE}/discover/movie?sort_by=popularity.desc&vote_count.gte=5000&vote_average.gte=7&language=en-US&page=${i + 1}`,
+  );
+  return fetchDiscoverPages(urls, apiKey);
 }
 
 export async function discoverRandom(): Promise<TmdbSearchResult[]> {
-  const all: TmdbSearchResult[] = [];
-  for (let i = 0; i < 3; i++) {
+  const apiKey = getApiKey();
+  const urls = Array.from({ length: 3 }, () => {
     const page = Math.floor(Math.random() * 20) + 1;
-    const url = `${TMDB_BASE}/discover/movie?sort_by=popularity.desc&vote_count.gte=200&vote_average.gte=6.5&language=en-US&page=${page}`;
-    const res = await fetch(url, {
-      headers: { Authorization: `Bearer ${getApiKey()}` },
-    });
-    if (!res.ok) break;
-    const data = await res.json();
-    all.push(...(data.results || []).map(mapResult));
-  }
+    return `${TMDB_BASE}/discover/movie?sort_by=popularity.desc&vote_count.gte=200&vote_average.gte=6.5&language=en-US&page=${page}`;
+  });
+  const all = await fetchDiscoverPages(urls, apiKey);
   // Shuffle
   for (let i = all.length - 1; i > 0; i--) {
     const j = Math.floor(Math.random() * (i + 1));
@@ -279,12 +304,15 @@ export async function getMovieCredits(
     headers: { Authorization: `Bearer ${getApiKey()}` },
   });
   if (!res.ok) return { directors: [], cast: [] };
-  const data = await res.json();
+  const data = (await res.json()) as {
+    crew?: TmdbRawCrewMember[];
+    cast?: TmdbRawCastMember[];
+  };
   const directors = (data.crew || [])
-    .filter((c: any) => c.job === "Director")
-    .map((c: any) => ({ id: c.id, name: c.name, job: c.job }));
+    .filter((c) => c.job === "Director")
+    .map((c) => ({ id: c.id, name: c.name, job: c.job }));
   const cast = (data.cast || [])
     .slice(0, 5)
-    .map((c: any) => ({ id: c.id, name: c.name, character: c.character }));
+    .map((c) => ({ id: c.id, name: c.name, character: c.character }));
   return { directors, cast };
 }

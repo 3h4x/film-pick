@@ -156,6 +156,14 @@ describe("recommendation cache", () => {
     expect(getCachedEngine(db, "genre", 5)).toBeNull();
     expect(getCachedEngine(db, "director", 5)).toBeNull();
   });
+
+  it("returns null when cached data is malformed JSON", () => {
+    db.prepare(
+      "INSERT OR REPLACE INTO recommendation_cache (engine, data, movie_count, created_at) VALUES (?, ?, ?, CURRENT_TIMESTAMP)",
+    ).run("genre", "not-valid-json{{{", 5);
+    const result = getCachedEngine(db, "genre", 5);
+    expect(result).toBeNull();
+  });
 });
 
 describe("dismissed recommendations", () => {

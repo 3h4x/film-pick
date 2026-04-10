@@ -149,12 +149,32 @@ Common errors:
 
 ## Docker
 
+### Run with docker-compose (recommended)
+
 ```bash
-docker build -t filmpick .           # Local build
-docker compose up -d                 # Run with docker-compose
+# Pull and start using the pre-built image from GHCR
+TMDB_API_KEY=<your_key> docker compose up -d
+
+# Or with bioenv:
+eval "$(bioenv load)" && docker compose up -d
+
+# View logs
+docker compose logs -f
+
+# Stop
+docker compose down
 ```
 
-- **Image:** `ghcr.io/3h4x/film-pick` (built by GHA on push to master)
+The `docker-compose.yml` uses `ghcr.io/3h4x/film-pick:latest` (built by GHA on push to master). Data is persisted in `./data/`.
+
+### Build locally
+
+```bash
+docker build -t filmpick .
+TMDB_API_KEY=<your_key> docker run -p 4000:4000 -v $(pwd)/data:/app/data -e TMDB_API_KEY filmpick
+```
+
+- **Image:** `ghcr.io/3h4x/film-pick:latest` (auto-built by GHA)
 - **Port:** 4000
 - **Data volume:** `./data` → `/app/data` (SQLite persistence)
 - **Env:** `TMDB_API_KEY` required

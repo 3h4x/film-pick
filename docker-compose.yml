@@ -1,6 +1,6 @@
 services:
   filmpick:
-    image: ghcr.io/3h4x/film-pick:master
+    image: ghcr.io/3h4x/film-pick:latest
     container_name: filmpick
     restart: unless-stopped
     ports:

@@ -67,7 +67,7 @@ describe("genre engine", () => {
         title: "Inception",
         genre: "Sci-Fi, Action",
         user_rating: 9,
-      } as any),
+      }),
     ];
     const ctx = buildContext(library, new Set());
 
@@ -96,7 +96,7 @@ describe("genre engine", () => {
         title: "Inception",
         genre: "Sci-Fi",
         user_rating: 9,
-      } as any),
+      }),
     ];
     const dismissed = new Set([329865]);
     const ctx = buildContext(library, dismissed);
@@ -137,7 +137,7 @@ describe("genre engine", () => {
         tmdb_id: 27205,
         genre: "Sci-Fi",
         user_rating: 9,
-      } as any),
+      }),
     ];
     const ctx = buildContext(library, new Set());
 
