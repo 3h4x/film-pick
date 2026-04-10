@@ -1529,21 +1529,31 @@ export default function Home() {
             engines={REC_CATEGORIES.slice(1)}
             libraryPath={libraryPath}
             onSaveLibraryPath={async (path) => {
-              await fetch("/api/settings", {
+              const res = await fetch("/api/settings", {
                 method: "PATCH",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({ library_path: path }),
               });
-              setLibraryPath(path || null);
+              if (res.ok) {
+                setLibraryPath(path || null);
+              } else {
+                const data = await res.json().catch(() => ({}));
+                addToast(data.error || "Failed to save library path");
+              }
             }}
             onSync={() => setSyncOpen(true)}
             onSave={async (cfg) => {
-              setRecConfig(cfg);
-              await fetch("/api/settings", {
+              const res = await fetch("/api/settings", {
                 method: "PATCH",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({ rec_config: cfg }),
               });
+              if (!res.ok) {
+                const data = await res.json().catch(() => ({}));
+                addToast(data.error || "Failed to save config");
+                return;
+              }
+              setRecConfig(cfg);
               addToast("Config saved — refreshing recommendations");
               setRecGroups({});
               REC_CATEGORIES.slice(1)

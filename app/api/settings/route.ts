@@ -22,6 +22,7 @@ export async function GET() {
 export async function PATCH(request: NextRequest) {
   const db = getDb();
   const body = await request.json();
+  try {
   if (body.rec_group_order) {
     setSetting(db, "rec_group_order", JSON.stringify(body.rec_group_order));
   }
@@ -45,5 +46,11 @@ export async function PATCH(request: NextRequest) {
       db.prepare("DELETE FROM settings WHERE key = ?").run("tmdb_api_key");
     }
   }
-  return Response.json({ ok: true });
+    return Response.json({ ok: true });
+  } catch (err: any) {
+    if (err?.code === "SQLITE_READONLY") {
+      return Response.json({ error: "Database is read-only — check file permissions on the server" }, { status: 500 });
+    }
+    return Response.json({ error: err?.message || "Failed to save settings" }, { status: 500 });
+  }
 }
