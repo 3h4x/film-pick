@@ -132,6 +132,35 @@ export function initDb(db: Database.Database): void {
     ).run();
   }
 
+  const hasUserColumns = db
+    .prepare("SELECT 1 FROM _migrations WHERE name = 'add_user_columns'")
+    .get();
+  if (!hasUserColumns) {
+    const cols = (db.pragma("table_info(movies)") as { name: string }[]).map((c) => c.name);
+    const toAdd: [string, string][] = [
+      ["user_rating", "REAL"],
+      ["wishlist", "INTEGER DEFAULT 0"],
+      ["rated_at", "TEXT"],
+      ["pl_title", "TEXT"],
+      ["description", "TEXT"],
+      ["cda_url", "TEXT"],
+      ["filmweb_id", "INTEGER"],
+      ["filmweb_url", "TEXT"],
+    ];
+    for (const [col, type] of toAdd) {
+      if (!cols.includes(col)) {
+        try {
+          db.exec(`ALTER TABLE movies ADD COLUMN ${col} ${type}`);
+        } catch {
+          // Column already exists
+        }
+      }
+    }
+    db.prepare(
+      "INSERT OR IGNORE INTO _migrations (name) VALUES ('add_user_columns')",
+    ).run();
+  }
+
   db.exec(`
     CREATE TABLE IF NOT EXISTS dismissed_recommendations (
       tmdb_id INTEGER PRIMARY KEY,

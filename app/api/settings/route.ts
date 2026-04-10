@@ -31,6 +31,13 @@ export async function PATCH(request: NextRequest) {
   if (body.disabled_engines) {
     setSetting(db, "disabled_engines", JSON.stringify(body.disabled_engines));
   }
+  if (typeof body.library_path === "string") {
+    if (body.library_path.trim()) {
+      setSetting(db, "library_path", body.library_path.trim());
+    } else {
+      db.prepare("DELETE FROM settings WHERE key = ?").run("library_path");
+    }
+  }
   if (typeof body.tmdb_api_key === "string") {
     if (body.tmdb_api_key.trim()) {
       setSetting(db, "tmdb_api_key", body.tmdb_api_key.trim());

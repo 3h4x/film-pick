@@ -39,11 +39,10 @@ describe("tmdb client", () => {
     );
   });
 
-  it("returns empty array on API error", async () => {
-    mockFetch.mockResolvedValueOnce({ ok: false, status: 401 });
+  it("throws on API error", async () => {
+    mockFetch.mockResolvedValueOnce({ ok: false, status: 401, statusText: "Unauthorized", text: async () => "" });
 
-    const results = await searchTmdb("inception");
-    expect(results).toEqual([]);
+    await expect(searchTmdb("inception")).rejects.toThrow("tmdb_api_error:401");
   });
 
   it("fetches recommendations for a tmdb id", async () => {

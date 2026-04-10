@@ -8,6 +8,13 @@ export async function GET(request: NextRequest) {
     return Response.json([]);
   }
 
-  const results = await searchTmdb(query);
-  return Response.json(results);
+  try {
+    const results = await searchTmdb(query);
+    return Response.json(results);
+  } catch (err: any) {
+    if (err?.message?.includes("TMDB_API_KEY not set") || err?.message?.includes("tmdb_api_error")) {
+      return Response.json({ error: "no_api_key" }, { status: 503 });
+    }
+    return Response.json({ error: err?.message || "Search failed" }, { status: 500 });
+  }
 }

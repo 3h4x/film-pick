@@ -130,7 +130,11 @@ export async function searchTmdb(
     const res = await fetch(url, {
       headers: { Authorization: `Bearer ${apiKey}` },
     });
-    if (!res.ok) return [];
+    if (!res.ok) {
+      const body = await res.text().catch(() => "");
+      console.error(`[TMDb] searchTmdb failed: ${res.status} ${res.statusText}`, body);
+      throw new Error(`tmdb_api_error:${res.status}`);
+    }
     const data = (await res.json()) as { results?: TmdbRawResult[] };
     return (data.results || []).slice(0, 10).map(mapResult);
   }

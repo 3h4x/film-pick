@@ -224,6 +224,7 @@ export async function PATCH(
 
   const allowed = [
     "user_rating",
+    "rated_at",
     "wishlist",
     "title",
     "year",
@@ -242,6 +243,12 @@ export async function PATCH(
       sets.push(`${key} = ?`);
       values.push(body[key]);
     }
+  }
+
+  // Auto-set rated_at when user_rating is provided and rated_at not explicitly set
+  if ("user_rating" in body && !("rated_at" in body)) {
+    sets.push("rated_at = ?");
+    values.push(body.user_rating != null ? new Date().toISOString() : null);
   }
 
   if (sets.length === 0) {
