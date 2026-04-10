@@ -15,7 +15,7 @@ export async function cdaEngine(
   const genreScores = new Map<string, number>();
   for (const movie of ctx.library) {
     if (!movie.genre) continue;
-    const weight = (movie as any).user_rating ?? 5;
+    const weight = movie.user_rating ?? 5;
     if (weight < 5) continue;
     for (const g of movie.genre.split(", ")) {
       const genre = g.trim();

@@ -32,19 +32,18 @@ export async function GET(request: NextRequest) {
   // Movies the user has rated — these should not appear in recommendations
   const ratedTmdbIds = new Set(
     allMovies
-      .filter((m) => {
-        const ur = (m as any).user_rating;
-        return ur != null && ur > 0 && m.tmdb_id;
-      })
+      .filter((m) => m.user_rating != null && m.user_rating > 0 && m.tmdb_id)
       .map((m) => m.tmdb_id as number),
   );
   const cdaLookup = getCdaLookup();
   const configRaw = getSetting(db, "rec_config");
   const config: RecConfig | undefined = configRaw
-    ? JSON.parse(configRaw)
+    ? (() => { try { return JSON.parse(configRaw); } catch { return undefined; } })()
     : undefined;
   const disabledRaw = getSetting(db, "disabled_engines");
-  const disabledEngines: string[] = disabledRaw ? JSON.parse(disabledRaw) : [];
+  const disabledEngines: string[] = disabledRaw
+    ? (() => { try { return JSON.parse(disabledRaw); } catch { return []; } })()
+    : [];
 
   function filterExcluded(
     groups: RecommendationGroup[],
@@ -67,7 +66,7 @@ export async function GET(request: NextRequest) {
     const enrichMap = new Map(dbRows.map((r) => [r.tmdb_id, r]));
     return groups.map((g) => ({
       ...g,
-      recommendations: g.recommendations.map((r: any) => {
+      recommendations: g.recommendations.map((r) => {
         const dbRow = enrichMap.get(r.tmdb_id);
         return dbRow
           ? { ...r, pl_title: dbRow.pl_title, cda_url: dbRow.cda_url }

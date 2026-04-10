@@ -1,7 +1,7 @@
 import { NextRequest } from "next/server";
 import { getDb } from "@/lib/db";
 
-interface PersonRating {
+export interface PersonRating {
   name: string;
   role: "director" | "writer" | "actor";
   avg_rating: number;
@@ -14,7 +14,7 @@ interface PersonRating {
   }[];
 }
 
-function buildPersonMap(
+export function buildPersonMap(
   ratedMovies: any[],
   filterNames?: Set<string>,
 ): Map<string, PersonRating> {

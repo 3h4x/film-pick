@@ -771,6 +771,9 @@ export default function Home() {
               <h1 className="text-lg font-bold text-white tracking-tight flex items-center gap-2">
                 <img src="/icon-192.png" alt="FilmPick" className="w-7 h-7 rounded" />
                 FilmPick
+                <span className="text-xs font-medium px-1.5 py-0.5 rounded-md bg-gray-700/50 text-gray-400">
+                  {process.env.NEXT_PUBLIC_APP_VERSION || "dev"}
+                </span>
               </h1>
               {!initialLoad &&
                 (activeTab === "library" || activeTab === "wishlist") && (

@@ -10,10 +10,8 @@ export async function directorEngine(
 ): Promise<RecommendationGroup[]> {
   // Check top-rated movies for recurring directors
   const highRated = ctx.library
-    .filter((m) => m.tmdb_id && ((m as any).user_rating ?? 0) >= 7)
-    .sort(
-      (a, b) => ((b as any).user_rating ?? 0) - ((a as any).user_rating ?? 0),
-    )
+    .filter((m) => m.tmdb_id && (m.user_rating ?? 0) >= 7)
+    .sort((a, b) => (b.user_rating ?? 0) - (a.user_rating ?? 0))
     .slice(0, 50);
 
   const directorCounts = new Map<
@@ -26,7 +24,7 @@ export async function directorEngine(
       const credits = await getMovieCredits(movie.tmdb_id!);
       for (const dir of credits.directors) {
         const existing = directorCounts.get(dir.id);
-        const rating = (movie as any).user_rating ?? 7;
+        const rating = movie.user_rating ?? 7;
         if (existing) {
           existing.count++;
           existing.avgRating =

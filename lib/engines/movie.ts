@@ -9,10 +9,8 @@ export async function movieEngine(
   ctx: EngineContext,
 ): Promise<RecommendationGroup[]> {
   const seeds = ctx.library
-    .filter((m) => m.tmdb_id && ((m as any).user_rating ?? 0) >= 7)
-    .sort(
-      (a, b) => ((b as any).user_rating ?? 0) - ((a as any).user_rating ?? 0),
-    )
+    .filter((m) => m.tmdb_id && (m.user_rating ?? 0) >= 7)
+    .sort((a, b) => (b.user_rating ?? 0) - (a.user_rating ?? 0))
     .slice(0, 10);
 
   const groups: RecommendationGroup[] = [];

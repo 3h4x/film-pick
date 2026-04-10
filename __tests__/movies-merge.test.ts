@@ -1,0 +1,211 @@
+import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
+import { NextRequest } from "next/server";
+import Database from "better-sqlite3";
+import fs from "fs";
+import path from "path";
+import { initDb, insertMovie } from "@/lib/db";
+
+vi.mock("@/lib/db", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("@/lib/db")>();
+  return { ...actual, getDb: vi.fn() };
+});
+
+import { POST } from "@/app/api/movies/merge/route";
+import { getDb } from "@/lib/db";
+
+const TEST_DB = path.join(__dirname, "test-merge.db");
+
+function makeRequest(body: object) {
+  return new NextRequest("http://localhost/api/movies/merge", {
+    method: "POST",
+    body: JSON.stringify(body),
+    headers: { "content-type": "application/json" },
+  });
+}
+
+function insertTestMovie(
+  db: Database.Database,
+  overrides: Partial<Parameters<typeof insertMovie>[1]> = {},
+) {
+  return insertMovie(db, {
+    title: "Test Movie",
+    year: 2020,
+    genre: "Drama",
+    director: "Director",
+    rating: 7.0,
+    poster_url: null,
+    source: "tmdb",
+    imdb_id: null,
+    tmdb_id: null,
+    type: "movie",
+    ...overrides,
+  });
+}
+
+describe("POST /api/movies/merge", () => {
+  let db: Database.Database;
+
+  beforeEach(() => {
+    db = new Database(TEST_DB);
+    initDb(db);
+    // Add optional migration columns used by the merge route
+    try { db.exec("ALTER TABLE movies ADD COLUMN user_rating REAL"); } catch {}
+    try { db.exec("ALTER TABLE movies ADD COLUMN description TEXT"); } catch {}
+    vi.mocked(getDb).mockReturnValue(db as unknown as ReturnType<typeof getDb>);
+  });
+
+  afterEach(() => {
+    db.close();
+    if (fs.existsSync(TEST_DB)) fs.unlinkSync(TEST_DB);
+    vi.clearAllMocks();
+  });
+
+  // ── Validation ────────────────────────────────────────────────────────────
+
+  it("returns 400 when sourceId is missing", async () => {
+    const res = await POST(makeRequest({ targetId: 2 }));
+    expect(res.status).toBe(400);
+    const data = await res.json();
+    expect(data.error).toBeDefined();
+  });
+
+  it("returns 400 when targetId is missing", async () => {
+    const res = await POST(makeRequest({ sourceId: 1 }));
+    expect(res.status).toBe(400);
+    const data = await res.json();
+    expect(data.error).toBeDefined();
+  });
+
+  it("returns 400 when sourceId === targetId", async () => {
+    const res = await POST(makeRequest({ sourceId: 1, targetId: 1 }));
+    expect(res.status).toBe(400);
+    const data = await res.json();
+    expect(data.error).toBeDefined();
+  });
+
+  it("returns 404 when source movie does not exist", async () => {
+    const targetId = insertTestMovie(db);
+    const res = await POST(makeRequest({ sourceId: 9999, targetId }));
+    expect(res.status).toBe(404);
+    const data = await res.json();
+    expect(data.error).toMatch(/not found/i);
+  });
+
+  it("returns 404 when target movie does not exist", async () => {
+    const sourceId = insertTestMovie(db);
+    const res = await POST(makeRequest({ sourceId, targetId: 9999 }));
+    expect(res.status).toBe(404);
+    const data = await res.json();
+    expect(data.error).toMatch(/not found/i);
+  });
+
+  // ── Success: basic merge ──────────────────────────────────────────────────
+
+  it("deletes the source and keeps the target on success", async () => {
+    const sourceId = insertTestMovie(db, { title: "Source Movie" });
+    const targetId = insertTestMovie(db, { title: "Target Movie" });
+
+    const res = await POST(makeRequest({ sourceId, targetId }));
+    expect(res.status).toBe(200);
+    const data = await res.json();
+    expect(data.ok).toBe(true);
+    expect(data.targetId).toBe(targetId);
+
+    const remaining = db
+      .prepare("SELECT id FROM movies")
+      .all() as { id: number }[];
+    expect(remaining.map((r) => r.id)).not.toContain(sourceId);
+    expect(remaining.map((r) => r.id)).toContain(targetId);
+  });
+
+  // ── Field merging strategies ──────────────────────────────────────────────
+
+  it("copies tmdb_id from source to target when target has none", async () => {
+    const sourceId = insertTestMovie(db, { title: "Source", tmdb_id: 12345 });
+    const targetId = insertTestMovie(db, { title: "Target", tmdb_id: null });
+
+    await POST(makeRequest({ sourceId, targetId }));
+
+    const target = db
+      .prepare("SELECT tmdb_id FROM movies WHERE id = ?")
+      .get(targetId) as { tmdb_id: number };
+    expect(target.tmdb_id).toBe(12345);
+  });
+
+  it("keeps target tmdb_id when both source and target have a value", async () => {
+    const sourceId = insertTestMovie(db, { title: "Source", tmdb_id: 111 });
+    const targetId = insertTestMovie(db, { title: "Target", tmdb_id: 222 });
+
+    await POST(makeRequest({ sourceId, targetId }));
+
+    const target = db
+      .prepare("SELECT tmdb_id FROM movies WHERE id = ?")
+      .get(targetId) as { tmdb_id: number };
+    expect(target.tmdb_id).toBe(222);
+  });
+
+  it("takes the higher user_rating from source and target", async () => {
+    const sourceId = insertTestMovie(db, { title: "Source" });
+    const targetId = insertTestMovie(db, { title: "Target" });
+    db.prepare("UPDATE movies SET user_rating = ? WHERE id = ?").run(
+      9,
+      sourceId,
+    );
+    db.prepare("UPDATE movies SET user_rating = ? WHERE id = ?").run(
+      6,
+      targetId,
+    );
+
+    await POST(makeRequest({ sourceId, targetId }));
+
+    const target = db
+      .prepare("SELECT user_rating FROM movies WHERE id = ?")
+      .get(targetId) as { user_rating: number };
+    expect(target.user_rating).toBe(9);
+  });
+
+  it("uses the longer description", async () => {
+    const shortDesc = "Short.";
+    const longDesc = "This is a much longer description with more detail.";
+    const sourceId = insertTestMovie(db, { title: "Source" });
+    const targetId = insertTestMovie(db, { title: "Target" });
+    db.prepare("UPDATE movies SET description = ? WHERE id = ?").run(
+      shortDesc,
+      sourceId,
+    );
+    db.prepare("UPDATE movies SET description = ? WHERE id = ?").run(
+      longDesc,
+      targetId,
+    );
+
+    await POST(makeRequest({ sourceId, targetId }));
+
+    const target = db
+      .prepare("SELECT description FROM movies WHERE id = ?")
+      .get(targetId) as { description: string };
+    expect(target.description).toBe(longDesc);
+  });
+
+  it("merges genres from both movies without duplicates", async () => {
+    const sourceId = insertTestMovie(db, {
+      title: "Source",
+      genre: "Action, Drama",
+    });
+    const targetId = insertTestMovie(db, {
+      title: "Target",
+      genre: "Drama, Sci-Fi",
+    });
+
+    await POST(makeRequest({ sourceId, targetId }));
+
+    const target = db
+      .prepare("SELECT genre FROM movies WHERE id = ?")
+      .get(targetId) as { genre: string };
+    const genres = target.genre.split(", ");
+    expect(genres).toContain("Action");
+    expect(genres).toContain("Drama");
+    expect(genres).toContain("Sci-Fi");
+    // No duplicates
+    expect(genres.filter((g) => g === "Drama")).toHaveLength(1);
+  });
+});

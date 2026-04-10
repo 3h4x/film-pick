@@ -18,6 +18,13 @@ export interface Movie {
   file_path: string | null;
   extra_files: string | null; // JSON array of additional file paths
   created_at: string;
+  // Columns added by filmweb import and other optional migrations
+  user_rating?: number | null;
+  pl_title?: string | null;
+  filmweb_id?: string | null;
+  filmweb_url?: string | null;
+  rated_at?: string | null;
+  wishlist?: number | null;
 }
 
 export interface MovieInput {
@@ -187,8 +194,8 @@ export function insertMovie(db: Database.Database, movie: MovieInput): number {
   if (movie.file_path) {
     const existing = db
       .prepare("SELECT id FROM movies WHERE file_path = ?")
-      .get(movie.file_path);
-    if (existing) return (existing as any).id;
+      .get(movie.file_path) as { id: number } | undefined;
+    if (existing) return existing.id;
   }
 
   // If a movie with the same title+year already exists, return existing id
@@ -243,24 +250,28 @@ export function deleteMovie(db: Database.Database, id: number): void {
   db.prepare("DELETE FROM movies WHERE id = ?").run(id);
 }
 
-export function getCachedEngine(
+export function getCachedEngine<T = unknown>(
   db: Database.Database,
   engine: string,
   movieCount: number,
-): any[] | null {
+): T[] | null {
   const row = db
     .prepare(
       "SELECT data, movie_count FROM recommendation_cache WHERE engine = ?",
     )
     .get(engine) as { data: string; movie_count: number } | undefined;
   if (!row || row.movie_count !== movieCount) return null;
-  return JSON.parse(row.data);
+  try {
+    return JSON.parse(row.data) as T[];
+  } catch {
+    return null;
+  }
 }
 
-export function setCachedEngine(
+export function setCachedEngine<T = unknown>(
   db: Database.Database,
   engine: string,
-  data: any[],
+  data: T[],
   movieCount: number,
 ): void {
   db.prepare(
