@@ -827,11 +827,16 @@ export default function Home() {
                           setTmdbAdded(new Set());
                           const q = searchQuery.trim().toLowerCase();
                           const libraryMatches = movies.filter(
-                            (m) => m.source !== "recommendation" || (m.user_rating != null && (m.user_rating as number) > 0)
+                            (m) => (m.source !== "recommendation" || (m.user_rating != null && (m.user_rating as number) > 0)) && !(m as any).wishlist
                           ).filter(
                             (m) => m.title.toLowerCase().includes(q) || m.pl_title?.toLowerCase().includes(q)
                           );
-                          if (libraryMatches.length === 0) {
+                          const wishlistMatches = movies.filter(
+                            (m) => (m as any).wishlist === 1
+                          ).filter(
+                            (m) => m.title.toLowerCase().includes(q) || m.pl_title?.toLowerCase().includes(q)
+                          );
+                          if (libraryMatches.length === 0 && wishlistMatches.length === 0) {
                             setTmdbLoading(true);
                             const res = await fetch(`/api/search?q=${encodeURIComponent(searchQuery.trim())}`);
                             if (res.ok) {
@@ -1004,7 +1009,12 @@ export default function Home() {
             ) : (() => {
               const q = searchQuery.toLowerCase();
               const libraryMatches = movies.filter(
-                (m) => m.source !== "recommendation" || (m.user_rating != null && (m.user_rating as number) > 0)
+                (m) => (m.source !== "recommendation" || (m.user_rating != null && (m.user_rating as number) > 0)) && !(m as any).wishlist
+              ).filter(
+                (m) => m.title.toLowerCase().includes(q) || m.pl_title?.toLowerCase().includes(q)
+              );
+              const wishlistMatches = movies.filter(
+                (m) => (m as any).wishlist === 1
               ).filter(
                 (m) => m.title.toLowerCase().includes(q) || m.pl_title?.toLowerCase().includes(q)
               );
@@ -1017,6 +1027,28 @@ export default function Home() {
                       <p className="text-xs font-semibold uppercase tracking-widest text-gray-500 mb-3">In your library</p>
                       <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 xl:grid-cols-7 gap-3">
                         {libraryMatches.map((m) => (
+                          <MovieCard
+                            key={m.id}
+                            title={m.title}
+                            year={m.year}
+                            genre={m.genre}
+                            rating={m.rating}
+                            userRating={m.user_rating}
+                            posterUrl={m.poster_url}
+                            source={m.source}
+                            onClick={() => setSelectedMovie(m)}
+                          />
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Watchlist matches */}
+                  {wishlistMatches.length > 0 && (
+                    <div>
+                      <p className="text-xs font-semibold uppercase tracking-widest text-gray-500 mb-3">In your watchlist</p>
+                      <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 xl:grid-cols-7 gap-3">
+                        {wishlistMatches.map((m) => (
                           <MovieCard
                             key={m.id}
                             title={m.title}
