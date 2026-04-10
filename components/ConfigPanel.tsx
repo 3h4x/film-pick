@@ -45,14 +45,20 @@ interface ConfigPanelProps {
   disabledEngines: string[];
   engines: { value: string; label: string }[];
   onToggleEngine: (engineKey: string) => void;
+  libraryPath: string | null;
+  onSaveLibraryPath: (path: string) => Promise<void>;
+  onSync: () => void;
 }
 
-export default function ConfigPanel({ config, onSave, tmdbKeySource, disabledEngines, engines, onToggleEngine }: ConfigPanelProps) {
+export default function ConfigPanel({ config, onSave, tmdbKeySource, disabledEngines, engines, onToggleEngine, libraryPath, onSaveLibraryPath, onSync }: ConfigPanelProps) {
   const [draft, setDraft] = useState<RecConfig>(config);
   const [dirty, setDirty] = useState(false);
   const [apiKey, setApiKey] = useState("");
   const [apiKeySource, setApiKeySource] = useState(tmdbKeySource);
   const [apiKeySaving, setApiKeySaving] = useState(false);
+  const [pathDraft, setPathDraft] = useState(libraryPath || "");
+  const [pathSaving, setPathSaving] = useState(false);
+  const [pathSaved, setPathSaved] = useState(false);
 
   useEffect(() => {
     setDraft(config);
@@ -62,6 +68,18 @@ export default function ConfigPanel({ config, onSave, tmdbKeySource, disabledEng
   useEffect(() => {
     setApiKeySource(tmdbKeySource);
   }, [tmdbKeySource]);
+
+  useEffect(() => {
+    setPathDraft(libraryPath || "");
+  }, [libraryPath]);
+
+  async function handleSavePath() {
+    setPathSaving(true);
+    await onSaveLibraryPath(pathDraft.trim());
+    setPathSaving(false);
+    setPathSaved(true);
+    setTimeout(() => setPathSaved(false), 2000);
+  }
 
   function update(partial: Partial<RecConfig>) {
     setDraft((prev) => ({ ...prev, ...partial }));
@@ -98,234 +116,296 @@ export default function ConfigPanel({ config, onSave, tmdbKeySource, disabledEng
   }
 
   return (
-    <div className="max-w-2xl space-y-8">
-      {/* TMDb API Key */}
-      <section>
-        <h3 className="text-white font-semibold text-sm mb-1">TMDb API Key</h3>
-        <p className="text-gray-500 text-xs mb-3">
-          Required for search and recommendations.{" "}
-          {apiKeySource === "env" ? (
-            <span className="text-green-400">Loaded from environment (bioenv)</span>
-          ) : apiKeySource === "db" ? (
-            <span className="text-yellow-400">Loaded from database (less secure)</span>
-          ) : (
-            <span className="text-red-400">Not configured</span>
-          )}
-        </p>
-        {apiKeySource !== "env" && (
-          <div className="flex items-center gap-2">
-            <input
-              type="password"
-              placeholder={apiKeySource === "db" ? "••••••••  (replace)" : "Paste TMDb read access token"}
-              value={apiKey}
-              onChange={(e) => setApiKey(e.target.value)}
-              className="bg-gray-800/60 border border-gray-700/30 rounded-lg px-3 py-2 text-white text-sm flex-1 focus:outline-none focus:border-indigo-500/50"
-            />
-            <button
-              onClick={saveApiKey}
-              disabled={!apiKey.trim() || apiKeySaving}
-              className="px-4 py-2 text-sm rounded-lg bg-indigo-600 text-white hover:bg-indigo-500 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
-            >
-              {apiKeySaving ? "Saving..." : "Save"}
-            </button>
-            {apiKeySource === "db" && (
+    <div className="max-w-2xl space-y-10">
+
+      {/* ── Library ─────────────────────────────────────────── */}
+      <div>
+        <h2 className="text-xs font-semibold uppercase tracking-widest text-gray-500 mb-5">Library</h2>
+        <div className="space-y-8">
+
+          {/* Library Path */}
+          <section>
+            <h3 className="text-white font-semibold text-sm mb-1">Library Path</h3>
+            <p className="text-gray-500 text-xs mb-3">
+              Directory to scan for video files. Used for import and sync.
+            </p>
+            <div className="flex items-center gap-2">
+              <input
+                type="text"
+                value={pathDraft}
+                onChange={(e) => setPathDraft(e.target.value)}
+                onKeyDown={(e) => e.key === "Enter" && handleSavePath()}
+                placeholder="/Volumes/video/Movies"
+                className="flex-1 bg-gray-800/60 border border-gray-700/30 rounded-lg px-3 py-2 text-white text-sm font-mono focus:outline-none focus:border-indigo-500/50 placeholder-gray-600"
+              />
               <button
-                onClick={() => { setApiKey(""); saveApiKey(); }}
-                className="px-3 py-2 text-sm rounded-lg bg-red-600/20 text-red-300 hover:bg-red-600/30 transition-colors"
+                onClick={handleSavePath}
+                disabled={pathSaving || !pathDraft.trim() || pathDraft.trim() === libraryPath}
+                className="px-4 py-2 text-sm rounded-lg bg-indigo-600 text-white hover:bg-indigo-500 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
               >
-                Remove
+                {pathSaving ? "Saving..." : pathSaved ? "Saved" : "Save"}
               </button>
+              {libraryPath && (
+                <button
+                  onClick={onSync}
+                  className="px-4 py-2 text-sm rounded-lg bg-gray-700 text-gray-300 hover:bg-gray-600 hover:text-white transition-colors"
+                >
+                  Sync Now
+                </button>
+              )}
+            </div>
+            {libraryPath && (
+              <p className="text-gray-600 text-xs mt-2 font-mono">
+                Current: {libraryPath}
+              </p>
             )}
-          </div>
-        )}
-      </section>
+          </section>
 
-      {/* Recommendation Engines */}
-      <section>
-        <h3 className="text-white font-semibold text-sm mb-1">Recommendation Engines</h3>
-        <p className="text-gray-500 text-xs mb-3">
-          Disabled engines won&apos;t run on page load or refresh
-        </p>
-        <div className="flex flex-wrap gap-2">
-          {engines.map((eng) => {
-            const disabled = disabledEngines.includes(eng.value);
-            return (
-              <button
-                key={eng.value}
-                onClick={() => onToggleEngine(eng.value)}
-                className={`text-xs px-3 py-1.5 rounded-lg transition-all border ${
-                  disabled
-                    ? "bg-red-500/20 text-red-300 border-red-500/30"
-                    : "bg-green-500/20 text-green-300 border-green-500/30"
-                }`}
-              >
-                {disabled ? "✕" : "✓"} {eng.label}
-              </button>
-            );
-          })}
         </div>
-      </section>
+      </div>
 
-      {/* Excluded Genres */}
-      <section>
-        <h3 className="text-white font-semibold text-sm mb-1">
-          Excluded Genres
-        </h3>
-        <p className="text-gray-500 text-xs mb-3">
-          Recommendations with these genres will be hidden
-        </p>
-        <div className="flex flex-wrap gap-2">
-          {ALL_GENRES.map((genre) => {
-            const excluded = draft.excluded_genres.includes(genre);
-            return (
-              <button
-                key={genre}
-                onClick={() => toggleGenre(genre)}
-                className={`text-xs px-3 py-1.5 rounded-lg transition-all border ${
-                  excluded
-                    ? "bg-red-500/20 text-red-300 border-red-500/30"
-                    : "bg-gray-800/60 text-gray-400 border-gray-700/30 hover:border-gray-600/50 hover:text-gray-300"
-                }`}
-              >
-                {excluded && <span className="mr-1">✕</span>}
-                {genre}
-              </button>
-            );
-          })}
+      <hr className="border-gray-800" />
+
+      {/* ── Integrations ────────────────────────────────────── */}
+      <div>
+        <h2 className="text-xs font-semibold uppercase tracking-widest text-gray-500 mb-5">Integrations</h2>
+        <div className="space-y-8">
+
+          {/* TMDb API Key */}
+          <section>
+            <h3 className="text-white font-semibold text-sm mb-1">TMDb API Key</h3>
+            <p className="text-gray-500 text-xs mb-3">
+              Required for search and recommendations.{" "}
+              {apiKeySource === "env" ? (
+                <span className="text-green-400">Loaded from environment (bioenv)</span>
+              ) : apiKeySource === "db" ? (
+                <span className="text-yellow-400">Loaded from database (less secure)</span>
+              ) : (
+                <span className="text-red-400">Not configured</span>
+              )}
+            </p>
+            {apiKeySource !== "env" && (
+              <div className="flex items-center gap-2">
+                <input
+                  type="password"
+                  placeholder={apiKeySource === "db" ? "••••••••  (replace)" : "Paste TMDb read access token"}
+                  value={apiKey}
+                  onChange={(e) => setApiKey(e.target.value)}
+                  className="bg-gray-800/60 border border-gray-700/30 rounded-lg px-3 py-2 text-white text-sm flex-1 focus:outline-none focus:border-indigo-500/50"
+                />
+                <button
+                  onClick={saveApiKey}
+                  disabled={!apiKey.trim() || apiKeySaving}
+                  className="px-4 py-2 text-sm rounded-lg bg-indigo-600 text-white hover:bg-indigo-500 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+                >
+                  {apiKeySaving ? "Saving..." : "Save"}
+                </button>
+                {apiKeySource === "db" && (
+                  <button
+                    onClick={() => { setApiKey(""); saveApiKey(); }}
+                    className="px-3 py-2 text-sm rounded-lg bg-red-600/20 text-red-300 hover:bg-red-600/30 transition-colors"
+                  >
+                    Remove
+                  </button>
+                )}
+              </div>
+            )}
+          </section>
+
         </div>
-      </section>
+      </div>
 
-      {/* Minimum Year */}
-      <section>
-        <h3 className="text-white font-semibold text-sm mb-1">Minimum Year</h3>
-        <p className="text-gray-500 text-xs mb-3">
-          Only recommend movies released after this year
-        </p>
-        <div className="flex items-center gap-3">
-          <input
-            type="number"
-            min={1900}
-            max={new Date().getFullYear()}
-            placeholder="Any year"
-            value={draft.min_year ?? ""}
-            onChange={(e) =>
-              update({
-                min_year: e.target.value ? parseInt(e.target.value, 10) : null,
-              })
-            }
-            className="bg-gray-800/60 border border-gray-700/30 rounded-lg px-3 py-2 text-white text-sm w-32 focus:outline-none focus:border-indigo-500/50"
-          />
-          <div className="flex gap-1">
-            {[1990, 2000, 2010, 2020].map((year) => (
-              <button
-                key={year}
-                onClick={() =>
-                  update({ min_year: draft.min_year === year ? null : year })
+      <hr className="border-gray-800" />
+
+      {/* ── Recommendations ─────────────────────────────────── */}
+      <div>
+        <h2 className="text-xs font-semibold uppercase tracking-widest text-gray-500 mb-5">Recommendations</h2>
+        <div className="space-y-8">
+
+          {/* Engines */}
+          <section>
+            <h3 className="text-white font-semibold text-sm mb-1">Engines</h3>
+            <p className="text-gray-500 text-xs mb-3">
+              Disabled engines won&apos;t run on page load or refresh
+            </p>
+            <div className="flex flex-wrap gap-2">
+              {engines.map((eng) => {
+                const disabled = disabledEngines.includes(eng.value);
+                return (
+                  <button
+                    key={eng.value}
+                    onClick={() => onToggleEngine(eng.value)}
+                    className={`text-xs px-3 py-1.5 rounded-lg transition-all border ${
+                      disabled
+                        ? "bg-red-500/20 text-red-300 border-red-500/30"
+                        : "bg-green-500/20 text-green-300 border-green-500/30"
+                    }`}
+                  >
+                    {disabled ? "✕" : "✓"} {eng.label}
+                  </button>
+                );
+              })}
+            </div>
+          </section>
+
+          {/* Excluded Genres */}
+          <section>
+            <h3 className="text-white font-semibold text-sm mb-1">Excluded Genres</h3>
+            <p className="text-gray-500 text-xs mb-3">
+              Recommendations with these genres will be hidden
+            </p>
+            <div className="flex flex-wrap gap-2">
+              {ALL_GENRES.map((genre) => {
+                const excluded = draft.excluded_genres.includes(genre);
+                return (
+                  <button
+                    key={genre}
+                    onClick={() => toggleGenre(genre)}
+                    className={`text-xs px-3 py-1.5 rounded-lg transition-all border ${
+                      excluded
+                        ? "bg-red-500/20 text-red-300 border-red-500/30"
+                        : "bg-gray-800/60 text-gray-400 border-gray-700/30 hover:border-gray-600/50 hover:text-gray-300"
+                    }`}
+                  >
+                    {excluded && <span className="mr-1">✕</span>}
+                    {genre}
+                  </button>
+                );
+              })}
+            </div>
+          </section>
+
+          {/* Minimum Year */}
+          <section>
+            <h3 className="text-white font-semibold text-sm mb-1">Minimum Year</h3>
+            <p className="text-gray-500 text-xs mb-3">
+              Only recommend movies released after this year
+            </p>
+            <div className="flex items-center gap-3">
+              <input
+                type="number"
+                min={1900}
+                max={new Date().getFullYear()}
+                placeholder="Any year"
+                value={draft.min_year ?? ""}
+                onChange={(e) =>
+                  update({
+                    min_year: e.target.value ? parseInt(e.target.value, 10) : null,
+                  })
                 }
-                className={`text-xs px-2.5 py-1.5 rounded-lg transition-all ${
-                  draft.min_year === year
-                    ? "bg-indigo-500/20 text-indigo-300 border border-indigo-500/30"
-                    : "text-gray-500 hover:text-gray-300 hover:bg-gray-800/60"
-                }`}
-              >
-                {year}+
-              </button>
-            ))}
-          </div>
-        </div>
-      </section>
+                className="bg-gray-800/60 border border-gray-700/30 rounded-lg px-3 py-2 text-white text-sm w-32 focus:outline-none focus:border-indigo-500/50"
+              />
+              <div className="flex gap-1">
+                {[1990, 2000, 2010, 2020].map((year) => (
+                  <button
+                    key={year}
+                    onClick={() =>
+                      update({ min_year: draft.min_year === year ? null : year })
+                    }
+                    className={`text-xs px-2.5 py-1.5 rounded-lg transition-all ${
+                      draft.min_year === year
+                        ? "bg-indigo-500/20 text-indigo-300 border border-indigo-500/30"
+                        : "text-gray-500 hover:text-gray-300 hover:bg-gray-800/60"
+                    }`}
+                  >
+                    {year}+
+                  </button>
+                ))}
+              </div>
+            </div>
+          </section>
 
-      {/* Minimum Rating */}
-      <section>
-        <h3 className="text-white font-semibold text-sm mb-1">
-          Minimum TMDb Rating
-        </h3>
-        <p className="text-gray-500 text-xs mb-3">
-          Filter out recommendations below this rating
-        </p>
-        <div className="flex items-center gap-3">
-          <input
-            type="number"
-            min={0}
-            max={10}
-            step={0.5}
-            placeholder="Any rating"
-            value={draft.min_rating ?? ""}
-            onChange={(e) =>
-              update({
-                min_rating: e.target.value ? parseFloat(e.target.value) : null,
-              })
-            }
-            className="bg-gray-800/60 border border-gray-700/30 rounded-lg px-3 py-2 text-white text-sm w-32 focus:outline-none focus:border-indigo-500/50"
-          />
-          <div className="flex gap-1">
-            {[6, 6.5, 7, 7.5, 8].map((r) => (
-              <button
-                key={r}
-                onClick={() =>
-                  update({ min_rating: draft.min_rating === r ? null : r })
+          {/* Minimum Rating */}
+          <section>
+            <h3 className="text-white font-semibold text-sm mb-1">Minimum TMDb Rating</h3>
+            <p className="text-gray-500 text-xs mb-3">
+              Filter out recommendations below this rating
+            </p>
+            <div className="flex items-center gap-3">
+              <input
+                type="number"
+                min={0}
+                max={10}
+                step={0.5}
+                placeholder="Any rating"
+                value={draft.min_rating ?? ""}
+                onChange={(e) =>
+                  update({
+                    min_rating: e.target.value ? parseFloat(e.target.value) : null,
+                  })
                 }
-                className={`text-xs px-2.5 py-1.5 rounded-lg transition-all ${
-                  draft.min_rating === r
-                    ? "bg-yellow-500/20 text-yellow-300 border border-yellow-500/30"
-                    : "text-gray-500 hover:text-gray-300 hover:bg-gray-800/60"
-                }`}
-              >
-                {r}+
-              </button>
-            ))}
-          </div>
-        </div>
-      </section>
+                className="bg-gray-800/60 border border-gray-700/30 rounded-lg px-3 py-2 text-white text-sm w-32 focus:outline-none focus:border-indigo-500/50"
+              />
+              <div className="flex gap-1">
+                {[6, 6.5, 7, 7.5, 8].map((r) => (
+                  <button
+                    key={r}
+                    onClick={() =>
+                      update({ min_rating: draft.min_rating === r ? null : r })
+                    }
+                    className={`text-xs px-2.5 py-1.5 rounded-lg transition-all ${
+                      draft.min_rating === r
+                        ? "bg-yellow-500/20 text-yellow-300 border border-yellow-500/30"
+                        : "text-gray-500 hover:text-gray-300 hover:bg-gray-800/60"
+                    }`}
+                  >
+                    {r}+
+                  </button>
+                ))}
+              </div>
+            </div>
+          </section>
 
-      {/* Max Per Group */}
-      <section>
-        <h3 className="text-white font-semibold text-sm mb-1">
-          Results Per Group
-        </h3>
-        <p className="text-gray-500 text-xs mb-3">
-          Maximum number of recommendations in each group
-        </p>
-        <div className="flex gap-1">
-          {[5, 10, 15, 20, 30].map((n) => (
+          {/* Max Per Group */}
+          <section>
+            <h3 className="text-white font-semibold text-sm mb-1">Results Per Group</h3>
+            <p className="text-gray-500 text-xs mb-3">
+              Maximum number of recommendations in each group
+            </p>
+            <div className="flex gap-1">
+              {[5, 10, 15, 20, 30].map((n) => (
+                <button
+                  key={n}
+                  onClick={() => update({ max_per_group: n })}
+                  className={`text-xs px-3 py-1.5 rounded-lg transition-all ${
+                    draft.max_per_group === n
+                      ? "bg-indigo-500/20 text-indigo-300 border border-indigo-500/30"
+                      : "text-gray-500 hover:text-gray-300 hover:bg-gray-800/60"
+                  }`}
+                >
+                  {n}
+                </button>
+              ))}
+            </div>
+          </section>
+
+          {/* Actions */}
+          <div className="flex items-center gap-3 pt-2">
             <button
-              key={n}
-              onClick={() => update({ max_per_group: n })}
-              className={`text-xs px-3 py-1.5 rounded-lg transition-all ${
-                draft.max_per_group === n
-                  ? "bg-indigo-500/20 text-indigo-300 border border-indigo-500/30"
-                  : "text-gray-500 hover:text-gray-300 hover:bg-gray-800/60"
+              onClick={handleSave}
+              disabled={!dirty}
+              className={`px-5 py-2 rounded-lg text-sm font-medium transition-all ${
+                dirty
+                  ? "bg-indigo-500 text-white hover:bg-indigo-400 shadow-md shadow-indigo-500/20"
+                  : "bg-gray-800/60 text-gray-600 cursor-default"
               }`}
             >
-              {n}
+              Save & Refresh Recommendations
             </button>
-          ))}
-        </div>
-      </section>
+            <button
+              onClick={handleReset}
+              className="text-gray-500 hover:text-gray-300 text-sm transition-colors"
+            >
+              Reset to defaults
+            </button>
+            {dirty && (
+              <span className="text-yellow-500/70 text-xs">Unsaved changes</span>
+            )}
+          </div>
 
-      {/* Actions */}
-      <div className="flex items-center gap-3 pt-2">
-        <button
-          onClick={handleSave}
-          disabled={!dirty}
-          className={`px-5 py-2 rounded-lg text-sm font-medium transition-all ${
-            dirty
-              ? "bg-indigo-500 text-white hover:bg-indigo-400 shadow-md shadow-indigo-500/20"
-              : "bg-gray-800/60 text-gray-600 cursor-default"
-          }`}
-        >
-          Save & Refresh Recommendations
-        </button>
-        <button
-          onClick={handleReset}
-          className="text-gray-500 hover:text-gray-300 text-sm transition-colors"
-        >
-          Reset to defaults
-        </button>
-        {dirty && (
-          <span className="text-yellow-500/70 text-xs">Unsaved changes</span>
-        )}
+        </div>
       </div>
+
     </div>
   );
 }

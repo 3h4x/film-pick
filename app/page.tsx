@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback, useMemo, useRef } from "react";
+import { useRouter } from "next/navigation";
 import MovieCard from "@/components/MovieCard";
 import MovieDetail from "@/components/MovieDetail";
 import SearchModal from "@/components/SearchModal";
@@ -79,13 +80,14 @@ interface ToastItem {
 
 const PAGE_SIZE = 36;
 
-type AppTab = "library" | "recommendations" | "wishlist" | "config" | "person";
+type AppTab = "library" | "recommendations" | "wishlist" | "config" | "person" | "search";
 
 function parseHash(): { tab: AppTab; category: string } {
   if (typeof window === "undefined") return { tab: "recommendations", category: "all" };
   const hash = window.location.hash.replace("#", "");
   if (hash === "wishlist") return { tab: "wishlist", category: "all" };
   if (hash === "config") return { tab: "config", category: "all" };
+  if (hash.startsWith("search/")) return { tab: "search", category: decodeURIComponent(hash.substring(7)) };
   if (hash.startsWith("recommendations")) {
     const parts = hash.split("/");
     return { tab: "recommendations", category: parts[1] || "all" };
@@ -106,6 +108,7 @@ export default function Home() {
   const [recLoading, setRecLoading] = useState<Record<string, boolean>>({});
   const [totalRecsCount, setTotalRecsCount] = useState(0);
   const [searchOpen, setSearchOpen] = useState(false);
+  const router = useRouter();
   const [importOpen, setImportOpen] = useState(false);
   const [syncOpen, setSyncOpen] = useState(false);
   const [searchTargetId, setSearchTargetId] = useState<number | null>(null);
@@ -137,6 +140,12 @@ export default function Home() {
   const [toasts, setToasts] = useState<ToastItem[]>([]);
   const toastId = useRef(0);
 
+  // TMDb search results (inline search tab)
+  const [tmdbResults, setTmdbResults] = useState<any[]>([]);
+  const [tmdbLoading, setTmdbLoading] = useState(false);
+  const [tmdbAdded, setTmdbAdded] = useState<Set<number>>(new Set());
+  const [tmdbError, setTmdbError] = useState<string | null>(null);
+
   // Rec state
   const [recCategory, setRecCategory] = useState("all");
   const [cdaOnly, setCdaOnly] = useState(false);
@@ -151,6 +160,8 @@ export default function Home() {
   // Read hash on mount (after hydration to avoid mismatch)
   useEffect(() => {
     const { tab, category } = parseHash();
+    // Don't restore search tab on mount — it has no cached results
+    if (tab === "search") return;
     if (tab !== "recommendations") setActiveTab(tab);
     if (tab === "person") setPersonFilter(category);
     else if (tab === "recommendations" && category !== "all") setRecCategory(category);
@@ -161,19 +172,21 @@ export default function Home() {
     const hash =
       activeTab === "person"
         ? `#person/${encodeURIComponent(personFilter)}`
-        : activeTab === "library"
-          ? "#library"
-          : activeTab === "wishlist"
-            ? "#wishlist"
-            : activeTab === "config"
-              ? "#config"
-              : recCategory === "all"
-                ? "#recommendations"
-                : `#recommendations/${recCategory}`;
+        : activeTab === "search"
+          ? `#search/${encodeURIComponent(searchQuery)}`
+          : activeTab === "library"
+            ? "#library"
+            : activeTab === "wishlist"
+              ? "#wishlist"
+              : activeTab === "config"
+                ? "#config"
+                : recCategory === "all"
+                  ? "#recommendations"
+                  : `#recommendations/${recCategory}`;
     if (window.location.hash !== hash) {
       window.history.replaceState(null, "", hash);
     }
-  }, [activeTab, recCategory, personFilter]);
+  }, [activeTab, recCategory, personFilter, searchQuery]);
 
   // Handle browser back/forward
   useEffect(() => {
@@ -239,6 +252,13 @@ export default function Home() {
   function dismissToast(id: number) {
     setToasts((prev) => prev.filter((t) => t.id !== id));
   }
+
+  // Exit search mode when query is cleared
+  useEffect(() => {
+    if (activeTab === "search" && !searchQuery.trim()) {
+      setActiveTab("library");
+    }
+  }, [searchQuery, activeTab]);
 
   // Reset pagination when filters change
   useEffect(() => {
@@ -768,15 +788,17 @@ export default function Home() {
           {/* Row 1: Logo + Actions */}
           <div className="flex items-center justify-between mb-4">
             <div className="flex items-center gap-4">
-              <h1 className="text-lg font-bold text-white tracking-tight flex items-center gap-2">
+              <h1
+                className="text-lg font-bold text-white tracking-tight flex items-center gap-2 cursor-pointer hover:opacity-80 transition-opacity"
+                onClick={() => router.push("/")}
+              >
                 <img src="/icon-192.png" alt="FilmPick" className="w-7 h-7 rounded" />
                 FilmPick
                 <span className="text-xs font-medium px-1.5 py-0.5 rounded-md bg-gray-700/50 text-gray-400">
                   {process.env.NEXT_PUBLIC_APP_VERSION || "dev"}
                 </span>
               </h1>
-              {!initialLoad &&
-                (activeTab === "library" || activeTab === "wishlist") && (
+              {!initialLoad && (
                   <div className="relative group flex-1 max-w-[200px] sm:max-w-xs transition-all">
                     <div className="absolute inset-y-0 left-3 flex items-center pointer-events-none">
                       <svg
@@ -797,16 +819,41 @@ export default function Home() {
                       type="text"
                       value={searchQuery}
                       onChange={(e) => setSearchQuery(e.target.value)}
-                      placeholder={
-                        activeTab === "library"
-                          ? "Search library..."
-                          : "Search wishlist..."
-                      }
+                      onKeyDown={async (e) => {
+                        if (e.key === "Enter" && searchQuery.trim()) {
+                          setActiveTab("search");
+                          setTmdbResults([]);
+                          setTmdbError(null);
+                          setTmdbAdded(new Set());
+                          const q = searchQuery.trim().toLowerCase();
+                          const libraryMatches = movies.filter(
+                            (m) => m.source !== "recommendation" || (m.user_rating != null && (m.user_rating as number) > 0)
+                          ).filter(
+                            (m) => m.title.toLowerCase().includes(q) || m.pl_title?.toLowerCase().includes(q)
+                          );
+                          if (libraryMatches.length === 0) {
+                            setTmdbLoading(true);
+                            const res = await fetch(`/api/search?q=${encodeURIComponent(searchQuery.trim())}`);
+                            if (res.ok) {
+                              setTmdbResults(await res.json());
+                            } else {
+                              const body = await res.json().catch(() => ({}));
+                              setTmdbError(body.error === "no_api_key" ? "no_api_key" : "error");
+                            }
+                            setTmdbLoading(false);
+                          }
+                        }
+                        if (e.key === "Escape") {
+                          setSearchQuery("");
+                          setActiveTab("library");
+                        }
+                      }}
+                      placeholder="Search library..."
                       className="w-full bg-gray-800/40 text-white text-xs pl-8 pr-8 py-1.5 rounded-lg border border-gray-700/50 focus:border-indigo-500/50 focus:ring-1 focus:ring-indigo-500/20 focus:outline-none placeholder-gray-600 transition-all"
                     />
                     {searchQuery && (
                       <button
-                        onClick={() => setSearchQuery("")}
+                        onClick={() => { setSearchQuery(""); if (activeTab === "search") setActiveTab("library"); }}
                         className="absolute inset-y-0 right-2 flex items-center px-1 text-gray-500 hover:text-white"
                       >
                         <svg
@@ -871,25 +918,6 @@ export default function Home() {
                     </svg>
                   </button>
                 )}
-                <button
-                  onClick={() => setSearchOpen(true)}
-                  className="bg-indigo-500 text-white px-4 py-1.5 rounded-lg hover:bg-indigo-400 transition-all shadow-md shadow-indigo-500/20 font-medium text-sm flex items-center gap-1.5"
-                >
-                  <svg
-                    className="w-3.5 h-3.5"
-                    fill="none"
-                    viewBox="0 0 24 24"
-                    stroke="currentColor"
-                    strokeWidth={2.5}
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      d="M12 4v16m8-8H4"
-                    />
-                  </svg>
-                  Find
-                </button>
               </div>
             )}
           </div>
@@ -944,6 +972,146 @@ export default function Home() {
       </nav>
 
       <div className="mt-6 w-full">
+
+        {activeTab === "search" && (
+          <div>
+            <div className="flex items-center gap-3 mb-5">
+              <p className="text-gray-500 text-sm">
+                TMDb results for <span className="text-white">&ldquo;{searchQuery}&rdquo;</span>
+              </p>
+              <button
+                onClick={() => { setSearchQuery(""); setActiveTab("library"); }}
+                className="text-xs text-gray-600 hover:text-gray-400 transition-colors"
+              >
+                ✕ Clear
+              </button>
+            </div>
+            {tmdbLoading ? (
+              <div className="flex items-center justify-center py-24">
+                <div className="w-8 h-8 border-2 border-indigo-500 border-t-transparent rounded-full animate-spin" />
+              </div>
+            ) : tmdbError === "no_api_key" ? (
+              <div className="text-center py-24">
+                <p className="text-gray-400 text-lg font-medium">TMDb API key not configured</p>
+                <p className="text-gray-600 text-sm mt-2">Add your key in the Config tab to enable search</p>
+                <button
+                  onClick={() => { setSearchQuery(""); setActiveTab("config"); }}
+                  className="mt-5 px-5 py-2 rounded-lg bg-indigo-600 text-white text-sm hover:bg-indigo-500 transition-colors"
+                >
+                  Go to Config
+                </button>
+              </div>
+            ) : (() => {
+              const q = searchQuery.toLowerCase();
+              const libraryMatches = movies.filter(
+                (m) => m.source !== "recommendation" || (m.user_rating != null && (m.user_rating as number) > 0)
+              ).filter(
+                (m) => m.title.toLowerCase().includes(q) || m.pl_title?.toLowerCase().includes(q)
+              );
+              const tmdbOnly = tmdbResults.filter((r: any) => !movies.some((m) => m.tmdb_id === r.tmdb_id));
+              return (
+                <div className="space-y-8">
+                  {/* Library matches */}
+                  {libraryMatches.length > 0 && (
+                    <div>
+                      <p className="text-xs font-semibold uppercase tracking-widest text-gray-500 mb-3">In your library</p>
+                      <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 xl:grid-cols-7 gap-3">
+                        {libraryMatches.map((m) => (
+                          <MovieCard
+                            key={m.id}
+                            title={m.title}
+                            year={m.year}
+                            genre={m.genre}
+                            rating={m.rating}
+                            userRating={m.user_rating}
+                            posterUrl={m.poster_url}
+                            source={m.source}
+                            onClick={() => setSelectedMovie(m)}
+                          />
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* TMDb results */}
+                  {tmdbLoading ? (
+                    <div className="flex items-center gap-2 text-gray-600 text-sm">
+                      <div className="w-4 h-4 border-2 border-indigo-500 border-t-transparent rounded-full animate-spin" />
+                      Searching TMDb...
+                    </div>
+                  ) : tmdbError === "no_api_key" ? (
+                    <div>
+                      <p className="text-xs font-semibold uppercase tracking-widest text-gray-500 mb-3">TMDb</p>
+                      <p className="text-gray-600 text-sm">
+                        API key not configured —{" "}
+                        <button onClick={() => { setSearchQuery(""); setActiveTab("config"); }} className="text-indigo-400 hover:text-indigo-300 transition-colors">
+                          set it in Config
+                        </button>
+                      </p>
+                    </div>
+                  ) : tmdbOnly.length > 0 ? (
+                    <div>
+                      <p className="text-xs font-semibold uppercase tracking-widest text-gray-500 mb-3">From TMDb</p>
+                      <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 xl:grid-cols-7 gap-3">
+                        {tmdbOnly.map((r: any) => {
+                          const justAdded = tmdbAdded.has(r.tmdb_id);
+                          return (
+                            <div key={r.tmdb_id} className="relative group/card">
+                              <MovieCard
+                                title={r.title}
+                                year={r.year}
+                                genre={r.genre}
+                                rating={r.rating}
+                                userRating={null}
+                                posterUrl={r.poster_url}
+                                source="tmdb"
+                                onClick={() => {}}
+                              />
+                              {justAdded ? (
+                                <div className="absolute top-1.5 left-1.5 bg-green-600/90 text-white text-xs px-1.5 py-0.5 rounded font-medium">Added</div>
+                              ) : (
+                                <div className="absolute bottom-14 right-1 flex flex-col gap-1 opacity-0 group-hover/card:opacity-100 transition-all duration-200">
+                                  <button
+                                    onClick={async () => {
+                                      await fetch("/api/movies", { method: "POST", headers: { "Content-Type": "application/json" },
+                                        body: JSON.stringify({ title: r.title, year: r.year, genre: r.genre, rating: r.rating, poster_url: r.poster_url, source: "tmdb", imdb_id: r.imdb_id, tmdb_id: r.tmdb_id, type: "movie" }),
+                                      });
+                                      setTmdbAdded((prev) => new Set(prev).add(r.tmdb_id));
+                                      fetchMovies();
+                                    }}
+                                    className="bg-indigo-600/90 backdrop-blur-sm text-white rounded-lg w-7 h-7 text-sm flex items-center justify-center hover:bg-indigo-500 transition-colors"
+                                    title="Add to library"
+                                  >+</button>
+                                  <button
+                                    onClick={async () => {
+                                      await fetch("/api/movies", { method: "POST", headers: { "Content-Type": "application/json" },
+                                        body: JSON.stringify({ title: r.title, year: r.year, genre: r.genre, rating: r.rating, poster_url: r.poster_url, source: "tmdb", imdb_id: r.imdb_id, tmdb_id: r.tmdb_id, type: "movie", wishlist: 1 }),
+                                      });
+                                      setTmdbAdded((prev) => new Set(prev).add(r.tmdb_id));
+                                      fetchMovies();
+                                    }}
+                                    className="bg-blue-600/90 backdrop-blur-sm text-white rounded-lg w-7 h-7 text-sm flex items-center justify-center hover:bg-blue-500 transition-colors"
+                                    title="Add to watchlist"
+                                  >🔖</button>
+                                </div>
+                              )}
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  ) : libraryMatches.length === 0 ? (
+                    <div className="text-center py-16">
+                      <p className="text-gray-400 text-lg font-medium">No results for &ldquo;{searchQuery}&rdquo;</p>
+                      <p className="text-gray-600 text-sm mt-2">Try a different title or check spelling</p>
+                    </div>
+                  ) : null}
+                </div>
+              );
+            })()}
+          </div>
+        )}
+
         {activeTab === "library" && (
           <>
             {initialLoad ? (
@@ -987,7 +1155,7 @@ export default function Home() {
                     Import Folder
                   </button>
                   <button
-                    onClick={() => setSearchOpen(true)}
+                    onClick={() => router.push("/search")}
                     className="text-gray-400 hover:text-white px-5 py-2.5 rounded-xl hover:bg-gray-800/60 transition-all font-medium text-sm border border-gray-700/50"
                   >
                     Search Manually
@@ -1007,7 +1175,7 @@ export default function Home() {
                   watchlist
                 </p>
                 <button
-                  onClick={() => setSearchOpen(true)}
+                  onClick={() => router.push(`/search/${encodeURIComponent(searchQuery)}`)}
                   className="mt-6 bg-indigo-500 text-white px-5 py-2.5 rounded-xl hover:bg-indigo-400 transition-all shadow-lg shadow-indigo-500/20 font-medium text-sm"
                 >
                   Search in TMDb
@@ -1045,7 +1213,7 @@ export default function Home() {
                   </p>
                   {searchQuery && (
                     <button
-                      onClick={() => setSearchOpen(true)}
+                      onClick={() => router.push(`/search/${encodeURIComponent(searchQuery)}`)}
                       className="text-indigo-400 hover:text-indigo-300 text-xs font-medium transition-colors flex items-center gap-1.5 px-2 py-1 rounded-lg hover:bg-indigo-500/10"
                     >
                       <span>🔍</span>
@@ -1359,6 +1527,16 @@ export default function Home() {
             tmdbKeySource={tmdbKeySource}
             disabledEngines={disabledEngines}
             engines={REC_CATEGORIES.slice(1)}
+            libraryPath={libraryPath}
+            onSaveLibraryPath={async (path) => {
+              await fetch("/api/settings", {
+                method: "PATCH",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ library_path: path }),
+              });
+              setLibraryPath(path || null);
+            }}
+            onSync={() => setSyncOpen(true)}
             onSave={async (cfg) => {
               setRecConfig(cfg);
               await fetch("/api/settings", {
