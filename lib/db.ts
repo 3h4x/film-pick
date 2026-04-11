@@ -186,10 +186,19 @@ export function initDb(db: Database.Database): void {
       poster_url TEXT,
       pl_title TEXT,
       cda_url TEXT,
+      description TEXT,
       created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
       UNIQUE(tmdb_id, engine)
     );
   `);
+
+  // Migration: add description column to recommended_movies if missing
+  const recMovieCols = (
+    db.pragma("table_info(recommended_movies)") as { name: string }[]
+  ).map((c) => c.name);
+  if (!recMovieCols.includes("description")) {
+    db.exec("ALTER TABLE recommended_movies ADD COLUMN description TEXT");
+  }
 
   // Migration: old recommendation_cache had 'id' column, new one has 'engine'
   const cacheInfo = db.pragma("table_info(recommendation_cache)") as {
@@ -349,6 +358,7 @@ export interface RecommendedMovie {
   poster_url: string | null;
   pl_title: string | null;
   cda_url: string | null;
+  description: string | null;
   created_at: string;
 }
 

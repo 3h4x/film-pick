@@ -71,18 +71,71 @@ Environment variable takes priority over the database setting.
 
 ## Docker
 
+The pre-built image is published to GHCR on every push to `master`:
+
 ```bash
-docker pull ghcr.io/3h4x/film-pick:master
+docker pull ghcr.io/3h4x/film-pick:latest
 ```
 
-Run with docker-compose:
+### docker-compose (recommended)
 
 ```bash
 echo "TMDB_API_KEY=your-key" > .env
 docker compose up -d    # http://localhost:4000
 ```
 
-SQLite data is persisted in `./data/` via volume mount.
+SQLite data is persisted in `./data/` on the host via volume mount.
+
+### Mounting your movie collection
+
+To let FilmPick scan and stream local video files, add a second volume for your movies directory:
+
+```yaml
+# docker-compose.yml
+services:
+  filmpick:
+    image: ghcr.io/3h4x/film-pick:latest
+    container_name: filmpick
+    restart: unless-stopped
+    ports:
+      - "4000:4000"
+    volumes:
+      - ./data:/app/data
+      - /path/to/your/movies:/movies   # add this
+    environment:
+      - TMDB_API_KEY=${TMDB_API_KEY}
+```
+
+Then open **Config → Library path** and set it to `/movies` (the path inside the container).
+
+Add `:ro` to mount read-only if you don't want FilmPick to rename/standardize files:
+
+```yaml
+- /path/to/your/movies:/movies:ro
+```
+
+#### Synology NAS example
+
+```yaml
+volumes:
+  - /volume2/docker/filmpick/data:/app/data
+  - /volume2/video/Movies:/movies
+```
+
+> Synology uses `docker-compose` (v1) at `/usr/local/bin/docker-compose`, not `docker compose`.
+
+### Building locally
+
+```bash
+docker build -t filmpick .
+docker run -p 4000:4000 \
+  -v $(pwd)/data:/app/data \
+  -v /path/to/movies:/movies \
+  -e TMDB_API_KEY=your-key \
+  filmpick
+```
+
+The Dockerfile uses a multi-stage build: Node 22 Alpine for building, minimal Alpine runtime with ffmpeg for the final image. Next.js standalone output keeps the image small.
 
 ## Tech Stack
 
