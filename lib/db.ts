@@ -244,8 +244,8 @@ export function insertMovie(db: Database.Database, movie: MovieInput): number {
     if (byTmdbId) {
       if (movie.file_path) {
         if (!byTmdbId.file_path) {
-          // No primary file yet — set it
-          db.prepare("UPDATE movies SET file_path = ? WHERE id = ?").run(movie.file_path, byTmdbId.id);
+          // No primary file yet — set it and bump created_at so it sorts to top of "Date Added"
+          db.prepare("UPDATE movies SET file_path = ?, created_at = CURRENT_TIMESTAMP WHERE id = ?").run(movie.file_path, byTmdbId.id);
         } else if (byTmdbId.file_path !== movie.file_path) {
           // Already has a different primary file — add to extra_files to avoid overwrite loop
           const extras: string[] = byTmdbId.extra_files ? JSON.parse(byTmdbId.extra_files) : [];
@@ -270,7 +270,7 @@ export function insertMovie(db: Database.Database, movie: MovieInput): number {
     if (byTitleYear) {
       if (movie.file_path) {
         if (!byTitleYear.file_path) {
-          db.prepare("UPDATE movies SET file_path = ? WHERE id = ?").run(movie.file_path, byTitleYear.id);
+          db.prepare("UPDATE movies SET file_path = ?, created_at = CURRENT_TIMESTAMP WHERE id = ?").run(movie.file_path, byTitleYear.id);
         } else if (byTitleYear.file_path !== movie.file_path) {
           const extras: string[] = byTitleYear.extra_files ? JSON.parse(byTitleYear.extra_files) : [];
           if (!extras.includes(movie.file_path)) {

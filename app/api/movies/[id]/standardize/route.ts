@@ -385,32 +385,38 @@ export async function POST(
       "UPDATE movies SET file_path = ?, title = ?, year = ?, extra_files = ? WHERE id = ?",
     ).run(newPath, finalTitle, finalYear, updatedExtraFiles, movieId);
 
-    // 6. Cleanup old directory if empty (or only has junk like .DS_Store)
+    // 6. Delete old directory — movie and subtitles have been moved, remaining contents are trash
     try {
       if (normOld !== normNew) {
         const oldDir = path.dirname(oldPath);
         if (oldDir !== libraryRoot && oldDir !== targetDir) {
-          const files = await fs.readdir(oldDir);
-          const junkFiles = new Set([
-            ".DS_Store",
-            ".AppleDouble",
-            "._.DS_Store",
-            "Thumbs.db",
-            "desktop.ini",
-          ]);
-          const meaningful = files.filter(
-            (f) => !f.startsWith("._") && !junkFiles.has(f),
-          );
-          if (meaningful.length === 0) {
-            console.log(`- Cleaning up empty directory: ${oldDir}`);
+          // Safety: skip if remaining contents exceed 10 MB (something valuable may be there)
+          const getDirSize = async (dir: string): Promise<number> => {
+            let total = 0;
+            let entries;
+            try { entries = await fs.readdir(dir, { withFileTypes: true }); } catch { return 0; }
+            for (const e of entries) {
+              const full = path.join(dir, e.name);
+              if (e.isDirectory()) {
+                total += await getDirSize(full);
+              } else {
+                try { total += (await fs.stat(full)).size; } catch {}
+              }
+            }
+            return total;
+          };
+          const remainingBytes = await getDirSize(oldDir);
+          if (remainingBytes > 10 * 1024 * 1024) {
+            console.warn(`- Skipping delete: remaining contents are ${(remainingBytes / 1024 / 1024).toFixed(1)} MB > 10 MB: ${oldDir}`);
+          } else {
+            console.log(`- Deleting old directory (${(remainingBytes / 1024).toFixed(0)} KB remaining): ${oldDir}`);
             await fs.rm(oldDir, { recursive: true, force: true });
           }
         }
       }
     } catch (e) {
-      // Ignore cleanup errors
       console.warn(
-        `- Failed to cleanup old directory: ${e instanceof Error ? e.message : String(e)}`,
+        `- Failed to delete old directory: ${e instanceof Error ? e.message : String(e)}`,
       );
     }
 
