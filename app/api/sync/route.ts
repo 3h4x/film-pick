@@ -1,9 +1,7 @@
 import {
   getDb,
-  getMovies,
   getSetting,
   insertMovie,
-  getMovieByFilePath,
 } from "@/lib/db";
 import { scanDirectoryGenerator } from "@/lib/scanner";
 import type { ScannedFile } from "@/lib/scanner";
@@ -50,12 +48,25 @@ export async function POST() {
       sendUpdate({ type: "scanning", count: allFiles.length });
 
       const filePathSet = new Set(allFiles.map((f) => f.filePath));
-      const existingMovies = getMovies(db);
+
+      // Build a set of all known file paths, including paths stored in extra_files,
+      // so that alternate copies of the same movie aren't re-imported on every sync.
+      const knownPaths = new Set<string>();
+      const moviesWithPaths = db
+        .prepare("SELECT file_path, extra_files FROM movies WHERE file_path IS NOT NULL AND file_path != ''")
+        .all() as { file_path: string; extra_files: string | null }[];
+      for (const m of moviesWithPaths) {
+        knownPaths.add(m.file_path);
+        if (m.extra_files) {
+          try {
+            const extras = JSON.parse(m.extra_files) as string[];
+            for (const e of extras) knownPaths.add(e);
+          } catch {}
+        }
+      }
 
       // Separate new files from existing
-      const newFiles = allFiles.filter(
-        (f) => !getMovieByFilePath(db, f.filePath),
-      );
+      const newFiles = allFiles.filter((f) => !knownPaths.has(f.filePath));
       const unchanged = allFiles.length - newFiles.length;
 
       sendUpdate({
@@ -71,6 +82,8 @@ export async function POST() {
       let failed = 0;
       for (let i = 0; i < newFiles.length; i++) {
         const file = newFiles[i];
+        // Small delay to avoid TMDb rate limits (~40 req/10s)
+        if (i > 0) await new Promise((r) => setTimeout(r, 150));
         sendUpdate({
           type: "progress",
           current: i + 1,
@@ -158,10 +171,17 @@ export async function POST() {
         }
       }
 
-      // Phase 3: Cleanup — remove movies whose files no longer exist
+      // Phase 3: Cleanup — remove movies whose files no longer exist.
+      // Query DB fresh (after Phase 2 updates) so we don't delete movies whose
+      // file_path was just updated in Phase 2 from an old/wrong path.
       let removed = 0;
-      for (const movie of existingMovies) {
-        if (movie.file_path && !filePathSet.has(movie.file_path)) {
+      const currentMovies = db
+        .prepare(
+          "SELECT id, file_path FROM movies WHERE file_path IS NOT NULL AND file_path != ''",
+        )
+        .all() as { id: number; file_path: string }[];
+      for (const movie of currentMovies) {
+        if (!filePathSet.has(movie.file_path)) {
           db.prepare("DELETE FROM movies WHERE id = ?").run(movie.id);
           removed++;
         }
