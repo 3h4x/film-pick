@@ -100,7 +100,7 @@ export async function POST() {
           .get(file.parsedTitle, file.parsedYear) as { id: number } | undefined;
 
         if (existingByTitle) {
-          db.prepare("UPDATE movies SET file_path = ? WHERE id = ?").run(
+          db.prepare("UPDATE movies SET file_path = ?, created_at = CURRENT_TIMESTAMP WHERE id = ?").run(
             file.filePath,
             existingByTitle.id,
           );
