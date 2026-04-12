@@ -14,8 +14,11 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: write
+      issues: write
+      pull-requests: write
     outputs:
-      new_tag: ${{ steps.version.outputs.new_tag }}
+      new_release_published: ${{ steps.release.outputs.new_release_published }}
+      new_release_version: ${{ steps.release.outputs.new_release_version }}
 
     steps:
       - name: Checkout repository
@@ -23,29 +26,15 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Bump version and push tag
-        id: version
-        uses: anothrNick/github-tag-action@1
+      - name: Semantic Release
+        id: release
+        uses: cycjimmy/semantic-release-action@v4
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          WITH_V: true
-          DEFAULT_BUMP: patch
-          MAJOR_STRING_TOKEN: "!"
-
-      - name: Create Release
-        if: steps.version.outputs.new_tag
-        uses: ncipollo/release-action@v1
-        with:
-          tag: ${{ steps.version.outputs.new_tag }}
-          name: ${{ steps.version.outputs.new_tag }}
-          draft: false
-          prerelease: false
-          generateReleaseNotes: true
-          makeLatest: true
-          token: ${{ secrets.GITHUB_TOKEN }}
 
   docker:
     needs: release
+    if: needs.release.outputs.new_release_published == 'true'
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -70,7 +59,7 @@ jobs:
           tags: |
             type=raw,value=latest
             type=ref,event=branch
-            type=raw,value=${{ needs.release.outputs.new_tag }},enable=${{ needs.release.outputs.new_tag != '' }}
+            type=raw,value=v${{ needs.release.outputs.new_release_version }}
             type=sha,prefix=
 
       - name: Build and push
@@ -81,4 +70,4 @@ jobs:
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
           build-args: |
-            APP_VERSION=${{ needs.release.outputs.new_tag }}
+            APP_VERSION=v${{ needs.release.outputs.new_release_version }}
