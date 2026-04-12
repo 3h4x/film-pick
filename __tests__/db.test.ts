@@ -210,6 +210,89 @@ describe("dismissed recommendations", () => {
   });
 });
 
+describe("insertMovie deduplication", () => {
+  let db: Database.Database;
+  const TEST_DB = path.join(__dirname, "test-insert-dedup.db");
+
+  beforeEach(() => {
+    db = new Database(TEST_DB);
+    initDb(db);
+  });
+
+  afterEach(() => {
+    db.close();
+    if (fs.existsSync(TEST_DB)) fs.unlinkSync(TEST_DB);
+  });
+
+  const base = {
+    title: "Ghost in the Shell",
+    year: 1995,
+    genre: "Animation",
+    director: null,
+    rating: 8.0,
+    poster_url: null,
+    source: "tmdb" as const,
+    imdb_id: null,
+    tmdb_id: 9323,
+    type: "movie" as const,
+  };
+
+  it("returns existing id without overwriting file_path when tmdb_id matches and entry already has a file", () => {
+    const id1 = insertMovie(db, { ...base, file_path: "/movies/gits-original.mkv" });
+    const id2 = insertMovie(db, { ...base, file_path: "/movies/gits-remaster.mkv" });
+
+    // Should point to the same DB entry
+    expect(id2).toBe(id1);
+
+    // Primary file_path must NOT have been overwritten
+    const row = db.prepare("SELECT file_path, extra_files FROM movies WHERE id = ?").get(id1) as any;
+    expect(row.file_path).toBe("/movies/gits-original.mkv");
+
+    // Second path goes to extra_files
+    const extras = JSON.parse(row.extra_files);
+    expect(extras).toContain("/movies/gits-remaster.mkv");
+  });
+
+  it("does not create duplicate entries — same tmdb_id returns single row", () => {
+    insertMovie(db, { ...base, file_path: "/movies/gits-original.mkv" });
+    insertMovie(db, { ...base, file_path: "/movies/gits-remaster.mkv" });
+
+    const rows = db.prepare("SELECT id FROM movies WHERE tmdb_id = ?").all(9323);
+    expect(rows).toHaveLength(1);
+  });
+
+  it("does not add the same extra_file path twice", () => {
+    const id = insertMovie(db, { ...base, file_path: "/movies/gits-original.mkv" });
+    insertMovie(db, { ...base, file_path: "/movies/gits-copy.mkv" });
+    insertMovie(db, { ...base, file_path: "/movies/gits-copy.mkv" });
+
+    const row = db.prepare("SELECT extra_files FROM movies WHERE id = ?").get(id) as any;
+    const extras = JSON.parse(row.extra_files);
+    expect(extras.filter((p: string) => p === "/movies/gits-copy.mkv")).toHaveLength(1);
+  });
+
+  it("sets file_path when existing entry has none (normal link case)", () => {
+    const id = insertMovie(db, { ...base, file_path: null });
+    insertMovie(db, { ...base, file_path: "/movies/gits.mkv" });
+
+    const row = db.prepare("SELECT file_path FROM movies WHERE id = ?").get(id) as any;
+    expect(row.file_path).toBe("/movies/gits.mkv");
+  });
+
+  it("deduplicates by title+year when no tmdb_id, adds extra_files instead of overwriting", () => {
+    const noTmdb = { ...base, tmdb_id: null };
+    const id1 = insertMovie(db, { ...noTmdb, file_path: "/movies/gits-a.mkv" });
+    const id2 = insertMovie(db, { ...noTmdb, file_path: "/movies/gits-b.mkv" });
+
+    expect(id2).toBe(id1);
+
+    const row = db.prepare("SELECT file_path, extra_files FROM movies WHERE id = ?").get(id1) as any;
+    expect(row.file_path).toBe("/movies/gits-a.mkv");
+    const extras = JSON.parse(row.extra_files);
+    expect(extras).toContain("/movies/gits-b.mkv");
+  });
+});
+
 describe("recommended movies", () => {
   let db: Database.Database;
   const TEST_DB = path.join(__dirname, "test-recommended.db");

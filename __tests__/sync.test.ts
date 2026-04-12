@@ -94,7 +94,7 @@ describe("sync: insertMovie deduplication", () => {
     expect(getMovies(db)).toHaveLength(1);
   });
 
-  it("updates file_path on existing movie with same title+year even if it already has a different file_path", () => {
+  it("keeps original file_path and stores second path in extra_files when same tmdb_id has different file", () => {
     const oldPath = "/Volumes/video/Movies/Matrix/Matrix.1999.avi";
     insertMovie(db, {
       title: "The Matrix",
@@ -128,7 +128,11 @@ describe("sync: insertMovie deduplication", () => {
 
     const movies = getMovies(db);
     expect(movies).toHaveLength(1);
-    expect(movies[0].file_path).toBe(newPath);
+    // Original path must be preserved — no overwrite
+    expect(movies[0].file_path).toBe(oldPath);
+    // New path goes to extra_files
+    const extras = JSON.parse(movies[0].extra_files!);
+    expect(extras).toContain(newPath);
   });
 
   it("getMovieByFilePath returns movie when file_path matches", () => {

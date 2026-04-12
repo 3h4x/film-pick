@@ -118,6 +118,33 @@ async function fetchDiscoverPages(
   return all;
 }
 
+async function sleep(ms: number) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+async function fetchWithRetry(
+  url: string,
+  apiKey: string,
+  retries = 3,
+): Promise<Response> {
+  for (let attempt = 0; attempt <= retries; attempt++) {
+    const res = await fetch(url, {
+      headers: { Authorization: `Bearer ${apiKey}` },
+    });
+    if (res.status === 429) {
+      if (attempt < retries) {
+        const delay = Math.pow(2, attempt) * 1000; // 1s, 2s, 4s
+        console.warn(`[TMDb] Rate limited, retrying in ${delay}ms (attempt ${attempt + 1}/${retries})`);
+        await sleep(delay);
+        continue;
+      }
+    }
+    return res;
+  }
+  // Should never reach here, but satisfies TypeScript
+  return fetch(url, { headers: { Authorization: `Bearer ${apiKey}` } });
+}
+
 export async function searchTmdb(
   query: string,
   year?: number | null,
@@ -127,9 +154,7 @@ export async function searchTmdb(
   async function searchWithYear(y: number | null | undefined) {
     let url = `${TMDB_BASE}/search/movie?query=${encodeURIComponent(query)}&language=en-US&page=1`;
     if (y) url += `&year=${y}`;
-    const res = await fetch(url, {
-      headers: { Authorization: `Bearer ${apiKey}` },
-    });
+    const res = await fetchWithRetry(url, apiKey);
     if (!res.ok) {
       const body = await res.text().catch(() => "");
       console.error(`[TMDb] searchTmdb failed: ${res.status} ${res.statusText}`, body);

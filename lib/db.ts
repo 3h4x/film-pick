@@ -239,14 +239,21 @@ export function insertMovie(db: Database.Database, movie: MovieInput): number {
   // If a movie with the same tmdb_id already exists, link the file to it
   if (movie.tmdb_id) {
     const byTmdbId = db
-      .prepare("SELECT id FROM movies WHERE tmdb_id = ?")
-      .get(movie.tmdb_id) as { id: number } | undefined;
+      .prepare("SELECT id, file_path, extra_files FROM movies WHERE tmdb_id = ?")
+      .get(movie.tmdb_id) as { id: number; file_path: string | null; extra_files: string | null } | undefined;
     if (byTmdbId) {
       if (movie.file_path) {
-        db.prepare("UPDATE movies SET file_path = ? WHERE id = ?").run(
-          movie.file_path,
-          byTmdbId.id,
-        );
+        if (!byTmdbId.file_path) {
+          // No primary file yet — set it
+          db.prepare("UPDATE movies SET file_path = ? WHERE id = ?").run(movie.file_path, byTmdbId.id);
+        } else if (byTmdbId.file_path !== movie.file_path) {
+          // Already has a different primary file — add to extra_files to avoid overwrite loop
+          const extras: string[] = byTmdbId.extra_files ? JSON.parse(byTmdbId.extra_files) : [];
+          if (!extras.includes(movie.file_path)) {
+            extras.push(movie.file_path);
+            db.prepare("UPDATE movies SET extra_files = ? WHERE id = ?").run(JSON.stringify(extras), byTmdbId.id);
+          }
+        }
       }
       return byTmdbId.id;
     }
@@ -257,15 +264,20 @@ export function insertMovie(db: Database.Database, movie: MovieInput): number {
   if (movie.title) {
     const byTitleYear = db
       .prepare(
-        "SELECT id FROM movies WHERE LOWER(title) = LOWER(?) AND year IS ?",
+        "SELECT id, file_path, extra_files FROM movies WHERE LOWER(title) = LOWER(?) AND year IS ?",
       )
-      .get(movie.title, movie.year ?? null) as { id: number } | undefined;
+      .get(movie.title, movie.year ?? null) as { id: number; file_path: string | null; extra_files: string | null } | undefined;
     if (byTitleYear) {
       if (movie.file_path) {
-        db.prepare("UPDATE movies SET file_path = ? WHERE id = ?").run(
-          movie.file_path,
-          byTitleYear.id,
-        );
+        if (!byTitleYear.file_path) {
+          db.prepare("UPDATE movies SET file_path = ? WHERE id = ?").run(movie.file_path, byTitleYear.id);
+        } else if (byTitleYear.file_path !== movie.file_path) {
+          const extras: string[] = byTitleYear.extra_files ? JSON.parse(byTitleYear.extra_files) : [];
+          if (!extras.includes(movie.file_path)) {
+            extras.push(movie.file_path);
+            db.prepare("UPDATE movies SET extra_files = ? WHERE id = ?").run(JSON.stringify(extras), byTitleYear.id);
+          }
+        }
       }
       return byTitleYear.id;
     }
