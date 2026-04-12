@@ -9,6 +9,7 @@ export async function GET() {
   const dbKey = getSetting(db, "tmdb_api_key");
   const envKey = process.env.TMDB_API_KEY;
   const disabledEngines = getSetting(db, "disabled_engines");
+  const backupEnabled = getSetting(db, "backup_enabled");
   return Response.json({
     library_path: libraryPath,
     rec_group_order: groupOrder ? JSON.parse(groupOrder) : [],
@@ -16,6 +17,7 @@ export async function GET() {
     tmdb_api_key_set: !!(envKey || dbKey),
     tmdb_api_key_source: envKey ? "env" : dbKey ? "db" : null,
     disabled_engines: disabledEngines ? JSON.parse(disabledEngines) : [],
+    backup_enabled: backupEnabled !== "false",
   });
 }
 
@@ -38,6 +40,9 @@ export async function PATCH(request: NextRequest) {
     } else {
       db.prepare("DELETE FROM settings WHERE key = ?").run("library_path");
     }
+  }
+  if (typeof body.backup_enabled === "boolean") {
+    setSetting(db, "backup_enabled", body.backup_enabled ? "true" : "false");
   }
   if (typeof body.tmdb_api_key === "string") {
     if (body.tmdb_api_key.trim()) {
