@@ -76,6 +76,7 @@ export default function MovieDetail({
   const [videoMetadata, setVideoMetadata] = useState<any>(null);
   const [isLoadingMetadata, setIsLoadingMetadata] = useState(false);
   const [isRating, setIsRating] = useState(false);
+  const [showRatingPicker, setShowRatingPicker] = useState(false);
   const [userRating, setUserRating] = useState<number | null>(
     movie.user_rating || null,
   );
@@ -406,6 +407,7 @@ export default function MovieDetail({
       if (res.ok) {
         const updated = await res.json();
         setUserRating(rating);
+        setShowRatingPicker(false);
         if (onUpdate) onUpdate(updated);
       }
     } catch (e) {
@@ -1122,18 +1124,69 @@ export default function MovieDetail({
               <div className="space-y-6">
                 {/* Ratings */}
                 <div className="flex items-center gap-6">
-                  {userRating != null && userRating > 0 ? (
-                    <div className="space-y-1.5">
+                  <div className="space-y-1.5">
                       <p className="text-[10px] text-gray-500 font-black uppercase tracking-widest">
                         My Rating
                       </p>
                       <div className="flex items-center gap-3">
-                        <div className="bg-indigo-500 text-white font-black text-2xl px-3 py-1 rounded-xl shadow-lg shadow-indigo-500/20">
-                          {userRating}
-                        </div>
+                        <button
+                          onClick={() => setShowRatingPicker((v) => !v)}
+                          title="Click to change rating"
+                          className="bg-indigo-500 text-white font-black text-2xl px-3 py-1 rounded-xl shadow-lg shadow-indigo-500/20 flex items-center gap-2 hover:bg-indigo-400 transition-colors cursor-pointer"
+                        >
+                          ♥ {userRating != null && userRating > 0 ? userRating : "—"}
+                        </button>
                       </div>
+                      {showRatingPicker && (
+                        <div className="flex flex-col gap-1 mt-2">
+                          <div className="flex items-center gap-1">
+                            {[...Array(5)].map((_, i) => (
+                              <button
+                                key={i}
+                                onClick={() => handleRate(i + 1)}
+                                disabled={isRating}
+                                title={`Rate ${i + 1}/10`}
+                                className={`w-7 h-7 rounded-md text-[11px] font-black transition-all border ${
+                                  isRating
+                                    ? "opacity-50 cursor-not-allowed"
+                                    : "hover:scale-110 active:scale-95"
+                                } ${
+                                  userRating === i + 1
+                                    ? "bg-indigo-500 border-indigo-400 text-white"
+                                    : "bg-gray-800 border-gray-700 text-gray-400 hover:border-indigo-500 hover:text-indigo-400"
+                                }`}
+                              >
+                                {i + 1}
+                              </button>
+                            ))}
+                          </div>
+                          <div className="flex items-center gap-1">
+                            {[...Array(5)].map((_, i) => {
+                              const rating = i + 6;
+                              return (
+                                <button
+                                  key={rating}
+                                  onClick={() => handleRate(rating)}
+                                  disabled={isRating}
+                                  title={`Rate ${rating}/10`}
+                                  className={`w-7 h-7 rounded-md text-[11px] font-black transition-all border ${
+                                    isRating
+                                      ? "opacity-50 cursor-not-allowed"
+                                      : "hover:scale-110 active:scale-95"
+                                  } ${
+                                    userRating === rating
+                                      ? "bg-indigo-500 border-indigo-400 text-white"
+                                      : "bg-gray-800 border-gray-700 text-gray-400 hover:border-indigo-500 hover:text-indigo-400"
+                                  }`}
+                                >
+                                  {rating}
+                                </button>
+                              );
+                            })}
+                          </div>
+                        </div>
+                      )}
                     </div>
-                  ) : null}
                   {/* Global Rating Badge */}
                   {movie.rating != null && movie.rating > 0 && (
                     <div className="space-y-1.5">
@@ -1143,54 +1196,6 @@ export default function MovieDetail({
                       <div className="flex items-center gap-3">
                         <div className="bg-yellow-500 text-black font-black text-2xl px-3 py-1 rounded-xl shadow-lg shadow-yellow-500/20">
                           ★ {movie.rating}
-                        </div>
-                      </div>
-                    </div>
-                  )}
-
-                  {/* Rating input if user rating is missing */}
-                  {(!userRating || userRating === 0) && (
-                    <div className="space-y-1.5 ml-2">
-                      <p className="text-[10px] text-gray-500 font-black uppercase tracking-widest">
-                        Rate this movie
-                      </p>
-                      <div className="flex flex-col gap-1">
-                        <div className="flex items-center gap-1">
-                          {[...Array(5)].map((_, i) => (
-                            <button
-                              key={i}
-                              onClick={() => handleRate(i + 1)}
-                              disabled={isRating}
-                              title={`Rate ${i + 1}/10`}
-                              className={`w-7 h-7 rounded-md text-[11px] font-black transition-all border ${
-                                isRating
-                                  ? "opacity-50 cursor-not-allowed"
-                                  : "hover:scale-110 active:scale-95"
-                              } bg-gray-800 border-gray-700 text-gray-400 hover:border-indigo-500 hover:text-indigo-400`}
-                            >
-                              {i + 1}
-                            </button>
-                          ))}
-                        </div>
-                        <div className="flex items-center gap-1">
-                          {[...Array(5)].map((_, i) => {
-                            const rating = i + 6;
-                            return (
-                              <button
-                                key={rating}
-                                onClick={() => handleRate(rating)}
-                                disabled={isRating}
-                                title={`Rate ${rating}/10`}
-                                className={`w-7 h-7 rounded-md text-[11px] font-black transition-all border ${
-                                  isRating
-                                    ? "opacity-50 cursor-not-allowed"
-                                    : "hover:scale-110 active:scale-95"
-                                } bg-gray-800 border-gray-700 text-gray-400 hover:border-indigo-500 hover:text-indigo-400`}
-                              >
-                                {rating}
-                              </button>
-                            );
-                          })}
                         </div>
                       </div>
                     </div>

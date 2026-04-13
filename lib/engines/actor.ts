@@ -18,37 +18,38 @@ export async function actorEngine(
     { name: string; count: number; avgRating: number }
   >();
 
-  for (const movie of highRated) {
-    try {
-      const credits = await getMovieCredits(movie.tmdb_id!);
-      for (const actor of credits.cast) {
-        const existing = actorCounts.get(actor.id);
-        const rating = movie.user_rating ?? 7;
-        if (existing) {
-          existing.count++;
-          existing.avgRating =
-            (existing.avgRating * (existing.count - 1) + rating) /
-            existing.count;
-        } else {
-          actorCounts.set(actor.id, {
-            name: actor.name,
-            count: 1,
-            avgRating: rating,
-          });
-        }
+  const creditResults = await Promise.allSettled(
+    highRated.map((m) => getMovieCredits(m.tmdb_id!)),
+  );
+  creditResults.forEach((result, i) => {
+    if (result.status !== "fulfilled") return;
+    const rating = highRated[i].user_rating ?? 7;
+    for (const actor of result.value.cast) {
+      const existing = actorCounts.get(actor.id);
+      if (existing) {
+        existing.count++;
+        existing.avgRating =
+          (existing.avgRating * (existing.count - 1) + rating) /
+          existing.count;
+      } else {
+        actorCounts.set(actor.id, { name: actor.name, count: 1, avgRating: rating });
       }
-    } catch {}
-  }
+    }
+  });
 
   const topActors = [...actorCounts.entries()]
     .filter(([, v]) => v.count >= 3 || (v.count >= 2 && v.avgRating >= 8))
     .sort((a, b) => b[1].count * b[1].avgRating - a[1].count * a[1].avgRating)
     .slice(0, 10);
 
+  const discoverResults = await Promise.allSettled(
+    topActors.map(([id]) => discoverByPerson(id)),
+  );
   const groups: RecommendationGroup[] = [];
-  for (const [id, { name }] of topActors) {
-    const results = await discoverByPerson(id);
-    const filtered = filterResults(results, ctx);
+  discoverResults.forEach((result, i) => {
+    if (result.status !== "fulfilled") return;
+    const [, { name }] = topActors[i];
+    const filtered = filterResults(result.value, ctx);
     if (filtered.length > 0) {
       groups.push({
         reason: `Starring ${name}`,
@@ -56,6 +57,6 @@ export async function actorEngine(
         recommendations: filtered.slice(0, 15),
       });
     }
-  }
+  });
   return groups;
 }

@@ -49,7 +49,7 @@ pnpm backup              # Backup SQLite DB
 ├── components/
 │   ├── TabNav.tsx                    — Pill-style tab navigation
 │   ├── MovieCard.tsx                 — Poster card (user rating + global rating badges)
-│   ├── MovieDetail.tsx               — Full movie detail view
+│   ├── MovieDetail.tsx               — Full movie detail view; MY RATING badge (♥) always visible, click to toggle 1–10 picker inline
 │   ├── PersonView.tsx                — Person filmography view
 │   ├── SearchModal.tsx               — TMDb search + add modal
 │   ├── ImportModal.tsx               — Filesystem import modal
@@ -87,7 +87,8 @@ pnpm backup              # Backup SQLite DB
 
 ### Features
 
-- **Library tab:** Movie grid with posters, user ratings (indigo badge), global ratings (yellow badge)
+- **Library tab:** Movie grid with posters, user ratings (indigo ♥ badge), global ratings (yellow ★ badge)
+- **Rating UX:** In detail view, MY RATING (♥) is always shown left of GLOBAL (★); click the indigo badge to open an inline 1–10 picker; current score is highlighted; picker closes on selection
 - **Sorting:** My Rating, Global Rating, Year, Title, Date Added, Date Rated — asc/desc toggle
 - **Genre filter:** Dropdown with all genres from collection
 - **Import:** Scan a directory for video files, parse filenames, fetch TMDb metadata
