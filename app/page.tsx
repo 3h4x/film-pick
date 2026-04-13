@@ -76,11 +76,29 @@ const REC_CATEGORIES: { value: string; label: string }[] = [
 interface ToastItem {
   id: number;
   message: string;
+  variant?: "default" | "success";
 }
 
 const PAGE_SIZE = 36;
 
 type AppTab = "library" | "recommendations" | "wishlist" | "config" | "person" | "search";
+
+function formatRefreshTime(iso: string): string {
+  const date = new Date(iso);
+  const now = new Date();
+  const diffMs = now.getTime() - date.getTime();
+  const diffMin = Math.floor(diffMs / 60000);
+  const diffHrs = Math.floor(diffMs / 3600000);
+  if (diffMin < 1) return "just now";
+  if (diffMin < 60) return `${diffMin}m ago`;
+  if (diffHrs < 24) return `${diffHrs}h ago`;
+  const yesterday = new Date(now);
+  yesterday.setDate(yesterday.getDate() - 1);
+  if (date.toDateString() === yesterday.toDateString()) {
+    return `yesterday at ${date.toLocaleTimeString("en", { hour: "2-digit", minute: "2-digit" })}`;
+  }
+  return date.toLocaleDateString("en", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" });
+}
 
 function parseHash(): { tab: AppTab; category: string } {
   if (typeof window === "undefined") return { tab: "recommendations", category: "all" };
@@ -139,6 +157,11 @@ export default function Home() {
   // Toasts
   const [toasts, setToasts] = useState<ToastItem[]>([]);
   const toastId = useRef(0);
+
+  // Last recs refresh timestamp
+  const [lastRecsRefresh, setLastRecsRefresh] = useState<string | null>(() =>
+    typeof window !== "undefined" ? localStorage.getItem("rec_last_refreshed") : null
+  );
 
   // TMDb search results (inline search tab)
   const [tmdbResults, setTmdbResults] = useState<any[]>([]);
@@ -235,18 +258,15 @@ export default function Home() {
   );
 
   const hasAnyRecs = Object.keys(recGroups).length > 0;
+  // Only show skeleton on initial load (no content yet). During refresh, keep existing content visible.
   const recsLoading =
     recCategory === "all"
-      ? Object.values(recLoading).some(Boolean) ||
-        (!hasAnyRecs && activeTab === "recommendations" && movies.length > 0)
-      : (recLoading[recCategory] ?? false) ||
-        (!recGroups[recCategory] &&
-          activeTab === "recommendations" &&
-          movies.length > 0);
+      ? !hasAnyRecs && (Object.values(recLoading).some(Boolean) || (activeTab === "recommendations" && movies.length > 0))
+      : !recGroups[recCategory] && ((recLoading[recCategory] ?? false) || (activeTab === "recommendations" && movies.length > 0));
 
-  function addToast(message: string) {
+  function addToast(message: string, variant?: "default" | "success") {
     const id = ++toastId.current;
-    setToasts((prev) => [...prev, { id, message }]);
+    setToasts((prev) => [...prev, { id, message, variant }]);
   }
 
   function dismissToast(id: number) {
@@ -398,10 +418,13 @@ export default function Home() {
   const fetchEngine = useCallback(async (engine: string, refresh = false) => {
     setRecLoading((prev) => ({ ...prev, [engine]: true }));
     const url = `/api/recommendations?engine=${engine}${refresh ? "&refresh=true" : ""}`;
-    const res = await fetch(url);
-    const data = await res.json();
-    setRecGroups((prev) => ({ ...prev, [engine]: data }));
-    setRecLoading((prev) => ({ ...prev, [engine]: false }));
+    try {
+      const res = await fetch(url);
+      const data = await res.json();
+      setRecGroups((prev) => ({ ...prev, [engine]: data }));
+    } finally {
+      setRecLoading((prev) => ({ ...prev, [engine]: false }));
+    }
   }, []);
 
   const fetchRecsForCategory = useCallback(
@@ -428,6 +451,20 @@ export default function Home() {
       .then((d) => setTotalRecsCount(d.total))
       .catch(() => {});
   }, [fetchMovies, fetchSettings]);
+
+  // Save refresh timestamp when all engines finish initial load
+  const initialLoadSaved = useRef(false);
+  useEffect(() => {
+    if (initialLoadSaved.current) return;
+    const enabled = REC_CATEGORIES.slice(1)
+      .map((c) => c.value)
+      .filter((key) => !disabledEngines.includes(key));
+    const allLoaded = enabled.length > 0 && enabled.every((key) => recGroups[key] && !recLoading[key]);
+    if (allLoaded) {
+      initialLoadSaved.current = true;
+      saveRefreshTimestamp();
+    }
+  }, [recGroups, recLoading, disabledEngines]);
 
   // Fetch recs when switching to recommendations tab or changing category
   useEffect(() => {
@@ -678,13 +715,21 @@ export default function Home() {
     addToast("Import complete");
   }
 
-  function refreshRecs() {
-    if (recCategory === "all") {
-      setRecGroups({});
-      REC_CATEGORIES.slice(1).forEach((c) => fetchEngine(c.value, true));
-    } else {
-      fetchEngine(recCategory, true);
-    }
+  function saveRefreshTimestamp() {
+    const now = new Date().toISOString();
+    setLastRecsRefresh(now);
+    localStorage.setItem("rec_last_refreshed", now);
+  }
+
+  async function refreshRecs() {
+    const engineKeys = REC_CATEGORIES.slice(1)
+      .map((c) => c.value)
+      .filter((key) => !disabledEngines.includes(key));
+    const loadingState = Object.fromEntries(engineKeys.map((k) => [k, true]));
+    setRecLoading((prev) => ({ ...prev, ...loadingState }));
+    await Promise.all(engineKeys.map((key) => fetchEngine(key, true)));
+    saveRefreshTimestamp();
+    addToast("Recommendations refreshed", "success");
   }
 
   function removeFromView(tmdbId: number, title?: string) {
@@ -1328,7 +1373,7 @@ export default function Home() {
               </div>
             ) : (
               <div className="space-y-4">
-                {/* Category tabs + refresh */}
+                {/* Category tabs + CDA toggle */}
                 <div className="flex items-center justify-between gap-4">
                   <div className="flex gap-1 overflow-x-auto bg-gray-800/40 p-1 rounded-xl">
                     {REC_CATEGORIES.filter((cat) => cat.value === "all" || !disabledEngines.includes(cat.value)).map((cat) => (
@@ -1354,26 +1399,21 @@ export default function Home() {
                           : "text-gray-500 hover:text-white hover:bg-gray-800/60"
                       }`}
                     >
-                      📺 CDA
+                    📺 CDA
                     </button>
+                    {lastRecsRefresh && (
+                      <span className="text-gray-600 text-xs hidden sm:inline">
+                        refreshed {formatRefreshTime(lastRecsRefresh)}
+                      </span>
+                    )}
                     <button
                       onClick={refreshRecs}
-                      className="text-gray-500 hover:text-white text-xs px-3 py-1.5 rounded-lg hover:bg-gray-800/60 transition-all flex items-center gap-1.5"
+                      className="text-gray-500 hover:text-white p-1.5 rounded-lg hover:bg-gray-800/60 transition-all"
+                      title="Refresh recommendations"
                     >
-                      <svg
-                        className="w-3.5 h-3.5"
-                        fill="none"
-                        viewBox="0 0 24 24"
-                        stroke="currentColor"
-                        strokeWidth={2}
-                      >
-                        <path
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                          d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
-                        />
+                      <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
                       </svg>
-                      Refresh
                     </button>
                   </div>
                 </div>

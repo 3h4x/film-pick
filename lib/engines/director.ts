@@ -19,27 +19,24 @@ export async function directorEngine(
     { name: string; count: number; avgRating: number }
   >();
 
-  for (const movie of highRated) {
-    try {
-      const credits = await getMovieCredits(movie.tmdb_id!);
-      for (const dir of credits.directors) {
-        const existing = directorCounts.get(dir.id);
-        const rating = movie.user_rating ?? 7;
-        if (existing) {
-          existing.count++;
-          existing.avgRating =
-            (existing.avgRating * (existing.count - 1) + rating) /
-            existing.count;
-        } else {
-          directorCounts.set(dir.id, {
-            name: dir.name,
-            count: 1,
-            avgRating: rating,
-          });
-        }
+  const creditResults = await Promise.allSettled(
+    highRated.map((m) => getMovieCredits(m.tmdb_id!)),
+  );
+  creditResults.forEach((result, i) => {
+    if (result.status !== "fulfilled") return;
+    const rating = highRated[i].user_rating ?? 7;
+    for (const dir of result.value.directors) {
+      const existing = directorCounts.get(dir.id);
+      if (existing) {
+        existing.count++;
+        existing.avgRating =
+          (existing.avgRating * (existing.count - 1) + rating) /
+          existing.count;
+      } else {
+        directorCounts.set(dir.id, { name: dir.name, count: 1, avgRating: rating });
       }
-    } catch {}
-  }
+    }
+  });
 
   // Directors with 2+ films, or 1 film rated 9+
   const topDirectors = [...directorCounts.entries()]
@@ -47,10 +44,14 @@ export async function directorEngine(
     .sort((a, b) => b[1].count * b[1].avgRating - a[1].count * a[1].avgRating)
     .slice(0, 8);
 
+  const discoverResults = await Promise.allSettled(
+    topDirectors.map(([id]) => discoverByPerson(id)),
+  );
   const groups: RecommendationGroup[] = [];
-  for (const [id, { name }] of topDirectors) {
-    const results = await discoverByPerson(id);
-    const filtered = filterResults(results, ctx);
+  discoverResults.forEach((result, i) => {
+    if (result.status !== "fulfilled") return;
+    const [, { name }] = topDirectors[i];
+    const filtered = filterResults(result.value, ctx);
     if (filtered.length > 0) {
       groups.push({
         reason: `More from director ${name}`,
@@ -58,6 +59,6 @@ export async function directorEngine(
         recommendations: filtered.slice(0, 15),
       });
     }
-  }
+  });
   return groups;
 }
