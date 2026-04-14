@@ -118,6 +118,12 @@ export async function GET(request: NextRequest) {
       return addCdaUrls(await def.engine(ctx));
     }
 
+    // noCache engines always fetch fresh (e.g. Surprise Me)
+    if (def.noCache) {
+      const ctx = buildContext(movies, dismissedIds, config);
+      return addCdaUrls(await def.engine(ctx));
+    }
+
     if (refresh) clearCachedEngine(db, key);
 
     const cached = getCachedEngine(db, key, movieCount);

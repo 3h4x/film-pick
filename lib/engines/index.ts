@@ -40,16 +40,17 @@ export interface EngineDefinition {
   icon: string;
   engine: RecommendationEngine;
   dbBacked?: boolean; // Skip recommendation_cache, reads from recommended_movies directly
+  noCache?: boolean; // Always fetch fresh results (never cache)
 }
 
 export const engines: Record<string, EngineDefinition> = {
+  random: { name: "Surprise Me", icon: "🎲", engine: randomEngine, noCache: true },
   genre: { name: "By Genre", icon: "🎭", engine: genreEngine },
   director: { name: "By Director", icon: "🎬", engine: directorEngine },
   actor: { name: "By Actor", icon: "⭐", engine: actorEngine },
   movie: { name: "Similar", icon: "💡", engine: movieEngine },
   hidden_gem: { name: "Hidden Gems", icon: "💎", engine: hiddenGemEngine },
   star_studded: { name: "Star-Studded", icon: "🌟", engine: starStuddedEngine },
-  random: { name: "Surprise Me", icon: "🎲", engine: randomEngine },
   cda: { name: "On CDA", icon: "📺", engine: cdaEngine, dbBacked: true },
 };
 
