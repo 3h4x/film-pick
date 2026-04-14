@@ -64,13 +64,13 @@ interface RecommendationGroup {
 
 const REC_CATEGORIES: { value: string; label: string }[] = [
   { value: "all", label: "All" },
+  { value: "random", label: "Surprise Me" },
   { value: "genre", label: "By Genre" },
   { value: "actor", label: "By Actor" },
   { value: "director", label: "By Director" },
   { value: "movie", label: "Similar" },
   { value: "hidden_gem", label: "Hidden Gems" },
   { value: "star_studded", label: "Star-Studded" },
-  { value: "random", label: "Surprise Me" },
 ];
 
 interface ToastItem {
