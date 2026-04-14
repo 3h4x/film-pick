@@ -236,20 +236,23 @@ export default function Home() {
         )
         .map((m) => m.tmdb_id),
     );
-    const filterRated = (groups: RecommendationGroup[]) =>
+    const filterRated = (groups: RecommendationGroup[], skipFilter: boolean = false) =>
       groups
         .map((g) => ({
           ...g,
-          recommendations: g.recommendations.filter(
-            (r: any) => !ratedTmdbIds.has(r.tmdb_id),
-          ),
+          recommendations: skipFilter
+            ? g.recommendations
+            : g.recommendations.filter(
+                (r: any) => !ratedTmdbIds.has(r.tmdb_id),
+              ),
         }))
         .filter((g) => g.recommendations.length > 0);
 
     if (recCategory === "all") {
       return filterRated(Object.values(recGroups).flat());
     }
-    return filterRated(recGroups[recCategory] ?? []);
+    // Don't filter out already-rated movies for "random" engine
+    return filterRated(recGroups[recCategory] ?? [], recCategory === "random");
   }, [recGroups, recCategory, movies]);
 
   const wishlistMovies = useMemo(
@@ -1357,22 +1360,8 @@ export default function Home() {
                   Add some movies to your library first
                 </p>
               </div>
-            ) : recsLoading ? (
-              <RecommendationSkeleton />
-            ) : recommendations.length === 0 ? (
-              <div className="text-center py-24">
-                <div className="w-20 h-20 mx-auto mb-6 rounded-2xl bg-gray-800/50 flex items-center justify-center">
-                  <span className="text-4xl">🔍</span>
-                </div>
-                <p className="text-gray-400 text-lg font-medium">
-                  No recommendations found
-                </p>
-                <p className="text-gray-600 text-sm mt-2">
-                  Try adding more movies to improve suggestions
-                </p>
-              </div>
             ) : (
-              <div className="space-y-4">
+              <>
                 {/* Category tabs + CDA toggle */}
                 <div className="flex items-center justify-between gap-4">
                   <div className="flex gap-1 overflow-x-auto bg-gray-800/40 p-1 rounded-xl">
@@ -1417,6 +1406,22 @@ export default function Home() {
                     </button>
                   </div>
                 </div>
+                {recsLoading ? (
+                  <RecommendationSkeleton />
+                ) : recommendations.length === 0 ? (
+                  <div className="text-center py-24">
+                    <div className="w-20 h-20 mx-auto mb-6 rounded-2xl bg-gray-800/50 flex items-center justify-center">
+                      <span className="text-4xl">🔍</span>
+                    </div>
+                    <p className="text-gray-400 text-lg font-medium">
+                      No recommendations found
+                    </p>
+                    <p className="text-gray-600 text-sm mt-2">
+                      Try adding more movies to improve suggestions
+                    </p>
+                  </div>
+                ) : (
+                  <div className="space-y-4">
                 {(() => {
                   const filtered = cdaOnly
                     ? recommendations.filter((g) => g.type === "cda")
@@ -1514,7 +1519,9 @@ export default function Home() {
                     />
                   ));
                 })()}
-              </div>
+                  </div>
+                )}
+              </>
             )}
           </>
         )}
