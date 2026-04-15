@@ -115,13 +115,13 @@ export async function GET(request: NextRequest) {
     // DB-backed engines skip cache
     if (def.dbBacked) {
       const ctx = buildContext(movies, dismissedIds, config);
-      return addCdaUrls(await def.engine(ctx));
+      return addCdaUrls(filterExcluded(await def.engine(ctx)));
     }
 
     // noCache engines always fetch fresh (e.g. Surprise Me)
     if (def.noCache) {
       const ctx = buildContext(movies, dismissedIds, config);
-      return addCdaUrls(await def.engine(ctx));
+      return addCdaUrls(filterExcluded(await def.engine(ctx)));
     }
 
     if (refresh) clearCachedEngine(db, key);
@@ -137,7 +137,7 @@ export async function GET(request: NextRequest) {
     const groups = await def.engine(ctx);
     setCachedEngine(db, key, groups, movieCount);
     persistResults(groups);
-    return addCdaUrls(groups);
+    return addCdaUrls(filterExcluded(groups));
   }
 
   function applyMaxPerGroup(
