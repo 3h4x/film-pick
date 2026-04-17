@@ -47,12 +47,13 @@ export async function GET(request: NextRequest) {
 
   function filterExcluded(
     groups: RecommendationGroup[],
+    { skipRated = false }: { skipRated?: boolean } = {},
   ): RecommendationGroup[] {
     return groups
       .map((g) => ({
         ...g,
         recommendations: g.recommendations.filter(
-          (r) => !dismissedIds.has(r.tmdb_id) && !ratedTmdbIds.has(r.tmdb_id),
+          (r) => !dismissedIds.has(r.tmdb_id) && (skipRated || !ratedTmdbIds.has(r.tmdb_id)),
         ),
       }))
       .filter((g) => g.recommendations.length > 0);
@@ -118,10 +119,10 @@ export async function GET(request: NextRequest) {
       return addCdaUrls(filterExcluded(await def.engine(ctx)));
     }
 
-    // noCache engines always fetch fresh (e.g. Surprise Me)
+    // noCache engines always fetch fresh (e.g. Surprise Me) — don't exclude rated movies
     if (def.noCache) {
       const ctx = buildContext(movies, dismissedIds, config);
-      return addCdaUrls(filterExcluded(await def.engine(ctx)));
+      return addCdaUrls(filterExcluded(await def.engine(ctx), { skipRated: true }));
     }
 
     if (refresh) clearCachedEngine(db, key);

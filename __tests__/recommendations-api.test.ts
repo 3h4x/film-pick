@@ -8,18 +8,20 @@ import type { RecommendationGroup } from "@/lib/engines";
 import type { TmdbSearchResult } from "@/lib/tmdb";
 
 // Hoist mock functions so they can be referenced inside vi.mock factories.
-const { mockGenreEngine, mockCdaEngine } = vi.hoisted(() => ({
+const { mockGenreEngine, mockCdaEngine, mockNoCacheEngine } = vi.hoisted(() => ({
   mockGenreEngine: vi.fn<() => Promise<RecommendationGroup[]>>(),
   mockCdaEngine: vi.fn<() => Promise<RecommendationGroup[]>>(),
+  mockNoCacheEngine: vi.fn<() => Promise<RecommendationGroup[]>>(),
 }));
 
-// Replace the engines module with two engines: one regular (genre) and one
-// DB-backed (cda). The buildContext / enrichWithCda helpers pass through so
-// the real filtering behaviour still runs.
+// Replace the engines module with three engines: one regular (genre), one
+// DB-backed (cda), and one noCache (random/Surprise Me). The buildContext /
+// enrichWithCda helpers pass through so the real filtering behaviour still runs.
 vi.mock("@/lib/engines", () => ({
   engines: {
     genre: { name: "By Genre", icon: "🎭", engine: mockGenreEngine, dbBacked: false },
     cda: { name: "On CDA", icon: "📺", engine: mockCdaEngine, dbBacked: true },
+    random: { name: "Surprise Me", icon: "🎲", engine: mockNoCacheEngine, noCache: true },
   },
   buildContext: vi.fn((_library, dismissedIds, config) => ({
     library: [],
@@ -76,6 +78,7 @@ describe("recommendations GET handler", () => {
     vi.mocked(getDb).mockReturnValue(db as unknown as ReturnType<typeof getDb>);
     mockGenreEngine.mockResolvedValue([]);
     mockCdaEngine.mockResolvedValue([]);
+    mockNoCacheEngine.mockResolvedValue([]);
   });
 
   afterEach(() => {
@@ -294,5 +297,134 @@ describe("recommendations GET handler", () => {
 
     expect(mockGenreEngine).toHaveBeenCalled();
     expect(data.length).toBeGreaterThanOrEqual(1);
+  });
+
+  // ── Rated-movie exclusion ─────────────────────────────────────────────────
+
+  it("excludes movies the user has rated from regular engine results", async () => {
+    // Insert a rated movie into the DB so ratedTmdbIds is non-empty.
+    const id = db
+      .prepare(
+        "INSERT INTO movies (title, year, genre, rating, source, tmdb_id, type) VALUES (?, ?, ?, ?, ?, ?, ?)",
+      )
+      .run("Dune", 2021, "Sci-Fi", 8.0, "tmdb", 438631, "movie").lastInsertRowid;
+    db.prepare("UPDATE movies SET user_rating = 8 WHERE id = ?").run(id);
+
+    // Engine returns the same tmdb_id the user already rated (438631).
+    mockGenreEngine.mockResolvedValue([
+      makeGroup(
+        { type: "genre", reason: "Top Sci-Fi" },
+        [
+          makeRec({ tmdb_id: 438631, title: "Dune" }),
+          makeRec({ tmdb_id: 999, title: "Other Film" }),
+        ],
+      ),
+    ]);
+
+    const res = await GET(req({ engine: "genre" }));
+    const data = await res.json();
+
+    // Group should survive (Other Film is still in it)
+    expect(data).toHaveLength(1);
+    const titles = data[0].recommendations.map((r: TmdbSearchResult) => r.title);
+    expect(titles).not.toContain("Dune");
+    expect(titles).toContain("Other Film");
+  });
+
+  it("removes the whole group when all recommendations are rated movies", async () => {
+    const id = db
+      .prepare(
+        "INSERT INTO movies (title, year, genre, rating, source, tmdb_id, type) VALUES (?, ?, ?, ?, ?, ?, ?)",
+      )
+      .run("Dune", 2021, "Sci-Fi", 8.0, "tmdb", 438631, "movie").lastInsertRowid;
+    db.prepare("UPDATE movies SET user_rating = 8 WHERE id = ?").run(id);
+
+    // Every recommendation in the group is already rated.
+    mockGenreEngine.mockResolvedValue([
+      makeGroup(
+        { type: "genre", reason: "Already Seen" },
+        [makeRec({ tmdb_id: 438631, title: "Dune" })],
+      ),
+    ]);
+
+    const res = await GET(req({ engine: "genre" }));
+    const data = await res.json();
+
+    // Entire group is filtered out.
+    expect(data).toEqual([]);
+  });
+
+  // ── noCache engine (Surprise Me) — skipRated ─────────────────────────────
+
+  it("noCache engine includes movies the user has already rated", async () => {
+    // Insert and rate a movie.
+    const id = db
+      .prepare(
+        "INSERT INTO movies (title, year, genre, rating, source, tmdb_id, type) VALUES (?, ?, ?, ?, ?, ?, ?)",
+      )
+      .run("Inception", 2010, "Sci-Fi", 8.8, "tmdb", 27205, "movie")
+      .lastInsertRowid;
+    db.prepare("UPDATE movies SET user_rating = 9 WHERE id = ?").run(id);
+
+    // noCache engine returns the already-rated movie.
+    mockNoCacheEngine.mockResolvedValue([
+      makeGroup(
+        { type: "random", reason: "Surprise Me" },
+        [makeRec({ tmdb_id: 27205, title: "Inception" })],
+      ),
+    ]);
+
+    const res = await GET(req({ engine: "random" }));
+    const data = await res.json();
+
+    // Rated movie must NOT be filtered out for noCache engines.
+    expect(data).toHaveLength(1);
+    expect(data[0].recommendations[0].title).toBe("Inception");
+  });
+
+  it("noCache engine always calls the engine (never uses cache)", async () => {
+    // Pre-populate cache — should be ignored.
+    const cached = makeGroup(
+      { type: "random", reason: "Stale Surprise" },
+      [makeRec({ tmdb_id: 111, title: "Stale Film" })],
+    );
+    setCachedEngine(db, "random", [cached], 0);
+
+    const fresh = makeGroup(
+      { type: "random", reason: "Fresh Surprise" },
+      [makeRec({ tmdb_id: 222, title: "Fresh Film" })],
+    );
+    mockNoCacheEngine.mockResolvedValue([fresh]);
+
+    const res = await GET(req({ engine: "random" }));
+    const data = await res.json();
+
+    // Engine must have been called even though cache existed.
+    expect(mockNoCacheEngine).toHaveBeenCalledOnce();
+    expect(data[0].reason).toBe("Fresh Surprise");
+    expect(data[0].recommendations[0].title).toBe("Fresh Film");
+  });
+
+  it("noCache engine is included when running all engines", async () => {
+    mockGenreEngine.mockResolvedValue([
+      makeGroup(
+        { type: "genre", reason: "Genre picks" },
+        [makeRec({ tmdb_id: 901, title: "Genre Film" })],
+      ),
+    ]);
+    mockNoCacheEngine.mockResolvedValue([
+      makeGroup(
+        { type: "random", reason: "Surprise Me" },
+        [makeRec({ tmdb_id: 902, title: "Random Film" })],
+      ),
+    ]);
+
+    const res = await GET(req());
+    const data = await res.json();
+
+    const reasons = data.map((g: RecommendationGroup) => g.reason);
+    expect(reasons).toContain("Genre picks");
+    expect(reasons).toContain("Surprise Me");
+    expect(mockNoCacheEngine).toHaveBeenCalledOnce();
   });
 });
