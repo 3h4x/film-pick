@@ -1,4 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
+import { randomEngine } from "@/lib/engines/random";
 import { genreEngine } from "@/lib/engines/genre";
 import {
   buildContext,
@@ -323,6 +324,46 @@ describe("filterResults", () => {
       makeResult({ tmdb_id: 2, title: "Drama Film", genre: "Drama" }),
     ];
     expect(filterResults(results, ctx)).toHaveLength(2);
+  });
+});
+
+describe("randomEngine", () => {
+  it("returns empty when library is empty", async () => {
+    const ctx = buildContext([], new Set());
+    expect(await randomEngine(ctx)).toEqual([]);
+  });
+
+  it("excludes movies with a user_rating", async () => {
+    const library = [
+      makeMovie({ id: 1, title: "Watched", tmdb_id: 1, user_rating: 8 }),
+      makeMovie({ id: 2, title: "Unwatched", tmdb_id: 2, user_rating: undefined }),
+    ];
+    const ctx = buildContext(library, new Set());
+    const result = await randomEngine(ctx);
+    const titles = result.flatMap((g) => g.recommendations.map((r) => r.title));
+    expect(titles).not.toContain("Watched");
+    expect(titles).toContain("Unwatched");
+  });
+
+  it("excludes dismissed movies", async () => {
+    const library = [
+      makeMovie({ id: 1, title: "Dismissed", tmdb_id: 10 }),
+      makeMovie({ id: 2, title: "Available", tmdb_id: 20 }),
+    ];
+    const ctx = buildContext(library, new Set([10]));
+    const result = await randomEngine(ctx);
+    const titles = result.flatMap((g) => g.recommendations.map((r) => r.title));
+    expect(titles).not.toContain("Dismissed");
+    expect(titles).toContain("Available");
+  });
+
+  it("returns empty when all candidates are watched or dismissed", async () => {
+    const library = [
+      makeMovie({ id: 1, title: "Watched", tmdb_id: 1, user_rating: 7 }),
+      makeMovie({ id: 2, title: "Dismissed", tmdb_id: 2 }),
+    ];
+    const ctx = buildContext(library, new Set([2]));
+    expect(await randomEngine(ctx)).toEqual([]);
   });
 });
 
