@@ -32,6 +32,7 @@ export async function cdaEngine(
 
   for (const m of cdaMovies) {
     if (dismissedIds.has(m.tmdb_id)) continue;
+    if (ctx.libraryTmdbIds.has(m.tmdb_id)) continue;
     if (libraryTitles.has(m.title.toLowerCase())) continue;
     if (m.pl_title && libraryTitles.has(m.pl_title.toLowerCase())) continue;
 

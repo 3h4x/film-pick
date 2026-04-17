@@ -5,7 +5,7 @@ export async function randomEngine(
 ): Promise<RecommendationGroup[]> {
   // Pick random movies from the local library
   const candidates = ctx.library.filter(
-    (m) => m.tmdb_id && !ctx.dismissedIds.has(m.tmdb_id),
+    (m) => m.tmdb_id && !ctx.dismissedIds.has(m.tmdb_id) && !m.user_rating,
   );
   if (candidates.length === 0) return [];
 
