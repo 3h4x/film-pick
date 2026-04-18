@@ -10,6 +10,8 @@ export async function GET() {
   const envKey = process.env.TMDB_API_KEY;
   const disabledEngines = getSetting(db, "disabled_engines");
   const backupEnabled = getSetting(db, "backup_enabled");
+  const cdaIntervalStr = getSetting(db, "cda_refresh_interval_hours");
+  const cdaMovieCountStr = getSetting(db, "cda_movie_count");
   return Response.json({
     library_path: libraryPath,
     rec_group_order: groupOrder ? JSON.parse(groupOrder) : [],
@@ -18,6 +20,13 @@ export async function GET() {
     tmdb_api_key_source: envKey ? "env" : dbKey ? "db" : null,
     disabled_engines: disabledEngines ? JSON.parse(disabledEngines) : [],
     backup_enabled: backupEnabled !== "false",
+    cda_refresh_interval_hours: cdaIntervalStr ? parseInt(cdaIntervalStr, 10) : 0,
+    cda_last_refresh: getSetting(db, "cda_last_refresh"),
+    cda_movie_count: cdaMovieCountStr ? parseInt(cdaMovieCountStr, 10) : null,
+    cda_refresh_status: (getSetting(db, "cda_refresh_status") ?? "idle") as
+      | "idle"
+      | "running"
+      | "error",
   });
 }
 
@@ -43,6 +52,18 @@ export async function PATCH(request: NextRequest) {
   }
   if (typeof body.backup_enabled === "boolean") {
     setSetting(db, "backup_enabled", body.backup_enabled ? "true" : "false");
+  }
+  if (body.cda_refresh_interval_hours !== undefined) {
+    const val = Number(body.cda_refresh_interval_hours);
+    if (![0, 6, 12, 24].includes(val)) {
+      return Response.json(
+        { error: "cda_refresh_interval_hours must be 0, 6, 12, or 24" },
+        { status: 400 },
+      );
+    }
+    setSetting(db, "cda_refresh_interval_hours", String(val));
+    const { rescheduleCdaJob } = await import("@/lib/cda-scheduler");
+    rescheduleCdaJob(db);
   }
   if (typeof body.tmdb_api_key === "string") {
     if (body.tmdb_api_key.trim()) {

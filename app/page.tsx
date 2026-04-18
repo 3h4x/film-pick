@@ -71,6 +71,8 @@ const REC_CATEGORIES: { value: string; label: string }[] = [
   { value: "movie", label: "Similar" },
   { value: "hidden_gem", label: "Hidden Gems" },
   { value: "star_studded", label: "Star-Studded" },
+  { value: "watchlist", label: "From Watchlist" },
+  { value: "cda", label: "On CDA" },
 ];
 
 interface ToastItem {
@@ -171,7 +173,6 @@ export default function Home() {
 
   // Rec state
   const [recCategory, setRecCategory] = useState("all");
-  const [cdaOnly, setCdaOnly] = useState(false);
   const [recConfig, setRecConfig] = useState<RecConfig>({
     excluded_genres: [],
     min_year: null,
@@ -249,11 +250,45 @@ export default function Home() {
         .filter((g) => g.recommendations.length > 0);
 
     if (recCategory === "all") {
-      return filterRated(Object.values(recGroups).flat());
+      const seen = new Set<number>();
+      return filterRated(Object.values(recGroups).flat()).map((g) => ({
+        ...g,
+        recommendations: g.recommendations.filter((r: any) => {
+          if (seen.has(r.tmdb_id)) return false;
+          seen.add(r.tmdb_id);
+          return true;
+        }),
+      })).filter((g) => g.recommendations.length > 0);
     }
     // Don't filter out already-rated movies for "random" engine
     return filterRated(recGroups[recCategory] ?? [], recCategory === "random");
   }, [recGroups, recCategory, movies]);
+
+  const categoryCounts = useMemo(() => {
+    const ratedTmdbIds = new Set(
+      movies
+        .filter((m) => m.user_rating != null && (m.user_rating as number) > 0 && m.tmdb_id)
+        .map((m) => m.tmdb_id),
+    );
+    const counts: Record<string, number> = {};
+    for (const [key, groups] of Object.entries(recGroups)) {
+      const count = groups.reduce(
+        (acc, g) => acc + g.recommendations.filter((r: any) => !ratedTmdbIds.has(r.tmdb_id)).length,
+        0,
+      );
+      if (count > 0) counts[key] = count;
+    }
+    const allSeen = new Set<number>();
+    for (const groups of Object.values(recGroups)) {
+      for (const g of groups) {
+        for (const r of g.recommendations as any[]) {
+          if (!ratedTmdbIds.has(r.tmdb_id)) allSeen.add(r.tmdb_id);
+        }
+      }
+    }
+    if (allSeen.size > 0) counts["all"] = allSeen.size;
+    return counts;
+  }, [recGroups, movies]);
 
   const wishlistMovies = useMemo(
     () => movies.filter((m) => (m as any).wishlist === 1 && !m.user_rating),
@@ -828,6 +863,38 @@ export default function Home() {
     });
   }
 
+  async function handleRecClick(rec: any) {
+    const existing = movies.find((m) => m.tmdb_id === rec.tmdb_id);
+    if (existing) {
+      setSelectedMovie(existing);
+      return;
+    }
+    const res = await fetch("/api/movies", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        title: rec.title,
+        year: rec.year,
+        genre: rec.genre,
+        rating: rec.rating,
+        poster_url: rec.poster_url,
+        source: "recommendation",
+        tmdb_id: rec.tmdb_id,
+        type: "movie",
+        cda_url: rec.cda_url || null,
+      }),
+    });
+    if (!res.ok) return;
+    const { id } = await res.json();
+    const movieRes = await fetch(`/api/movies/${id}`);
+    const { movie } = await movieRes.json();
+    setMovies((prev) => {
+      const exists = prev.some((m) => m.id === id);
+      return exists ? prev.map((m) => (m.id === id ? movie : m)) : [movie, ...prev];
+    });
+    setSelectedMovie(movie);
+  }
+
   return (
     <main className="max-w-7xl w-full mx-auto px-4 sm:px-6 flex-1">
       {/* Top Navigation */}
@@ -1369,27 +1436,22 @@ export default function Home() {
                       <button
                         key={cat.value}
                         onClick={() => setRecCategory(cat.value)}
-                        className={`px-3 py-1.5 text-xs font-medium rounded-lg transition-all whitespace-nowrap ${
+                        className={`px-3 py-1.5 text-xs font-medium rounded-lg transition-all whitespace-nowrap flex items-center gap-1.5 ${
                           recCategory === cat.value
                             ? "bg-gray-700/80 text-white shadow-sm"
                             : "text-gray-500 hover:text-gray-300 hover:bg-gray-700/30"
                         }`}
                       >
                         {cat.label}
+                        {categoryCounts[cat.value] != null && (
+                          <span className={`text-xs tabular-nums ${recCategory === cat.value ? "text-gray-400" : "text-gray-600"}`}>
+                            {categoryCounts[cat.value]}
+                          </span>
+                        )}
                       </button>
                     ))}
                   </div>
                   <div className="flex items-center gap-2 flex-shrink-0">
-                    <button
-                      onClick={() => setCdaOnly((v) => !v)}
-                      className={`text-xs px-3 py-1.5 rounded-lg transition-all flex items-center gap-1.5 ${
-                        cdaOnly
-                          ? "bg-indigo-500/20 text-indigo-300 border border-indigo-500/30"
-                          : "text-gray-500 hover:text-white hover:bg-gray-800/60"
-                      }`}
-                    >
-                    📺 CDA
-                    </button>
                     {lastRecsRefresh && (
                       <span className="text-gray-600 text-xs hidden sm:inline">
                         refreshed {formatRefreshTime(lastRecsRefresh)}
@@ -1421,105 +1483,84 @@ export default function Home() {
                     </p>
                   </div>
                 ) : (
-                  <div className="space-y-4">
-                {(() => {
-                  const filtered = cdaOnly
-                    ? recommendations.filter((g) => g.type === "cda")
-                    : recommendations.filter(
-                        (g) => recCategory === "all" || g.type === recCategory,
-                      );
-                  // Sort by user-defined order (groups not in order go to end)
-                  const sorted = [...filtered].sort((a, b) => {
-                    const ai = groupOrder.indexOf(a.reason);
-                    const bi = groupOrder.indexOf(b.reason);
-                    if (ai === -1 && bi === -1) return 0;
-                    if (ai === -1) return 1;
-                    if (bi === -1) return -1;
-                    return ai - bi;
-                  });
-                  return sorted.map((group, i) => (
-                    <RecommendationRow
-                      key={group.reason}
-                      reason={group.reason}
-                      type={group.type}
-                      recommendations={group.recommendations}
-                      onAction={handleRecAction}
-                      isFirst={i === 0}
-                      isLast={i === sorted.length - 1}
-                      onMoveUp={() => {
-                        const order = sorted.map((g) => g.reason);
-                        const idx = order.indexOf(group.reason);
-                        if (idx > 0) {
-                          [order[idx - 1], order[idx]] = [
-                            order[idx],
-                            order[idx - 1],
-                          ];
-                        }
-                        setGroupOrder(order);
-                        fetch("/api/settings", {
-                          method: "PATCH",
-                          headers: { "Content-Type": "application/json" },
-                          body: JSON.stringify({ rec_group_order: order }),
-                        });
-                      }}
-                      onMoveDown={() => {
-                        const order = sorted.map((g) => g.reason);
-                        const idx = order.indexOf(group.reason);
-                        if (idx < order.length - 1) {
-                          [order[idx], order[idx + 1]] = [
-                            order[idx + 1],
-                            order[idx],
-                          ];
-                        }
-                        setGroupOrder(order);
-                        fetch("/api/settings", {
-                          method: "PATCH",
-                          headers: { "Content-Type": "application/json" },
-                          body: JSON.stringify({ rec_group_order: order }),
-                        });
-                      }}
-                      onClickMovie={async (rec) => {
-                        // Check if already in library by tmdb_id
-                        const existing = movies.find(
-                          (m) => m.tmdb_id === rec.tmdb_id,
-                        );
-                        if (existing) {
-                          setSelectedMovie(existing);
-                          return;
-                        }
-                        // Create real DB entry
-                        const res = await fetch("/api/movies", {
-                          method: "POST",
-                          headers: { "Content-Type": "application/json" },
-                          body: JSON.stringify({
-                            title: rec.title,
-                            year: rec.year,
-                            genre: rec.genre,
-                            rating: rec.rating,
-                            poster_url: rec.poster_url,
-                            source: "recommendation",
-                            tmdb_id: rec.tmdb_id,
-                            type: "movie",
-                            cda_url: (rec as any).cda_url || null,
-                          }),
-                        });
-                        if (!res.ok) return;
-                        const { id } = await res.json();
-                        const movieRes = await fetch(`/api/movies/${id}`);
-                        const { movie } = await movieRes.json();
-                        // Avoid duplicates — replace if already in state, otherwise prepend
-                        setMovies((prev) => {
-                          const exists = prev.some((m) => m.id === id);
-                          return exists
-                            ? prev.map((m) => (m.id === id ? movie : m))
-                            : [movie, ...prev];
-                        });
-                        setSelectedMovie(movie);
-                      }}
-                    />
-                  ));
-                })()}
-                  </div>
+                  <>{recCategory === "all" ? (
+                    <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4">
+                      {recommendations.flatMap((g) => g.recommendations).map((r: any) => (
+                        <div key={r.tmdb_id} className="relative group/rec">
+                          <MovieCard
+                            title={r.title}
+                            year={r.year}
+                            genre={r.genre}
+                            rating={r.rating}
+                            userRating={null}
+                            posterUrl={r.poster_url}
+                            source="tmdb"
+                            cdaUrl={r.cda_url}
+                            onClick={() => handleRecClick(r)}
+                          />
+                          <div className="absolute bottom-14 right-1 flex flex-col gap-1 opacity-0 group-hover/rec:opacity-100 transition-all duration-200">
+                            <button onClick={() => handleRecAction(r.tmdb_id, "liked", r)} className="bg-green-600/90 backdrop-blur-sm text-white rounded-lg w-7 h-7 text-sm flex items-center justify-center hover:bg-green-500 transition-colors" title="Watched &amp; liked">👍</button>
+                            <button onClick={() => handleRecAction(r.tmdb_id, "watched", r)} className="bg-gray-600/90 backdrop-blur-sm text-white rounded-lg w-7 h-7 text-sm flex items-center justify-center hover:bg-gray-500 transition-colors" title="Watched">👁</button>
+                            <button onClick={() => handleRecAction(r.tmdb_id, "wishlist", r)} className="bg-blue-600/90 backdrop-blur-sm text-white rounded-lg w-7 h-7 text-sm flex items-center justify-center hover:bg-blue-500 transition-colors" title="Add to watchlist">🔖</button>
+                            <button onClick={() => handleRecAction(r.tmdb_id, "disliked", r)} className="bg-orange-600/90 backdrop-blur-sm text-white rounded-lg w-7 h-7 text-sm flex items-center justify-center hover:bg-orange-500 transition-colors" title="Watched &amp; disliked">👎</button>
+                            <button onClick={() => handleRecAction(r.tmdb_id, "dismiss", r)} className="bg-red-600/90 backdrop-blur-sm text-white rounded-lg w-7 h-7 text-sm flex items-center justify-center hover:bg-red-500 transition-colors" title="Don't show again">✕</button>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="space-y-4">
+                    {(() => {
+                      const filtered = recommendations.filter((g) => g.type === recCategory);
+                      const sorted = [...filtered].sort((a, b) => {
+                        const ai = groupOrder.indexOf(a.reason);
+                        const bi = groupOrder.indexOf(b.reason);
+                        if (ai === -1 && bi === -1) return 0;
+                        if (ai === -1) return 1;
+                        if (bi === -1) return -1;
+                        return ai - bi;
+                      });
+                      return sorted.map((group, i) => (
+                        <RecommendationRow
+                          key={group.reason}
+                          reason={group.reason}
+                          type={group.type}
+                          recommendations={group.recommendations}
+                          onAction={handleRecAction}
+                          isFirst={i === 0}
+                          isLast={i === sorted.length - 1}
+                          onMoveUp={() => {
+                            const order = sorted.map((g) => g.reason);
+                            const idx = order.indexOf(group.reason);
+                            if (idx > 0) {
+                              [order[idx - 1], order[idx]] = [order[idx], order[idx - 1]];
+                            }
+                            setGroupOrder(order);
+                            fetch("/api/settings", {
+                              method: "PATCH",
+                              headers: { "Content-Type": "application/json" },
+                              body: JSON.stringify({ rec_group_order: order }),
+                            });
+                          }}
+                          onMoveDown={() => {
+                            const order = sorted.map((g) => g.reason);
+                            const idx = order.indexOf(group.reason);
+                            if (idx < order.length - 1) {
+                              [order[idx], order[idx + 1]] = [order[idx + 1], order[idx]];
+                            }
+                            setGroupOrder(order);
+                            fetch("/api/settings", {
+                              method: "PATCH",
+                              headers: { "Content-Type": "application/json" },
+                              body: JSON.stringify({ rec_group_order: order }),
+                            });
+                          }}
+                          onClickMovie={handleRecClick}
+                        />
+                      ));
+                    })()}
+                    </div>
+                  )}</>
                 )}
               </>
             )}

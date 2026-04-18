@@ -9,6 +9,7 @@ import { starStuddedEngine } from "./star-studded";
 import { randomEngine } from "./random";
 import { getDb, getRecommendedMovies } from "../db";
 import { cdaEngine } from "./cda";
+import { watchlistEngine } from "./watchlist";
 
 export interface RecommendationGroup {
   reason: string;
@@ -52,6 +53,7 @@ export const engines: Record<string, EngineDefinition> = {
   hidden_gem: { name: "Hidden Gems", icon: "💎", engine: hiddenGemEngine },
   star_studded: { name: "Star-Studded", icon: "🌟", engine: starStuddedEngine },
   cda: { name: "On CDA", icon: "📺", engine: cdaEngine, dbBacked: true },
+  watchlist: { name: "From Watchlist", icon: "🔖", engine: watchlistEngine },
 };
 
 // Build a lookup of CDA URLs by tmdb_id and title
