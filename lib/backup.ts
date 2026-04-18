@@ -58,14 +58,14 @@ export function pruneBackups(dir: string = BACKUP_DIR) {
   }
 }
 
-export async function backupDb(): Promise<string> {
+export async function backupDb(prune = true): Promise<string> {
   if (!fs.existsSync(DB_PATH)) throw new Error("Database not found");
 
   fs.mkdirSync(BACKUP_DIR, { recursive: true });
 
   const now = new Date();
   const pad = (n: number) => String(n).padStart(2, "0");
-  const ts = `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}-${pad(now.getHours())}-${pad(now.getMinutes())}`;
+  const ts = `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}-${pad(now.getHours())}-${pad(now.getMinutes())}-${pad(now.getSeconds())}`;
   const filename = `filmpick-${ts}.db`;
 
   const db = new Database(DB_PATH, { readonly: true });
@@ -75,7 +75,7 @@ export async function backupDb(): Promise<string> {
     db.close();
   }
 
-  pruneBackups(BACKUP_DIR);
+  if (prune) pruneBackups(BACKUP_DIR);
 
   return filename;
 }
