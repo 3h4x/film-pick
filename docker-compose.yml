@@ -9,3 +9,16 @@ services:
       - ./data:/app/data
     environment:
       - TMDB_API_KEY=${TMDB_API_KEY}
+    labels:
+      - com.centurylinklabs.watchtower.scope=filmpick
+
+  watchtower:
+    image: containrrr/watchtower
+    container_name: watchtower
+    restart: unless-stopped
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+    environment:
+      - WATCHTOWER_POLL_INTERVAL=300
+      - WATCHTOWER_CLEANUP=true
+      - WATCHTOWER_SCOPE=filmpick
