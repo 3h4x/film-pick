@@ -11,8 +11,13 @@ vi.mock("@/lib/db", async (importOriginal) => {
   return { ...actual, getDb: vi.fn() };
 });
 
+vi.mock("@/lib/cda-scheduler", () => ({
+  rescheduleCdaJob: vi.fn(),
+}));
+
 import { GET, PATCH } from "@/app/api/settings/route";
 import { getDb } from "@/lib/db";
+import { rescheduleCdaJob } from "@/lib/cda-scheduler";
 
 const TEST_DB = path.join(__dirname, "test-settings.db");
 
@@ -105,6 +110,31 @@ describe("settings API", () => {
       expect(data.rec_group_order).toEqual(["genre", "director"]);
     });
 
+    it("returns CDA defaults when no CDA settings are stored", async () => {
+      const res = await GET();
+      const data = await res.json();
+
+      expect(data.cda_refresh_interval_hours).toBe(0);
+      expect(data.cda_last_refresh).toBeNull();
+      expect(data.cda_movie_count).toBeNull();
+      expect(data.cda_refresh_status).toBe("idle");
+    });
+
+    it("returns stored CDA settings with correct types", async () => {
+      setSetting(db, "cda_refresh_interval_hours", "12");
+      setSetting(db, "cda_last_refresh", "2026-04-17T10:00:00.000Z");
+      setSetting(db, "cda_movie_count", "500");
+      setSetting(db, "cda_refresh_status", "running");
+
+      const res = await GET();
+      const data = await res.json();
+
+      expect(data.cda_refresh_interval_hours).toBe(12);
+      expect(data.cda_last_refresh).toBe("2026-04-17T10:00:00.000Z");
+      expect(data.cda_movie_count).toBe(500);
+      expect(data.cda_refresh_status).toBe("running");
+    });
+
     it("reports tmdb_api_key_set=true and source=db when key is stored in DB", async () => {
       setSetting(db, "tmdb_api_key", "secret-token");
 
@@ -179,6 +209,22 @@ describe("settings API", () => {
       const res = await PATCH(makeRequest({ unknown_field: "value" }));
       const data = await res.json();
       expect(data.ok).toBe(true);
+    });
+
+    it("persists cda_refresh_interval_hours and calls rescheduleCdaJob", async () => {
+      const res = await PATCH(makeRequest({ cda_refresh_interval_hours: 12 }));
+      const data = await res.json();
+
+      expect(data.ok).toBe(true);
+      expect(getSetting(db, "cda_refresh_interval_hours")).toBe("12");
+      expect(rescheduleCdaJob).toHaveBeenCalledWith(db);
+    });
+
+    it("rejects invalid cda_refresh_interval_hours", async () => {
+      const res = await PATCH(makeRequest({ cda_refresh_interval_hours: 7 }));
+
+      expect(res.status).toBe(400);
+      expect(getSetting(db, "cda_refresh_interval_hours")).toBeNull();
     });
 
     it("only updates fields that are present in the body", async () => {

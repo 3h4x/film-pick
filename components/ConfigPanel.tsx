@@ -63,6 +63,10 @@ export default function ConfigPanel({ config, onSave, tmdbKeySource, disabledEng
   const [backupFile, setBackupFile] = useState<string | null>(null);
   const [backupStats, setBackupStats] = useState<{ lastBackup: string | null; count: number } | null>(null);
   const [backupEnabled, setBackupEnabled] = useState(true);
+  const [cdaInterval, setCdaInterval] = useState<0 | 6 | 12 | 24>(0);
+  const [cdaStatus, setCdaStatus] = useState<"idle" | "running" | "error">("idle");
+  const [cdaLastRefresh, setCdaLastRefresh] = useState<string | null>(null);
+  const [cdaMovieCount, setCdaMovieCount] = useState<number | null>(null);
 
   useEffect(() => {
     setDraft(config);
@@ -79,8 +83,32 @@ export default function ConfigPanel({ config, onSave, tmdbKeySource, disabledEng
 
   useEffect(() => {
     fetch("/api/backup").then((r) => r.json()).then(setBackupStats);
-    fetch("/api/settings").then((r) => r.json()).then((s) => setBackupEnabled(s.backup_enabled ?? true));
+    fetch("/api/settings")
+      .then((r) => r.json())
+      .then((s) => {
+        setBackupEnabled(s.backup_enabled ?? true);
+        setCdaInterval(s.cda_refresh_interval_hours ?? 0);
+        setCdaStatus(s.cda_refresh_status ?? "idle");
+        setCdaLastRefresh(s.cda_last_refresh ?? null);
+        setCdaMovieCount(s.cda_movie_count ?? null);
+      });
   }, []);
+
+  useEffect(() => {
+    if (cdaStatus !== "running") return;
+    const timer = setInterval(() => {
+      fetch("/api/settings")
+        .then((r) => r.json())
+        .then((s) => {
+          setCdaStatus(s.cda_refresh_status ?? "idle");
+          if (s.cda_refresh_status !== "running") {
+            setCdaLastRefresh(s.cda_last_refresh ?? null);
+            setCdaMovieCount(s.cda_movie_count ?? null);
+          }
+        });
+    }, 3000);
+    return () => clearInterval(timer);
+  }, [cdaStatus]);
 
   async function handleBackup() {
     setBackupState("running");
@@ -286,6 +314,76 @@ export default function ConfigPanel({ config, onSave, tmdbKeySource, disabledEng
                 )}
               </div>
             )}
+          </section>
+
+          {/* CDA Premium */}
+          <section>
+            <h3 className="text-white font-semibold text-sm mb-1">CDA Premium</h3>
+            <p className="text-gray-500 text-xs mb-3">
+              Auto-refresh the CDA catalog on a schedule.
+            </p>
+            <div className="space-y-3">
+              <div>
+                <p className="text-xs text-gray-500 mb-2">Auto-refresh interval</p>
+                <div className="flex gap-2">
+                  {([0, 6, 12, 24] as const).map((h) => (
+                    <button
+                      key={h}
+                      onClick={async () => {
+                        const prev = cdaInterval;
+                        setCdaInterval(h);
+                        const res = await fetch("/api/settings", {
+                          method: "PATCH",
+                          headers: { "Content-Type": "application/json" },
+                          body: JSON.stringify({ cda_refresh_interval_hours: h }),
+                        });
+                        if (!res.ok) setCdaInterval(prev);
+                      }}
+                      className={`px-3 py-1.5 text-xs rounded-lg transition-colors ${
+                        cdaInterval === h
+                          ? "bg-indigo-500/30 text-indigo-300 border border-indigo-500/40"
+                          : "bg-white/5 text-gray-400 border border-white/10 hover:bg-white/10"
+                      }`}
+                    >
+                      {h === 0 ? "Off" : `${h}h`}
+                    </button>
+                  ))}
+                </div>
+              </div>
+              <div className="flex items-center gap-3">
+                <button
+                  disabled={cdaStatus === "running"}
+                  onClick={async () => {
+                    const res = await fetch("/api/cda-refresh", { method: "POST" });
+                    if (res.ok) setCdaStatus("running");
+                  }}
+                  className="px-4 py-2 text-sm rounded-lg bg-white/5 border border-white/10 text-gray-300 hover:bg-white/10 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                >
+                  {cdaStatus === "running" ? "Refreshing…" : "Refresh Now"}
+                </button>
+                {cdaStatus === "error" && (
+                  <span className="text-xs text-red-400">Last refresh failed</span>
+                )}
+              </div>
+              <div className="text-xs text-gray-500 space-y-0.5">
+                <p>
+                  Last refreshed:{" "}
+                  <span className="text-gray-400">
+                    {cdaLastRefresh
+                      ? new Date(cdaLastRefresh).toLocaleString()
+                      : "Never"}
+                  </span>
+                </p>
+                {cdaMovieCount !== null && (
+                  <p>
+                    Movies:{" "}
+                    <span className="text-gray-400">
+                      {cdaMovieCount.toLocaleString()}
+                    </span>
+                  </p>
+                )}
+              </div>
+            </div>
           </section>
 
         </div>
