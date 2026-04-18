@@ -7,7 +7,7 @@ export async function GET() {
 
 export async function POST() {
   try {
-    const filename = await backupDb();
+    const filename = await backupDb(false);
     return NextResponse.json({ filename, ...getBackupStats() });
   } catch (err) {
     return NextResponse.json({ error: (err as Error).message }, { status: 500 });
