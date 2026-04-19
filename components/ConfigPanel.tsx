@@ -191,8 +191,8 @@ export default function ConfigPanel({
       const data = await res.json();
       if (!res.ok) throw new Error(data.error);
       setBackupFile(data.filename);
-      setBackupStats({ lastBackup: data.lastBackup, count: data.count });
       setBackupState("done");
+      fetch("/api/backup").then((r) => r.json()).then(setBackupStats);
       setTimeout(() => setBackupState("idle"), 4000);
     } catch {
       setBackupState("error");
