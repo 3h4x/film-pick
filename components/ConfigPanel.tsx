@@ -109,6 +109,14 @@ function PillButton({
   );
 }
 
+type ConfigTab = "library" | "integrations" | "recommendations";
+
+const CONFIG_TABS: { value: ConfigTab; label: string }[] = [
+  { value: "library", label: "Library" },
+  { value: "integrations", label: "Integrations" },
+  { value: "recommendations", label: "Recommendations" },
+];
+
 export default function ConfigPanel({
   config,
   onSave,
@@ -120,6 +128,7 @@ export default function ConfigPanel({
   onSaveLibraryPath,
   onSync,
 }: ConfigPanelProps) {
+  const [activeTab, setActiveTab] = useState<ConfigTab>("library");
   const [draft, setDraft] = useState<RecConfig>(config);
   const [dirty, setDirty] = useState(false);
   const [apiKey, setApiKey] = useState("");
@@ -234,10 +243,27 @@ export default function ConfigPanel({
   }
 
   return (
-    <div className="max-w-2xl space-y-10">
+    <div className="max-w-2xl space-y-8">
+
+      {/* Tab nav */}
+      <div className="flex gap-1 bg-gray-800/40 p-1 rounded-xl w-fit">
+        {CONFIG_TABS.map((tab) => (
+          <button
+            key={tab.value}
+            onClick={() => setActiveTab(tab.value)}
+            className={`px-4 py-2 text-sm font-medium rounded-lg transition-all ${
+              activeTab === tab.value
+                ? "bg-gray-700/80 text-white shadow-sm"
+                : "text-gray-500 hover:text-gray-300 hover:bg-gray-700/30"
+            }`}
+          >
+            {tab.label}
+          </button>
+        ))}
+      </div>
 
       {/* ── Library ─────────────────────────────────────────── */}
-      <div>
+      {activeTab === "library" && <div>
         <SectionHeader>Library</SectionHeader>
         <div className="space-y-8">
 
@@ -325,12 +351,10 @@ export default function ConfigPanel({
           </section>
 
         </div>
-      </div>
-
-      <hr className="border-gray-800" />
+      </div>}
 
       {/* ── Integrations ────────────────────────────────────── */}
-      <div>
+      {activeTab === "integrations" && <div>
         <SectionHeader>Integrations</SectionHeader>
         <div className="space-y-8">
 
@@ -432,12 +456,10 @@ export default function ConfigPanel({
           </section>
 
         </div>
-      </div>
-
-      <hr className="border-gray-800" />
+      </div>}
 
       {/* ── Recommendations ─────────────────────────────────── */}
-      <div>
+      {activeTab === "recommendations" && <div>
         <SectionHeader>Recommendations</SectionHeader>
         <div className="space-y-10">
 
@@ -712,7 +734,7 @@ export default function ConfigPanel({
           </div>
 
         </div>
-      </div>
+      </div>}
 
     </div>
   );

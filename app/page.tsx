@@ -1053,7 +1053,7 @@ export default function Home() {
               {
                 key: "recommendations" as const,
                 label: "Discover",
-                count: totalRecsCount,
+                count: categoryCounts["all"] > 0 ? categoryCounts["all"] : totalRecsCount,
               },
               {
                 key: "library" as const,
