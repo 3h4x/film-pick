@@ -1,5 +1,5 @@
 import { NextRequest } from "next/server";
-import { getDb, deleteMovie } from "@/lib/db";
+import { getDb, deleteMovie, type Movie } from "@/lib/db";
 import { getTmdbMovieDetails, searchTmdb, getMovieLocalized } from "@/lib/tmdb";
 import { cleanTitle } from "@/lib/utils";
 import { execFile } from "child_process";
@@ -7,6 +7,37 @@ import { promisify } from "util";
 import fs from "fs";
 
 const execFileAsync = promisify(execFile);
+
+interface FfprobeStream {
+  codec_type: string;
+  codec_name: string;
+  width?: number;
+  height?: number;
+  pix_fmt?: string;
+  profile?: string;
+  level?: number;
+  bit_rate?: string;
+  channels?: number;
+  tags?: { language?: string; title?: string };
+}
+
+interface VideoMetadata {
+  format: string;
+  size: number;
+  duration: number;
+  bitrate: number;
+  video: {
+    codec: string;
+    width: number | undefined;
+    height: number | undefined;
+    pix_fmt: string | undefined;
+    profile: string | undefined;
+    level: number | undefined;
+    bitrate: number;
+  } | null;
+  audio: { codec: string; channels: number | undefined; language: string | undefined; title: string | undefined }[];
+  extra_files?: { path: string }[];
+}
 
 export async function GET(
   _request: NextRequest,
@@ -16,13 +47,13 @@ export async function GET(
   const db = getDb();
   const movie = db
     .prepare("SELECT * FROM movies WHERE id = ?")
-    .get(parseInt(id, 10)) as any;
+    .get(parseInt(id, 10)) as (Movie & { video_metadata?: string | null; description?: string | null }) | undefined;
 
   if (!movie) {
     return Response.json({ error: "Movie not found" }, { status: 404 });
   }
 
-  let metadata = null;
+  let metadata: VideoMetadata | { error: string } | null = null;
   if (movie.video_metadata) {
     try {
       metadata = JSON.parse(movie.video_metadata);
@@ -33,7 +64,7 @@ export async function GET(
 
   if (!metadata && movie.file_path && fs.existsSync(movie.file_path)) {
     try {
-      const getMetadata = async (filePath: string) => {
+      const getMetadata = async (filePath: string): Promise<VideoMetadata> => {
         const { stdout } = await execFileAsync("ffprobe", [
           "-v",
           "quiet",
@@ -43,16 +74,19 @@ export async function GET(
           "-show_streams",
           filePath,
         ]);
-        const ffprobeData = JSON.parse(stdout);
+        const ffprobeData = JSON.parse(stdout) as {
+          streams: FfprobeStream[];
+          format?: { format_long_name?: string; size?: string; duration?: string; bit_rate?: string };
+        };
         const videoStream = ffprobeData.streams.find(
-          (s: any) => s.codec_type === "video",
+          (s) => s.codec_type === "video",
         );
         const audioStreams = ffprobeData.streams.filter(
-          (s: any) => s.codec_type === "audio",
+          (s) => s.codec_type === "audio",
         );
 
         return {
-          format: ffprobeData.format?.format_long_name,
+          format: ffprobeData.format?.format_long_name ?? "",
           size: parseInt(ffprobeData.format?.size || "0"),
           duration: parseFloat(ffprobeData.format?.duration || "0"),
           bitrate: parseInt(ffprobeData.format?.bit_rate || "0"),
@@ -67,7 +101,7 @@ export async function GET(
                 bitrate: parseInt(videoStream.bit_rate || "0"),
               }
             : null,
-          audio: audioStreams.map((s: any) => ({
+          audio: audioStreams.map((s) => ({
             codec: s.codec_name,
             channels: s.channels,
             language: s.tags?.language,
@@ -88,7 +122,7 @@ export async function GET(
             extraMetadata.push({ path: extraPath, ...m });
           }
         }
-        (metadata as any).extra_files = extraMetadata;
+        (metadata as VideoMetadata).extra_files = extraMetadata;
       }
 
       // Save to DB
@@ -96,7 +130,7 @@ export async function GET(
         JSON.stringify(metadata),
         parseInt(id, 10),
       );
-    } catch (error: any) {
+    } catch (error) {
       console.error("[Metadata] Error fetching ffprobe data:", error);
       metadata = { error: "Failed to read video metadata (ffprobe)" };
     }
@@ -236,7 +270,7 @@ export async function PATCH(
     "source",
   ] as const;
   const sets: string[] = [];
-  const values: any[] = [];
+  const values: (string | number | null)[] = [];
 
   for (const key of allowed) {
     if (key in body) {
@@ -263,9 +297,10 @@ export async function PATCH(
     db.prepare(`UPDATE movies SET ${sets.join(", ")} WHERE id = ?`).run(
       ...values,
     );
-  } catch (error: any) {
+  } catch (error) {
+    const e = error as { message?: string; code?: string };
     return Response.json(
-      { error: error.message, code: error.code },
+      { error: e.message, code: e.code },
       { status: 500 },
     );
   }

@@ -73,10 +73,11 @@ export async function PATCH(request: NextRequest) {
     }
   }
     return Response.json({ ok: true });
-  } catch (err: any) {
-    if (err?.code === "SQLITE_READONLY") {
+  } catch (err) {
+    const e = err as { code?: string; message?: string };
+    if (e?.code === "SQLITE_READONLY") {
       return Response.json({ error: "Database is read-only — check file permissions on the server" }, { status: 500 });
     }
-    return Response.json({ error: err?.message || "Failed to save settings" }, { status: 500 });
+    return Response.json({ error: e?.message || "Failed to save settings" }, { status: 500 });
   }
 }
