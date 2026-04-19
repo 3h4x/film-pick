@@ -4,7 +4,7 @@ import {
   getCachedEngine,
   getRecommendedMovies,
 } from "@/lib/db";
-import { engines } from "@/lib/engines";
+import { engines, type RecommendationGroup } from "@/lib/engines";
 
 export async function GET() {
   const db = getDb();
@@ -21,11 +21,11 @@ export async function GET() {
       total += rows.filter((r) => !dismissedIds.has(r.tmdb_id)).length;
     } else {
       // Count from cache if available
-      const cached = getCachedEngine(db, key, movieCount.c);
+      const cached = getCachedEngine<RecommendationGroup>(db, key, movieCount.c);
       if (cached) {
-        for (const group of cached as any[]) {
+        for (const group of cached) {
           total += (group.recommendations || []).filter(
-            (r: any) => !dismissedIds.has(r.tmdb_id),
+            (r) => !dismissedIds.has(r.tmdb_id),
           ).length;
         }
       }

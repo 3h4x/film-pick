@@ -1,6 +1,16 @@
 import { NextRequest } from "next/server";
 import { getDb } from "@/lib/db";
 
+interface RatedMovieRow {
+  id: number;
+  title: string;
+  year: number | null;
+  director: string | null;
+  writer: string | null;
+  actors: string | null;
+  user_rating: number;
+}
+
 export interface PersonRating {
   name: string;
   role: "director" | "writer" | "actor";
@@ -15,7 +25,7 @@ export interface PersonRating {
 }
 
 export function buildPersonMap(
-  ratedMovies: any[],
+  ratedMovies: RatedMovieRow[],
   filterNames?: Set<string>,
 ): Map<string, PersonRating> {
   const personMap = new Map<string, PersonRating>();
@@ -23,7 +33,7 @@ export function buildPersonMap(
   const addPerson = (
     personName: string,
     personRole: "director" | "writer" | "actor",
-    movie: any,
+    movie: RatedMovieRow,
   ) => {
     if (filterNames && !filterNames.has(personName.toLowerCase())) return;
     const key = `${personName}::${personRole}`;
@@ -93,7 +103,7 @@ export async function GET(request: NextRequest) {
     .prepare(
       "SELECT id, title, year, director, writer, actors, user_rating FROM movies WHERE user_rating IS NOT NULL AND user_rating > 0",
     )
-    .all() as any[];
+    .all() as RatedMovieRow[];
 
   // Batch or single person lookup
   if (names.length > 0 || name) {
