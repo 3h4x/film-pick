@@ -1,6 +1,8 @@
 import { NextResponse } from "next/server";
 import { backupDb, getBackupStats } from "@/lib/backup";
 
+export const dynamic = "force-dynamic";
+
 export async function GET() {
   return NextResponse.json(getBackupStats());
 }
