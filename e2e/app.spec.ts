@@ -1,0 +1,261 @@
+import { test, expect, Page } from "@playwright/test";
+import { MOCK_MOVIES, MOCK_SETTINGS, MOCK_RECS } from "./fixtures";
+
+async function mockAPIs(page: Page) {
+  await page.route("/api/movies", (route) => {
+    if (route.request().method() === "GET") {
+      route.fulfill({ json: MOCK_MOVIES });
+    } else {
+      route.continue();
+    }
+  });
+  await page.route("/api/settings", (route) => {
+    if (route.request().method() === "GET") {
+      route.fulfill({ json: MOCK_SETTINGS });
+    } else {
+      route.continue();
+    }
+  });
+  await page.route("/api/recommendations/count", (route) =>
+    route.fulfill({ json: { total: 12 } })
+  );
+  await page.route("/api/recommendations*", (route) =>
+    route.fulfill({ json: MOCK_RECS })
+  );
+}
+
+async function goToLibrary(page: Page) {
+  // Click Library tab and wait for movie cards to appear
+  // Longer timeout to handle initial Next.js dev compilation
+  await page.getByRole("button", { name: /^Library/ }).click();
+  await expect(page.getByText("The Godfather")).toBeVisible({ timeout: 20_000 });
+}
+
+test.describe("page load", () => {
+  test("shows FilmPick title and tabs", async ({ page }) => {
+    await mockAPIs(page);
+    await page.goto("/");
+    await expect(page.getByRole("heading", { name: /FilmPick/i })).toBeVisible();
+    await expect(page.getByRole("button", { name: /Discover/i })).toBeVisible();
+    await expect(page.getByRole("button", { name: /^Library/ })).toBeVisible();
+    // Use first() since "From Watchlist" rec category also matches /Watchlist/
+    await expect(page.getByRole("button", { name: /^Watchlist/ }).first()).toBeVisible();
+    await expect(page.getByRole("button", { name: /^Config/ })).toBeVisible();
+  });
+
+  test("Discover tab is active by default", async ({ page }) => {
+    await mockAPIs(page);
+    await page.goto("/");
+    const discoverBtn = page.getByRole("button", { name: /Discover/i });
+    await expect(discoverBtn).toHaveClass(/text-white/);
+  });
+
+  test("shows search input after movies load", async ({ page }) => {
+    await mockAPIs(page);
+    await page.goto("/");
+    await expect(page.getByPlaceholder("Search library...")).toBeVisible();
+  });
+});
+
+test.describe("tab navigation", () => {
+  test.beforeEach(async ({ page }) => {
+    await mockAPIs(page);
+    await page.goto("/");
+    // Wait for movies to load (needed for library/watchlist counts to appear)
+    await expect(page.getByPlaceholder("Search library...")).toBeVisible();
+  });
+
+  test("switches to Library tab", async ({ page }) => {
+    await page.getByRole("button", { name: /^Library/ }).click();
+    await expect(page).toHaveURL(/#library/);
+    await expect(page.getByText(/Showing \d+ of \d+/)).toBeVisible({ timeout: 8_000 });
+  });
+
+  test("switches to Watchlist tab", async ({ page }) => {
+    await page.getByRole("button", { name: /^Watchlist/ }).first().click();
+    await expect(page).toHaveURL(/#wishlist/);
+  });
+
+  test("switches to Config tab", async ({ page }) => {
+    await page.getByRole("button", { name: /^Config/ }).click();
+    await expect(page).toHaveURL(/#config/);
+  });
+
+  test("switches back to Discover tab", async ({ page }) => {
+    await page.getByRole("button", { name: /^Library/ }).click();
+    await page.getByRole("button", { name: /^Discover/ }).click();
+    await expect(page).toHaveURL(/#recommendations/);
+  });
+});
+
+test.describe("library tab", () => {
+  test.beforeEach(async ({ page }) => {
+    await mockAPIs(page);
+    await page.goto("/");
+    await goToLibrary(page);
+  });
+
+  test("renders movie cards for each movie", async ({ page }) => {
+    await expect(page.getByText("The Godfather")).toBeVisible();
+    await expect(page.getByText("Blade Runner 2049")).toBeVisible();
+  });
+
+  test("shows user rating badge on rated movie", async ({ page }) => {
+    await expect(page.getByText("♥ 10/10").first()).toBeVisible();
+    await expect(page.getByText("♥ 8/10").first()).toBeVisible();
+  });
+
+  test("shows sort/filter bar with sort options", async ({ page }) => {
+    // SortFilterBar renders a select with sort options
+    await expect(page.getByRole("combobox").first()).toBeVisible();
+  });
+
+  test("shows movie count", async ({ page }) => {
+    await expect(page.getByText(/Showing 2 of 2/)).toBeVisible();
+  });
+});
+
+test.describe("library search filter", () => {
+  test.beforeEach(async ({ page }) => {
+    await mockAPIs(page);
+    await page.goto("/");
+    await goToLibrary(page);
+  });
+
+  test("filters movies by title as user types", async ({ page }) => {
+    const searchInput = page.getByPlaceholder("Search library...");
+    await searchInput.fill("godfather");
+
+    await expect(page.getByText("The Godfather")).toBeVisible();
+    await expect(page.getByText("Blade Runner 2049")).not.toBeVisible();
+  });
+
+  test("clears filter with ESC", async ({ page }) => {
+    const searchInput = page.getByPlaceholder("Search library...");
+    await searchInput.fill("godfather");
+    await expect(page.getByText("Blade Runner 2049")).not.toBeVisible();
+
+    await searchInput.press("Escape");
+    await expect(page.getByText("Blade Runner 2049")).toBeVisible();
+  });
+
+  test("shows movie count with filter active", async ({ page }) => {
+    const searchInput = page.getByPlaceholder("Search library...");
+    await searchInput.fill("godfather");
+    await expect(page.getByText(/Showing 1 of 1/)).toBeVisible();
+  });
+});
+
+test.describe("movie detail", () => {
+  test("opens movie detail on card click", async ({ page }) => {
+    await mockAPIs(page);
+    await page.route("/api/movies/1/full", (route) =>
+      route.fulfill({
+        json: {
+          movie: { ...MOCK_MOVIES[0] },
+          cast: [],
+          crew: [],
+          similar: [],
+        },
+      })
+    );
+    await page.goto("/");
+    await goToLibrary(page);
+
+    // Click movie card — MovieDetail is rendered as a fixed overlay div
+    await page.getByText("The Godfather").first().click();
+    // The overlay contains a close button and movie title
+    await expect(page.locator(".fixed.inset-0").getByText("The Godfather").first()).toBeVisible({ timeout: 8_000 });
+  });
+
+  test("closes movie detail with close button", async ({ page }) => {
+    await mockAPIs(page);
+    await page.route("/api/movies/1/full", (route) =>
+      route.fulfill({
+        json: {
+          movie: { ...MOCK_MOVIES[0] },
+          cast: [],
+          crew: [],
+          similar: [],
+        },
+      })
+    );
+    await page.goto("/");
+    await goToLibrary(page);
+
+    await page.getByText("The Godfather").first().click();
+    const overlay = page.locator(".fixed.inset-0");
+    await expect(overlay).toBeVisible({ timeout: 8_000 });
+
+    // Close button has title="Close" but text content "✕"
+    await overlay.locator('[title="Close"]').click();
+    await expect(overlay).not.toBeVisible({ timeout: 5_000 });
+  });
+});
+
+test.describe("discover / recommendations tab", () => {
+  test("shows recommendation cards after load", async ({ page }) => {
+    await mockAPIs(page);
+    await page.goto("/");
+    await expect(page.getByText("GoodFellas")).toBeVisible({ timeout: 10_000 });
+  });
+
+  test("shows empty state when no movies", async ({ page }) => {
+    await page.route("/api/movies", (route) => route.fulfill({ json: [] }));
+    await page.route("/api/settings", (route) => route.fulfill({ json: MOCK_SETTINGS }));
+    await page.route("/api/recommendations/count", (route) =>
+      route.fulfill({ json: { total: 0 } })
+    );
+    await page.goto("/");
+    await expect(page.getByText("No recommendations yet")).toBeVisible();
+  });
+
+  test("category filter tabs are visible", async ({ page }) => {
+    await mockAPIs(page);
+    await page.goto("/");
+    // Wait for movies to load first (needed for rec tabs to appear)
+    await expect(page.getByPlaceholder("Search library...")).toBeVisible();
+    await expect(page.getByText("All")).toBeVisible();
+    await expect(page.getByText("By Genre")).toBeVisible();
+  });
+
+  test("switching category tab updates URL hash", async ({ page }) => {
+    await mockAPIs(page);
+    await page.goto("/");
+    await expect(page.getByPlaceholder("Search library...")).toBeVisible();
+    await page.getByRole("button", { name: "By Genre" }).click();
+    await expect(page).toHaveURL(/#recommendations\/genre/);
+  });
+});
+
+test.describe("config tab", () => {
+  test("renders config panel with TMDb key status", async ({ page }) => {
+    await mockAPIs(page);
+    await page.goto("/#config");
+    await page.waitForLoadState("networkidle");
+    await expect(page.getByText(/TMDb/i).first()).toBeVisible({ timeout: 8_000 });
+  });
+});
+
+test.describe("watchlist tab", () => {
+  test("shows empty state when watchlist is empty", async ({ page }) => {
+    await mockAPIs(page);
+    await page.goto("/");
+    await page.getByRole("button", { name: /^Watchlist/ }).first().click();
+    await expect(page.getByText("Your watchlist is empty")).toBeVisible({ timeout: 8_000 });
+  });
+
+  test("shows watchlist movies", async ({ page }) => {
+    const wishlistMovie = { ...MOCK_MOVIES[0], id: 99, wishlist: 1, user_rating: null };
+    await page.route("/api/movies", (route) =>
+      route.fulfill({ json: [wishlistMovie] })
+    );
+    await page.route("/api/settings", (route) => route.fulfill({ json: MOCK_SETTINGS }));
+    await page.route("/api/recommendations/count", (route) =>
+      route.fulfill({ json: { total: 0 } })
+    );
+    await page.goto("/");
+    await page.getByRole("button", { name: /^Watchlist/ }).first().click();
+    await expect(page.getByText("The Godfather")).toBeVisible({ timeout: 8_000 });
+  });
+});
