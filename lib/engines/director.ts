@@ -38,9 +38,9 @@ export async function directorEngine(
     }
   });
 
-  // Directors with 2+ films, or 1 film rated 9+
+  const minFilms = ctx.config?.director_min_films ?? 2;
   const topDirectors = [...directorCounts.entries()]
-    .filter(([, v]) => v.count >= 2 || v.avgRating >= 9)
+    .filter(([, v]) => v.count >= minFilms || v.avgRating >= 9)
     .sort((a, b) => b[1].count * b[1].avgRating - a[1].count * a[1].avgRating)
     .slice(0, 8);
 

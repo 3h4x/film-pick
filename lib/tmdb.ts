@@ -253,6 +253,20 @@ export async function getTmdbRecommendations(
   return results.map(mapResult);
 }
 
+export async function getTmdbSimilar(
+  tmdbId: number,
+): Promise<TmdbSearchResult[]> {
+  const url = `${TMDB_BASE}/movie/${tmdbId}/similar?language=en-US&page=1`;
+  const res = await fetch(url, {
+    headers: { Authorization: `Bearer ${getApiKey()}` },
+  });
+
+  if (!res.ok) return [];
+
+  const data = (await res.json()) as { results?: TmdbRawResult[] };
+  return (data.results || []).slice(0, 5).map(mapResult);
+}
+
 export async function discoverByGenre(
   genreId: number,
   pages = 3,

@@ -178,6 +178,11 @@ export default function Home() {
     min_year: null,
     min_rating: null,
     max_per_group: 15,
+    movie_seed_min_rating: 7,
+    movie_seed_count: 10,
+    use_tmdb_similar: true,
+    actor_min_appearances: 2,
+    director_min_films: 2,
   });
   const [groupOrder, setGroupOrder] = useState<string[]>([]);
 

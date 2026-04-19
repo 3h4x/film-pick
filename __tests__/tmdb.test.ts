@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { searchTmdb, getTmdbRecommendations } from "@/lib/tmdb";
+import { searchTmdb, getTmdbRecommendations, getTmdbSimilar } from "@/lib/tmdb";
 
 const mockFetch = vi.fn();
 global.fetch = mockFetch;
@@ -75,5 +75,65 @@ describe("tmdb client", () => {
     expect(recs).toHaveLength(1);
     expect(recs[0].title).toBe("The Dark Knight");
     expect(recs[0].year).toBe(2008);
+  });
+
+  it("fetches similar movies for a tmdb id", async () => {
+    mockFetch.mockResolvedValueOnce({
+      ok: true,
+      json: async () => ({
+        results: [
+          {
+            id: 157336,
+            title: "Interstellar",
+            release_date: "2014-11-05",
+            genre_ids: [18, 878],
+            vote_average: 8.4,
+            poster_path: "/gEU2QniE6E77NI6lCU6MxlNBvIx.jpg",
+          },
+          {
+            id: 329865,
+            title: "Arrival",
+            release_date: "2016-11-11",
+            genre_ids: [18, 878],
+            vote_average: 7.9,
+            poster_path: "/x2FJsf1ElAgr63Y3PNPtJrcmpoe.jpg",
+          },
+        ],
+      }),
+    });
+
+    const similar = await getTmdbSimilar(27205);
+    expect(similar).toHaveLength(2);
+    expect(similar[0].title).toBe("Interstellar");
+    expect(similar[0].tmdb_id).toBe(157336);
+    expect(similar[1].title).toBe("Arrival");
+    expect(mockFetch).toHaveBeenCalledWith(
+      expect.stringContaining("/movie/27205/similar"),
+      expect.any(Object),
+    );
+  });
+
+  it("returns empty array when similar endpoint returns error", async () => {
+    mockFetch.mockResolvedValueOnce({ ok: false, status: 404 });
+    const similar = await getTmdbSimilar(99999);
+    expect(similar).toEqual([]);
+  });
+
+  it("limits similar results to 5", async () => {
+    const manyResults = Array.from({ length: 10 }, (_, i) => ({
+      id: i + 1,
+      title: `Film ${i}`,
+      release_date: "2020-01-01",
+      genre_ids: [18],
+      vote_average: 7.0,
+      poster_path: null,
+    }));
+    mockFetch.mockResolvedValueOnce({
+      ok: true,
+      json: async () => ({ results: manyResults }),
+    });
+
+    const similar = await getTmdbSimilar(100);
+    expect(similar).toHaveLength(5);
   });
 });
