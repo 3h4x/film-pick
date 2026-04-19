@@ -2,6 +2,7 @@ import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { NextRequest } from "next/server";
 import Database from "better-sqlite3";
 import path from "path";
+import fs from "fs";
 import { initDb, insertMovie } from "@/lib/db";
 
 const { mockStat, mockReadFile, mockCreateReadStream } = vi.hoisted(() => ({
@@ -68,7 +69,6 @@ describe("movies/[id]/stream GET handler", () => {
 
   afterEach(() => {
     db.close();
-    const fs = require("fs");
     if (fs.existsSync(TEST_DB)) fs.unlinkSync(TEST_DB);
     vi.clearAllMocks();
   });
