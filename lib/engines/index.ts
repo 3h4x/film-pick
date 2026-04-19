@@ -22,6 +22,12 @@ export interface RecConfig {
   min_year: number | null;
   min_rating: number | null;
   max_per_group: number;
+  // Engine tuning (all optional — engines fall back to sensible defaults)
+  movie_seed_min_rating?: number;
+  movie_seed_count?: number;
+  use_tmdb_similar?: boolean;
+  actor_min_appearances?: number;
+  director_min_films?: number;
 }
 
 export interface EngineContext {

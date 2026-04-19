@@ -1,4 +1,4 @@
-import { getTmdbRecommendations } from "../tmdb";
+import { getTmdbRecommendations, getTmdbSimilar } from "../tmdb";
 import {
   filterResults,
   type EngineContext,
@@ -8,18 +8,41 @@ import {
 export async function movieEngine(
   ctx: EngineContext,
 ): Promise<RecommendationGroup[]> {
-  const seeds = ctx.library
-    .filter((m) => m.tmdb_id && (m.user_rating ?? 0) >= 7)
-    .sort((a, b) => (b.user_rating ?? 0) - (a.user_rating ?? 0))
-    .slice(0, 10);
+  const seedMinRating = ctx.config?.movie_seed_min_rating ?? 7;
+  const seedCount = ctx.config?.movie_seed_count ?? 10;
+  const useSimilar = ctx.config?.use_tmdb_similar ?? true;
 
-  const recResults = await Promise.allSettled(
+  const seeds = ctx.library
+    .filter((m) => m.tmdb_id && (m.user_rating ?? 0) >= seedMinRating)
+    .sort((a, b) => (b.user_rating ?? 0) - (a.user_rating ?? 0))
+    .slice(0, seedCount);
+
+  const recResultsPromise = Promise.allSettled(
     seeds.map((m) => getTmdbRecommendations(m.tmdb_id!)),
   );
+  const similarResultsPromise = useSimilar
+    ? Promise.allSettled(seeds.map((m) => getTmdbSimilar(m.tmdb_id!)))
+    : Promise.resolve(null);
+
+  const [recResults, similarResults] = await Promise.all([
+    recResultsPromise,
+    similarResultsPromise,
+  ]);
+
   const groups: RecommendationGroup[] = [];
   recResults.forEach((result, i) => {
     if (result.status !== "fulfilled") return;
-    const filtered = filterResults(result.value, ctx);
+    const combined = [...result.value];
+    if (similarResults) {
+      const similar = similarResults[i];
+      if (similar.status === "fulfilled") {
+        const seen = new Set(combined.map((r) => r.tmdb_id));
+        for (const r of similar.value) {
+          if (!seen.has(r.tmdb_id)) combined.push(r);
+        }
+      }
+    }
+    const filtered = filterResults(combined, ctx);
     if (filtered.length > 0) {
       groups.push({
         reason: `Because you loved ${seeds[i].title}`,
