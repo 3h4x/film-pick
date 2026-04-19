@@ -94,6 +94,7 @@ describe("movies/[id]/play POST handler", () => {
   afterEach(() => {
     db.close();
     try {
+      // eslint-disable-next-line @typescript-eslint/no-require-imports
       const fs = require("fs");
       if (fs.existsSync(TEST_DB)) fs.unlinkSync(TEST_DB);
     } catch {}
