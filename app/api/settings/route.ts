@@ -35,6 +35,7 @@ export async function GET() {
     })(),
     epg_last_refresh: getSetting(db, "epg_last_refresh") ?? null,
     epg_status: (getSetting(db, "epg_status") ?? "idle") as "idle" | "running" | "error",
+    tv_hide_unrated: getSetting(db, "tv_hide_unrated") !== "false",
   });
 }
 
@@ -91,6 +92,9 @@ export async function PATCH(request: NextRequest) {
   }
   if (typeof body.epg_enabled === "boolean") {
     setSetting(db, "epg_enabled", body.epg_enabled ? "true" : "false");
+  }
+  if (typeof body.tv_hide_unrated === "boolean") {
+    setSetting(db, "tv_hide_unrated", body.tv_hide_unrated ? "true" : "false");
   }
   if (body.epg_refresh_interval_hours !== undefined) {
     const val = Number(body.epg_refresh_interval_hours);
