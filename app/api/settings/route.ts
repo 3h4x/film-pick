@@ -27,6 +27,14 @@ export async function GET() {
       | "idle"
       | "running"
       | "error",
+    epg_url: getSetting(db, "epg_url") ?? "",
+    epg_enabled: getSetting(db, "epg_enabled") !== "false",
+    epg_refresh_interval_hours: (() => {
+      const v = getSetting(db, "epg_refresh_interval_hours");
+      return v ? parseInt(v, 10) : 0;
+    })(),
+    epg_last_refresh: getSetting(db, "epg_last_refresh") ?? null,
+    epg_status: (getSetting(db, "epg_status") ?? "idle") as "idle" | "running" | "error",
   });
 }
 
@@ -72,7 +80,31 @@ export async function PATCH(request: NextRequest) {
       db.prepare("DELETE FROM settings WHERE key = ?").run("tmdb_api_key");
     }
   }
-    return Response.json({ ok: true });
+  if (typeof body.epg_url === "string") {
+    if (body.epg_url.trim()) {
+      setSetting(db, "epg_url", body.epg_url.trim());
+    } else {
+      db.prepare("DELETE FROM settings WHERE key = ?").run("epg_url");
+    }
+    const { invalidateMemCache } = await import("@/lib/epg-fetch");
+    invalidateMemCache();
+  }
+  if (typeof body.epg_enabled === "boolean") {
+    setSetting(db, "epg_enabled", body.epg_enabled ? "true" : "false");
+  }
+  if (body.epg_refresh_interval_hours !== undefined) {
+    const val = Number(body.epg_refresh_interval_hours);
+    if (![0, 6, 12, 24].includes(val)) {
+      return Response.json(
+        { error: "epg_refresh_interval_hours must be 0, 6, 12, or 24" },
+        { status: 400 },
+      );
+    }
+    setSetting(db, "epg_refresh_interval_hours", String(val));
+    const { rescheduleEpgJob } = await import("@/lib/epg-scheduler");
+    rescheduleEpgJob(db);
+  }
+  return Response.json({ ok: true });
   } catch (err) {
     const e = err as { code?: string; message?: string };
     if (e?.code === "SQLITE_READONLY") {

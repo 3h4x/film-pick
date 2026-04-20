@@ -4,6 +4,7 @@ export async function register() {
   const { backupDb } = await import("@/lib/backup");
   const { getDb, getSetting } = await import("@/lib/db");
   const { initCdaScheduler } = await import("@/lib/cda-scheduler");
+  const { initEpgScheduler } = await import("@/lib/epg-scheduler");
 
   const INTERVAL_MS = 15 * 60 * 1000; // every 15 minutes
 
@@ -23,4 +24,5 @@ export async function register() {
   setInterval(run, INTERVAL_MS);
 
   initCdaScheduler(getDb());
+  initEpgScheduler(getDb());
 }

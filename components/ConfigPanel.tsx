@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { EPG_PRESETS } from "@/lib/epg-presets";
 
 const ALL_GENRES = [
   "Action",
@@ -146,6 +147,14 @@ export default function ConfigPanel({
   const [cdaLastRefresh, setCdaLastRefresh] = useState<string | null>(null);
   const [cdaMovieCount, setCdaMovieCount] = useState<number | null>(null);
 
+  // EPG / TV
+  const [epgEnabled, setEpgEnabled] = useState(true);
+  const [epgUrl, setEpgUrlDraft] = useState("");
+  const [epgInterval, setEpgInterval] = useState<0 | 6 | 12 | 24>(0);
+  const [epgStatus, setEpgStatus] = useState<"idle" | "running" | "error">("idle");
+  const [epgLastRefresh, setEpgLastRefresh] = useState<string | null>(null);
+  const [epgUrlSaving, setEpgUrlSaving] = useState(false);
+
   useEffect(() => {
     setDraft({ ...DEFAULTS, ...config });
     setDirty(false);
@@ -164,6 +173,11 @@ export default function ConfigPanel({
         setCdaStatus(s.cda_refresh_status ?? "idle");
         setCdaLastRefresh(s.cda_last_refresh ?? null);
         setCdaMovieCount(s.cda_movie_count ?? null);
+        setEpgEnabled(s.epg_enabled ?? true);
+        setEpgUrlDraft(s.epg_url ?? "");
+        setEpgInterval(s.epg_refresh_interval_hours ?? 0);
+        setEpgStatus(s.epg_status ?? "idle");
+        setEpgLastRefresh(s.epg_last_refresh ?? null);
       });
   }, []);
 
@@ -182,6 +196,21 @@ export default function ConfigPanel({
     }, 3000);
     return () => clearInterval(timer);
   }, [cdaStatus]);
+
+  useEffect(() => {
+    if (epgStatus !== "running") return;
+    const timer = setInterval(() => {
+      fetch("/api/settings")
+        .then((r) => r.json())
+        .then((s) => {
+          setEpgStatus(s.epg_status ?? "idle");
+          if (s.epg_status !== "running") {
+            setEpgLastRefresh(s.epg_last_refresh ?? null);
+          }
+        });
+    }, 3000);
+    return () => clearInterval(timer);
+  }, [epgStatus]);
 
   async function handleBackup() {
     setBackupState("running");
@@ -452,6 +481,133 @@ export default function ConfigPanel({
                   <p>Movies: <span className="text-gray-400">{cdaMovieCount.toLocaleString()}</span></p>
                 )}
               </div>
+            </div>
+          </section>
+
+          <section>
+            <SubHeader>TV Guide (EPG)</SubHeader>
+            <Hint>Fetch a live TV schedule for Polish or other channels.</Hint>
+            <div className="space-y-4">
+
+              {/* Enable toggle */}
+              <div className="flex items-center gap-3">
+                <button
+                  onClick={async () => {
+                    const next = !epgEnabled;
+                    setEpgEnabled(next);
+                    const res = await fetch("/api/settings", {
+                      method: "PATCH",
+                      headers: { "Content-Type": "application/json" },
+                      body: JSON.stringify({ epg_enabled: next }),
+                    });
+                    if (!res.ok) setEpgEnabled(!next);
+                  }}
+                  className={`px-4 py-2 text-sm rounded-lg transition-colors ${
+                    epgEnabled
+                      ? "bg-green-500/20 text-green-300 border border-green-500/30 hover:bg-green-500/30"
+                      : "bg-red-500/20 text-red-300 border border-red-500/30 hover:bg-red-500/30"
+                  }`}
+                >
+                  {epgEnabled ? "TV Guide: On" : "TV Guide: Off"}
+                </button>
+              </div>
+
+              {/* Country presets */}
+              <div>
+                <p className="text-xs text-gray-500 mb-2">Country preset</p>
+                <div className="flex flex-wrap gap-2">
+                  {EPG_PRESETS.map((p) => (
+                    <PillButton
+                      key={p.url}
+                      active={epgUrl === p.url}
+                      color="indigo"
+                      onClick={() => setEpgUrlDraft(p.url)}
+                    >
+                      {p.label}
+                    </PillButton>
+                  ))}
+                </div>
+              </div>
+
+              {/* Custom URL */}
+              <div>
+                <p className="text-xs text-gray-500 mb-2">EPG URL (XMLTV or .xml.gz)</p>
+                <div className="flex items-center gap-2">
+                  <input
+                    type="text"
+                    value={epgUrl}
+                    onChange={(e) => setEpgUrlDraft(e.target.value)}
+                    placeholder="https://epgshare01.online/epgshare01/epg_ripper_PL1.xml.gz"
+                    className="flex-1 bg-gray-800/60 border border-gray-700/30 rounded-lg px-3 py-2 text-white text-sm font-mono focus:outline-none focus:border-indigo-500/50 placeholder-gray-600 min-w-0"
+                  />
+                  <button
+                    disabled={epgUrlSaving}
+                    onClick={async () => {
+                      setEpgUrlSaving(true);
+                      await fetch("/api/settings", {
+                        method: "PATCH",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify({ epg_url: epgUrl }),
+                      });
+                      setEpgUrlSaving(false);
+                    }}
+                    className="px-4 py-2 text-sm rounded-lg bg-indigo-600 text-white hover:bg-indigo-500 disabled:opacity-40 transition-colors shrink-0"
+                  >
+                    {epgUrlSaving ? "Saving…" : "Save"}
+                  </button>
+                </div>
+              </div>
+
+              {/* Auto-refresh interval */}
+              <div>
+                <p className="text-xs text-gray-500 mb-2">Auto-refresh interval</p>
+                <div className="flex gap-2">
+                  {([0, 6, 12, 24] as const).map((h) => (
+                    <PillButton
+                      key={h}
+                      active={epgInterval === h}
+                      color="indigo"
+                      onClick={async () => {
+                        const prev = epgInterval;
+                        setEpgInterval(h);
+                        const res = await fetch("/api/settings", {
+                          method: "PATCH",
+                          headers: { "Content-Type": "application/json" },
+                          body: JSON.stringify({ epg_refresh_interval_hours: h }),
+                        });
+                        if (!res.ok) setEpgInterval(prev);
+                      }}
+                    >
+                      {h === 0 ? "Off" : `${h}h`}
+                    </PillButton>
+                  ))}
+                </div>
+              </div>
+
+              {/* Manual refresh + status */}
+              <div className="flex items-center gap-3">
+                <button
+                  disabled={epgStatus === "running"}
+                  onClick={async () => {
+                    const res = await fetch("/api/tv/refresh", { method: "POST" });
+                    if (res.ok) setEpgStatus("running");
+                  }}
+                  className="px-4 py-2 text-sm rounded-lg bg-white/5 border border-white/10 text-gray-300 hover:bg-white/10 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                >
+                  {epgStatus === "running" ? "Refreshing…" : "Refresh Now"}
+                </button>
+                {epgStatus === "error" && (
+                  <span className="text-xs text-red-400">Last refresh failed</span>
+                )}
+              </div>
+
+              <div className="text-xs text-gray-500">
+                Last refreshed:{" "}
+                <span className="text-gray-400">
+                  {epgLastRefresh ? new Date(epgLastRefresh).toLocaleString() : "Never"}
+                </span>
+              </div>
+
             </div>
           </section>
 
