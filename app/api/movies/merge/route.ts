@@ -20,7 +20,7 @@ export async function POST(request: NextRequest) {
     return Response.json({ error: "Movie(s) not found" }, { status: 404 });
   }
 
-  const updates: Record<string, any> = {};
+  const updates: Partial<Movie> = {};
 
   // Fields to merge with specific strategies
   // 1. Prefer non-null, then prefer higher/more complete
@@ -73,7 +73,7 @@ export async function POST(request: NextRequest) {
   for (const f of fields) {
     const key = f as keyof Movie;
     if (existingCols.has(f) && !target[key] && source[key]) {
-      updates[f] = source[key];
+      (updates as Record<keyof Movie, Movie[keyof Movie]>)[key] = source[key];
     }
   }
 
@@ -89,8 +89,9 @@ export async function POST(request: NextRequest) {
 
   // Remove fields that already match target to avoid redundant updates
   for (const f in updates) {
-    if (updates[f] === target[f as keyof Movie]) {
-      delete updates[f];
+    const k = f as keyof Movie;
+    if (updates[k] === target[k]) {
+      delete updates[k];
     }
   }
 
