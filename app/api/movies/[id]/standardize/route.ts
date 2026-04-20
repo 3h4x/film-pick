@@ -41,7 +41,7 @@ export async function POST(
       .get(targetId) as Movie | undefined;
     if (!s || !t) return;
 
-    const updates: Record<string, any> = {};
+    const updates: Partial<Movie> = {};
 
     // 1. user_rating: take max
     if (s.user_rating || t.user_rating) {
@@ -81,7 +81,7 @@ export async function POST(
     for (const f of fields) {
       const key = f as keyof Movie;
       if (!t[key] && s[key]) {
-        updates[f] = s[key];
+        (updates as Record<keyof Movie, Movie[keyof Movie]>)[key] = s[key];
       }
     }
 
@@ -180,7 +180,7 @@ export async function POST(
           .prepare(
             "SELECT id, file_path FROM movies WHERE title = ? AND year = ? AND id != ? AND type = 'movie'",
           )
-          .get(finalTitle, finalYear, movieId) as any;
+          .get(finalTitle, finalYear, movieId) as { id: number; file_path: string | null } | undefined;
         if (conflict) {
           console.log(
             `- Merge conflict detected during recovery (ID=${conflict.id})`,
@@ -252,7 +252,7 @@ export async function POST(
     .prepare(
       "SELECT id, file_path FROM movies WHERE title = ? AND year = ? AND id != ? AND type = 'movie'",
     )
-    .get(finalTitle, finalYear, movieId) as any;
+    .get(finalTitle, finalYear, movieId) as { id: number; file_path: string | null } | undefined;
   if (conflict) {
     console.log(
       `- Merge conflict detected during standardization (ID=${conflict.id})`,

@@ -217,6 +217,16 @@ export function initDb(db: Database.Database): void {
       created_at DATETIME DEFAULT CURRENT_TIMESTAMP
     )`);
   }
+
+  // Indexes for common query patterns (idempotent — IF NOT EXISTS)
+  db.exec(`
+    CREATE INDEX IF NOT EXISTS idx_movies_tmdb_id ON movies (tmdb_id);
+    CREATE INDEX IF NOT EXISTS idx_movies_file_path ON movies (file_path);
+    CREATE INDEX IF NOT EXISTS idx_movies_user_rating ON movies (user_rating);
+    CREATE INDEX IF NOT EXISTS idx_movies_title_year ON movies (title, year);
+    CREATE INDEX IF NOT EXISTS idx_movies_type ON movies (type);
+    CREATE INDEX IF NOT EXISTS idx_recommended_movies_tmdb_id ON recommended_movies (tmdb_id);
+  `);
 }
 
 let _db: Database.Database | null = null;

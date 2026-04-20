@@ -1,5 +1,15 @@
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
+import { NextRequest } from "next/server";
+import Database from "better-sqlite3";
+import path from "path";
+import fs from "fs";
+import { initDb } from "@/lib/db";
 import { buildPersonMap } from "@/app/api/person-ratings/route";
+
+vi.mock("@/lib/db", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("@/lib/db")>();
+  return { ...actual, getDb: vi.fn() };
+});
 
 interface RatedMovie {
   id: number;
@@ -157,5 +167,118 @@ describe("buildPersonMap", () => {
     // Only "Valid Name" should be added; empty strings after trim are filtered
     expect(map.has("Valid Name::director")).toBe(true);
     expect(map.size).toBe(1);
+  });
+});
+
+// ── GET /api/person-ratings (HTTP handler) ───────────────────────────────────
+
+const TEST_DB = path.join(__dirname, "test-person-ratings.db");
+
+describe("GET /api/person-ratings", () => {
+  let db: Database.Database;
+
+  beforeEach(async () => {
+    db = new Database(TEST_DB);
+    initDb(db);
+    const { getDb } = await import("@/lib/db");
+    vi.mocked(getDb).mockReturnValue(db as unknown as ReturnType<typeof getDb>);
+
+    // Seed: Nolan directed 2 films (avg 9.5), Spielberg directed 1 (avg 8)
+    // Actor DiCaprio in 2 films (avg 9)
+    db.prepare(
+      "INSERT INTO movies (title, year, director, actors, writer, source, type, user_rating) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+    ).run("Inception", 2010, "Christopher Nolan", "Leonardo DiCaprio", "Christopher Nolan", "tmdb", "movie", 9);
+    db.prepare(
+      "INSERT INTO movies (title, year, director, actors, writer, source, type, user_rating) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+    ).run("Interstellar", 2014, "Christopher Nolan", "Matthew McConaughey", "Christopher Nolan", "tmdb", "movie", 10);
+    db.prepare(
+      "INSERT INTO movies (title, year, director, actors, writer, source, type, user_rating) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+    ).run("Schindler's List", 1993, "Steven Spielberg", "Leonardo DiCaprio", null, "tmdb", "movie", 8);
+    // Unrated movie — should be excluded from all results
+    db.prepare(
+      "INSERT INTO movies (title, year, director, source, type) VALUES (?, ?, ?, ?, ?)",
+    ).run("Unrated Film", 2020, "Unknown Director", "tmdb", "movie");
+  });
+
+  afterEach(() => {
+    db.close();
+    if (fs.existsSync(TEST_DB)) fs.unlinkSync(TEST_DB);
+    vi.clearAllMocks();
+  });
+
+  function req(qs = "") {
+    return new NextRequest(`http://localhost/api/person-ratings${qs ? `?${qs}` : ""}`);
+  }
+
+  it("returns top-rated people with movie_count >= 2 sorted by avg_rating desc", async () => {
+    const { GET } = await import("@/app/api/person-ratings/route");
+    const res = await GET(req());
+    const body = await res.json();
+
+    // Nolan: director avg 9.5, writer avg 9.5 (both have 2 films)
+    // DiCaprio: actor avg 8.5 (2 films)
+    // Spielberg: 1 film only — excluded
+    const names = body.map((p: { name: string }) => p.name);
+    expect(names).not.toContain("Steven Spielberg");
+    expect(names).not.toContain("Unknown Director");
+    // All returned entries have movie_count >= 2
+    expect(body.every((p: { movie_count: number }) => p.movie_count >= 2)).toBe(true);
+    // Sorted descending by avg_rating
+    const ratings = body.map((p: { avg_rating: number }) => p.avg_rating);
+    expect(ratings).toEqual([...ratings].sort((a: number, b: number) => b - a));
+  });
+
+  it("filters by role=director", async () => {
+    const { GET } = await import("@/app/api/person-ratings/route");
+    const res = await GET(req("role=director"));
+    const body = await res.json();
+
+    expect(body.every((p: { role: string }) => p.role === "director")).toBe(true);
+    expect(body.some((p: { name: string }) => p.name === "Christopher Nolan")).toBe(true);
+    // DiCaprio is an actor — should not appear
+    expect(body.every((p: { name: string }) => p.name !== "Leonardo DiCaprio")).toBe(true);
+  });
+
+  it("respects the limit param", async () => {
+    const { GET } = await import("@/app/api/person-ratings/route");
+    const res = await GET(req("limit=1"));
+    const body = await res.json();
+    expect(body).toHaveLength(1);
+  });
+
+  it("returns specific person by ?name= param (bypasses movie_count filter)", async () => {
+    const { GET } = await import("@/app/api/person-ratings/route");
+    const res = await GET(req("name=Steven Spielberg"));
+    const body = await res.json();
+
+    expect(body).toHaveLength(1);
+    expect(body[0].name).toBe("Steven Spielberg");
+    expect(body[0].role).toBe("director");
+    expect(body[0].movie_count).toBe(1);
+  });
+
+  it("returns multiple people by ?names= params", async () => {
+    const { GET } = await import("@/app/api/person-ratings/route");
+    const res = await GET(req("names=Christopher Nolan&names=Leonardo DiCaprio"));
+    const body = await res.json();
+
+    const names = body.map((p: { name: string; role: string }) => `${p.name}::${p.role}`);
+    expect(names).toContain("Christopher Nolan::director");
+    expect(names).toContain("Leonardo DiCaprio::actor");
+    expect(body.every((p: { name: string }) => ["Christopher Nolan", "Leonardo DiCaprio"].includes(p.name))).toBe(true);
+  });
+
+  it("returns empty array when name param matches no one", async () => {
+    const { GET } = await import("@/app/api/person-ratings/route");
+    const res = await GET(req("name=Nobody Here"));
+    const body = await res.json();
+    expect(body).toEqual([]);
+  });
+
+  it("name lookup is case-insensitive", async () => {
+    const { GET } = await import("@/app/api/person-ratings/route");
+    const res = await GET(req("name=christopher nolan"));
+    const body = await res.json();
+    expect(body.some((p: { name: string }) => p.name === "Christopher Nolan")).toBe(true);
   });
 });
