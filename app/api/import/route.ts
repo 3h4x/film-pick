@@ -30,7 +30,7 @@ export async function POST(request: NextRequest) {
   const encoder = new TextEncoder();
   const stream = new ReadableStream({
     async start(controller) {
-      function sendUpdate(data: any) {
+      function sendUpdate(data: Record<string, unknown>) {
         controller.enqueue(encoder.encode(JSON.stringify(data) + "\n"));
       }
 

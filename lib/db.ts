@@ -25,6 +25,9 @@ export interface Movie {
   filmweb_url?: string | null;
   rated_at?: string | null;
   wishlist?: number | null;
+  description?: string | null;
+  cda_url?: string | null;
+  video_metadata?: string | null;
 }
 
 export interface MovieInput {

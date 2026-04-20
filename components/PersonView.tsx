@@ -19,7 +19,6 @@ interface Movie {
   cda_url?: string | null;
   rated_at: string | null;
   created_at: string;
-  [key: string]: any;
 }
 
 interface PersonRating {

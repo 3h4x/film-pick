@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getDb } from "@/lib/db";
+import { getDb, Movie } from "@/lib/db";
+import { getErrorMessage } from "@/lib/utils";
 import { exec } from "child_process";
 import { promisify } from "util";
 import fs from "fs/promises";
@@ -18,7 +19,7 @@ export async function POST(
     const db = getDb();
     const movie = db
       .prepare("SELECT * FROM movies WHERE id = ?")
-      .get(movieId) as any;
+      .get(movieId) as Movie | undefined;
     if (!movie || !movie.file_path) {
       return NextResponse.json(
         { error: "Movie or file path not found" },
@@ -69,8 +70,8 @@ export async function POST(
     }
 
     return NextResponse.json({ error: "Invalid action" }, { status: 400 });
-  } catch (error: any) {
+  } catch (error) {
     console.error("[Play API Error]", error);
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    return NextResponse.json({ error: getErrorMessage(error) }, { status: 500 });
   }
 }

@@ -2,7 +2,25 @@
 
 import { useState, useEffect, useMemo } from "react";
 import path from "path";
-import { cleanTitle } from "@/lib/utils";
+import { cleanTitle, getErrorMessage } from "@/lib/utils";
+
+interface VideoAudioTrack {
+  codec: string;
+  channels: number;
+  language?: string;
+}
+
+interface VideoMetadata {
+  error?: string;
+  size?: number;
+  bitrate?: number;
+  video?: {
+    width?: number;
+    height?: number;
+    codec?: string;
+  };
+  audio?: VideoAudioTrack[];
+}
 
 interface Movie {
   id: number;
@@ -73,7 +91,7 @@ export default function MovieDetail({
   } | null>(null);
   const [mergeQuery, setMergeQuery] = useState("");
   const [isMergeMode, setIsMergeMode] = useState(false);
-  const [videoMetadata, setVideoMetadata] = useState<any>(null);
+  const [videoMetadata, setVideoMetadata] = useState<VideoMetadata | null>(null);
   const [isLoadingMetadata, setIsLoadingMetadata] = useState(false);
   const [isRating, setIsRating] = useState(false);
   const [showRatingPicker, setShowRatingPicker] = useState(false);
@@ -283,9 +301,9 @@ export default function MovieDetail({
         console.warn(`[Subtitles] Upload failed: ${data.error}`);
         setSubtitleError(data.error || "Upload failed");
       }
-    } catch (e: any) {
+    } catch (e) {
       console.error(`[Subtitles] Network error:`, e);
-      setSubtitleError(`Network error: ${e.message || "Check console"}`);
+      setSubtitleError(`Network error: ${getErrorMessage(e) || "Check console"}`);
     } finally {
       setIsSubtitleUploading(false);
     }
@@ -465,12 +483,12 @@ export default function MovieDetail({
           code: data.code,
         });
       }
-    } catch (e: any) {
+    } catch (e) {
       console.error("Standardization fetch error:", e);
       setStandardizeMsg({
         type: "error",
         text:
-          e.name === "AbortError"
+          e instanceof Error && e.name === "AbortError"
             ? "Request timed out"
             : "Network error (check server logs)",
       });
@@ -521,7 +539,7 @@ export default function MovieDetail({
           text: data.error || "Failed to remove",
         });
       }
-    } catch (e: any) {
+    } catch (e) {
       console.error("Remove missing fetch error:", e);
       setStandardizeMsg({ type: "error", text: "Network error" });
     } finally {
@@ -1007,15 +1025,15 @@ export default function MovieDetail({
                       <div className="text-sm text-gray-200 font-medium flex items-center gap-1.5 flex-wrap">
                         {videoMetadata.video?.width} ×{" "}
                         {videoMetadata.video?.height}
-                        {videoMetadata.video?.width >= 3840 ? (
+                        {(videoMetadata.video?.width ?? 0) >= 3840 ? (
                           <span className="px-1 py-0.5 bg-yellow-500/10 text-yellow-500 text-[9px] font-black rounded border border-yellow-500/20">
                             4K
                           </span>
-                        ) : videoMetadata.video?.width >= 1920 ? (
+                        ) : (videoMetadata.video?.width ?? 0) >= 1920 ? (
                           <span className="px-1 py-0.5 bg-blue-500/10 text-blue-500 text-[9px] font-black rounded border border-blue-500/20">
                             FHD
                           </span>
-                        ) : videoMetadata.video?.width >= 1280 ? (
+                        ) : (videoMetadata.video?.width ?? 0) >= 1280 ? (
                           <span className="px-1 py-0.5 bg-green-500/10 text-green-400 text-[9px] font-black rounded border border-green-500/20">
                             HD
                           </span>
@@ -1039,7 +1057,7 @@ export default function MovieDetail({
                         File Size
                       </p>
                       <p className="text-sm text-gray-200 font-medium">
-                        {(videoMetadata.size / (1024 * 1024 * 1024)).toFixed(2)}{" "}
+                        {((videoMetadata.size ?? 0) / (1024 * 1024 * 1024)).toFixed(2)}{" "}
                         GB
                       </p>
                     </div>
@@ -1048,7 +1066,7 @@ export default function MovieDetail({
                         Bitrate
                       </p>
                       <p className="text-sm text-gray-200 font-medium">
-                        {(videoMetadata.bitrate / 1000).toFixed(0)} kbps
+                        {((videoMetadata.bitrate ?? 0) / 1000).toFixed(0)} kbps
                       </p>
                     </div>
 
@@ -1059,7 +1077,7 @@ export default function MovieDetail({
                         </p>
                         <div className="space-y-2">
                           {videoMetadata.audio.map(
-                            (audio: any, idx: number) => (
+                            (audio: VideoAudioTrack, idx: number) => (
                               <div
                                 key={idx}
                                 className="flex items-center justify-between bg-gray-900/40 px-2.5 py-1.5 rounded-lg border border-gray-700/20"
