@@ -1,16 +1,23 @@
 dependencies:
-  - "**/package.json"
-  - "**/pnpm-lock.yaml"
+  - changed-files:
+      - any-glob-to-any-file:
+          - "**/package.json"
+          - "**/pnpm-lock.yaml"
 
 documentation:
-  - "**/*.md"
+  - changed-files:
+      - any-glob-to-any-file:
+          - "**/*.md"
 
 nextjs:
-  - "app/**"
-  - "components/**"
-  - "lib/**"
-  - "next.config.ts"
+  - changed-files:
+      - any-glob-to-any-file:
+          - "app/**"
+          - "components/**"
+          - "lib/**"
+          - "next.config.ts"
 
 tests:
-  - "__tests__/**"
-
+  - changed-files:
+      - any-glob-to-any-file:
+          - "__tests__/**"
