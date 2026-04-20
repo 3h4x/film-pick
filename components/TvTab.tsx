@@ -1,7 +1,6 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
-import { EPG_PRESETS, DEFAULT_EPG_URL } from "@/lib/epg-presets";
 
 // Polsat Box S — film channels with good quality/quantity balance
 const BOX_S_CHANNELS = [
@@ -34,6 +33,17 @@ const FILM_EXCLUDED_KEYWORDS = [
   "crime investigation", "rozrywka", "tvp 3", "tvt", "tv6", "ttv",
   // German channels (niem. = niemiecki = German in Polish EPG)
   "niem", "rtlzwei", "rtl2", "prosieben", "kabel eins", "sat.1", "zdf", "ard",
+  // Erotic / adult (channel names)
+  "erotic", "erotik", "adult", "xxx", "hustler", "brazzers", "vivid", "penthouse",
+  "red light", "redlight", "dorcel", "evil angel",
+  "erox", "barely legal", "private tv",
+  // German Sky channels (Sky Deutschland)
+  "sky action", "sky cinema", "sky krimi", "sky atlantic", "sky one",
+  // German/weak misc
+  "syfy", "rbb", "mdr", "ndr", "wdr", "swr", "hr ", "br ", "phoenix",
+  // Local/regional filler channels
+  "tv regio", "tv.berlin", "tv berlin", "berlin tv", "regio",
+  "kinonews", "telemax", "puls 4", "atv",
 ];
 
 // Allowed trailing words in EPG channel names that don't change identity
@@ -117,27 +127,14 @@ function isMovie(category: string | null): boolean {
   return c.includes("film") || c.includes("movie") || c.includes("kino");
 }
 
-interface EpgConfig {
-  epg_url: string;
-  epg_enabled: boolean;
-  epg_refresh_interval_hours: number;
-  epg_last_refresh: string | null;
-  epg_status: "idle" | "running" | "error";
-}
 
 export default function TvTab() {
   const [data, setData] = useState<TvData | null>(null);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState("");
-  const [moviesOnly, setMoviesOnly] = useState(true);
-  const [tvView, setTvView] = useState<"films" | "config">("films");
   const [now, setNow] = useState(() => new Date());
   const [enrich, setEnrich] = useState<Record<string, EnrichResult>>({});
   const [blacklist, setBlacklist] = useState<Set<string>>(new Set());
-  const [epgConfig, setEpgConfig] = useState<EpgConfig | null>(null);
-  const [epgUrlInput, setEpgUrlInput] = useState("");
-  const [saving, setSaving] = useState(false);
-
   // Load blacklist from DB
   useEffect(() => {
     fetch("/api/tv/blacklist")
@@ -145,26 +142,6 @@ export default function TvTab() {
       .then((list: string[]) => setBlacklist(new Set(list)))
       .catch(() => {});
   }, []);
-
-  // Load EPG config
-  const loadEpgConfig = useCallback(() => {
-    fetch("/api/settings")
-      .then((r) => r.json())
-      .then((s) => {
-        const cfg: EpgConfig = {
-          epg_url: s.epg_url ?? "",
-          epg_enabled: s.epg_enabled ?? true,
-          epg_refresh_interval_hours: s.epg_refresh_interval_hours ?? 0,
-          epg_last_refresh: s.epg_last_refresh ?? null,
-          epg_status: s.epg_status ?? "idle",
-        };
-        setEpgConfig(cfg);
-        setEpgUrlInput(cfg.epg_url);
-      })
-      .catch(() => {});
-  }, []);
-
-  useEffect(() => { loadEpgConfig(); }, [loadEpgConfig]);
 
   function saveBlacklist(next: Set<string>) {
     setBlacklist(next);
@@ -179,41 +156,6 @@ export default function TvTab() {
     const next = new Set(blacklist);
     next.add(channelId);
     saveBlacklist(next);
-  }
-
-  function unblacklistChannel(channelId: string) {
-    const next = new Set(blacklist);
-    next.delete(channelId);
-    saveBlacklist(next);
-  }
-
-  function clearBlacklist() {
-    saveBlacklist(new Set());
-  }
-
-  async function saveEpgUrl() {
-    setSaving(true);
-    await fetch("/api/settings", {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ epg_url: epgUrlInput }),
-    }).catch(() => {});
-    await loadEpgConfig();
-    setSaving(false);
-  }
-
-  async function saveEpgInterval(hours: number) {
-    await fetch("/api/settings", {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ epg_refresh_interval_hours: hours }),
-    }).catch(() => {});
-    loadEpgConfig();
-  }
-
-  async function triggerRefresh() {
-    await fetch("/api/tv/refresh", { method: "POST" }).catch(() => {});
-    setTimeout(() => { load(false); loadEpgConfig(); }, 2000);
   }
 
   const load = useCallback((bust = false) => {
@@ -260,24 +202,6 @@ export default function TvTab() {
       .then((d: Record<string, EnrichResult>) => setEnrich(d))
       .catch(() => {});
   }, [data]);
-
-  function getCurrentProgram(channelId: string): EpgProgram | null {
-    return (
-      (data?.programs ?? []).find(
-        (p) =>
-          p.channel === channelId &&
-          new Date(p.start) <= now &&
-          new Date(p.stop) > now,
-      ) ?? null
-    );
-  }
-
-  function getUpcoming(channelId: string, count = 3): EpgProgram[] {
-    return (data?.programs ?? [])
-      .filter((p) => p.channel === channelId && new Date(p.start) > now)
-      .sort((a, b) => new Date(a.start).getTime() - new Date(b.start).getTime())
-      .slice(0, count);
-  }
 
   if (loading) {
     return (
@@ -375,32 +299,8 @@ export default function TvTab() {
         />
       </div>
 
-      <button
-        onClick={() => setMoviesOnly((v) => !v)}
-        className={`px-3 py-1.5 rounded-lg text-sm transition-colors ${
-          moviesOnly
-            ? "bg-indigo-600 text-white"
-            : "bg-gray-800/40 text-gray-400 hover:text-gray-200 border border-gray-700/50"
-        }`}
-      >
-        Films
-      </button>
-
-      <button
-        onClick={() => setTvView((v) => v === "config" ? "films" : "config")}
-        className={`px-3 py-1.5 rounded-lg text-sm transition-colors ${
-          tvView === "config"
-            ? "bg-gray-600 text-white"
-            : "bg-gray-800/40 text-gray-400 hover:text-gray-200 border border-gray-700/50"
-        }`}
-      >
-        Config
-      </button>
-
       <span className="text-gray-600 text-xs ml-auto">
-        {moviesOnly
-          ? `${filmRows.length} film${filmRows.length !== 1 ? "s" : ""}`
-          : `${filteredChannels.length} channel${filteredChannels.length !== 1 ? "s" : ""}`}
+        {filmRows.length} film{filmRows.length !== 1 ? "s" : ""}
       </span>
 
       {data?.cachedAt && (
@@ -421,142 +321,8 @@ export default function TvTab() {
     </div>
   );
 
-  // Config view
-  if (tvView === "config") {
-    const blacklistedChannels = [...blacklist]
-      .map((id) => channelById.get(id) ?? activeChannels.find((c) => c.id === id))
-      .filter(Boolean) as EpgChannel[];
-
-    return (
-      <div>
-        {toolbar}
-        <div className="space-y-8 max-w-2xl">
-
-          {/* EPG Source */}
-          <section>
-            <h3 className="text-xs font-semibold uppercase tracking-widest text-gray-500 mb-3">EPG Source</h3>
-            <div className="space-y-3">
-              {/* Preset picker */}
-              <div className="flex gap-2">
-                <select
-                  onChange={(e) => { if (e.target.value) setEpgUrlInput(e.target.value); e.target.value = ""; }}
-                  defaultValue=""
-                  className="bg-gray-800/40 text-gray-300 text-sm px-3 py-2 rounded-lg border border-gray-700/50 focus:outline-none flex-1"
-                >
-                  <option value="" disabled>Pick a preset country…</option>
-                  {EPG_PRESETS.map((p) => (
-                    <option key={p.url} value={p.url}>{p.label}</option>
-                  ))}
-                </select>
-              </div>
-              {/* URL input */}
-              <div className="flex gap-2">
-                <input
-                  type="text"
-                  value={epgUrlInput}
-                  onChange={(e) => setEpgUrlInput(e.target.value)}
-                  placeholder={DEFAULT_EPG_URL}
-                  className="flex-1 bg-gray-800/40 text-white text-sm px-3 py-2 rounded-lg border border-gray-700/50 focus:outline-none focus:border-indigo-500/50 placeholder-gray-600"
-                />
-                <button
-                  onClick={saveEpgUrl}
-                  disabled={saving}
-                  className="px-4 py-2 rounded-lg bg-indigo-600 text-white text-sm hover:bg-indigo-500 disabled:opacity-50 transition-colors"
-                >
-                  {saving ? "Saving…" : "Save"}
-                </button>
-              </div>
-              {!epgUrlInput && (
-                <p className="text-gray-700 text-xs">Using default: Poland</p>
-              )}
-              <div className="flex items-center gap-4">
-                <div className="flex items-center gap-2">
-                  <span className="text-gray-600 text-xs">Auto-refresh:</span>
-                  <select
-                    value={epgConfig?.epg_refresh_interval_hours ?? 0}
-                    onChange={(e) => saveEpgInterval(Number(e.target.value))}
-                    className="bg-gray-800/40 text-gray-300 text-xs px-2 py-1 rounded border border-gray-700/50 focus:outline-none"
-                  >
-                    <option value={0}>Off</option>
-                    <option value={6}>Every 6h</option>
-                    <option value={12}>Every 12h</option>
-                    <option value={24}>Every 24h</option>
-                  </select>
-                </div>
-                <button
-                  onClick={triggerRefresh}
-                  disabled={epgConfig?.epg_status === "running"}
-                  className="px-3 py-1 rounded-lg text-xs bg-gray-700/50 text-gray-300 hover:bg-gray-600/50 disabled:opacity-50 transition-colors"
-                >
-                  {epgConfig?.epg_status === "running" ? "Refreshing…" : "Refresh now"}
-                </button>
-                {epgConfig?.epg_last_refresh && (
-                  <span className="text-gray-700 text-xs">
-                    Last: {formatTime(epgConfig.epg_last_refresh)}
-                  </span>
-                )}
-              </div>
-            </div>
-          </section>
-
-          {/* Hidden Channels */}
-          <section>
-            <div className="flex items-center justify-between mb-3">
-              <h3 className="text-xs font-semibold uppercase tracking-widest text-gray-500">
-                Hidden Channels {blacklist.size > 0 && <span className="text-gray-600 normal-case">({blacklist.size})</span>}
-              </h3>
-              {blacklist.size > 0 && (
-                <button
-                  onClick={clearBlacklist}
-                  className="text-xs text-gray-600 hover:text-gray-400 transition-colors"
-                >
-                  Clear all
-                </button>
-              )}
-            </div>
-            {blacklist.size === 0 ? (
-              <p className="text-gray-700 text-sm">No channels hidden. Use × on any row to hide a channel.</p>
-            ) : (
-              <div className="space-y-1">
-                {blacklistedChannels.map((ch) => (
-                  <div key={ch.id} className="flex items-center justify-between px-3 py-2 rounded-lg bg-gray-800/30 border border-gray-700/30">
-                    <div className="flex items-center gap-2">
-                      {ch.icon && (
-                        <img src={ch.icon} alt="" className="w-5 h-5 object-contain opacity-60 rounded"
-                          onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = "none"; }} />
-                      )}
-                      <span className="text-gray-400 text-sm">{channelLabel(ch.name)}</span>
-                    </div>
-                    <button
-                      onClick={() => unblacklistChannel(ch.id)}
-                      className="text-xs text-gray-600 hover:text-gray-300 transition-colors px-2 py-0.5 rounded hover:bg-white/[0.05]"
-                    >
-                      Unhide
-                    </button>
-                  </div>
-                ))}
-                {/* channels that were blacklisted but not in current EPG */}
-                {[...blacklist].filter((id) => !blacklistedChannels.find((c) => c.id === id)).map((id) => (
-                  <div key={id} className="flex items-center justify-between px-3 py-2 rounded-lg bg-gray-800/20 border border-gray-700/20">
-                    <span className="text-gray-600 text-sm font-mono text-xs">{id}</span>
-                    <button
-                      onClick={() => unblacklistChannel(id)}
-                      className="text-xs text-gray-600 hover:text-gray-300 transition-colors px-2 py-0.5 rounded hover:bg-white/[0.05]"
-                    >
-                      Remove
-                    </button>
-                  </div>
-                ))}
-              </div>
-            )}
-          </section>
-        </div>
-      </div>
-    );
-  }
-
   // Films table view
-  if (moviesOnly) {
+  {
     const nowFilms = filmRows.filter(
       (p) => new Date(p.start) <= now && new Date(p.stop) > now,
     );
@@ -581,39 +347,40 @@ export default function TvTab() {
       return (
         <div
           key={`${p.channel}-${p.start}`}
-          className="grid grid-cols-[7rem_1fr_5rem_9rem_2rem] gap-x-4 items-center px-4 py-3.5 border-b border-gray-800/40 hover:bg-white/[0.02] transition-colors"
+          className={`grid grid-cols-[6rem_1fr_4.5rem_10rem_1.5rem] gap-x-4 items-center px-4 py-2.5 border-b border-gray-800/40 transition-colors group ${
+            isNow
+              ? "border-l-2 border-l-red-500/50 bg-white/[0.015] hover:bg-white/[0.025]"
+              : "hover:bg-white/[0.02]"
+          }`}
         >
           {/* Time */}
           <div className="tabular-nums shrink-0">
             {isNow ? (
-              <div className="flex flex-col gap-1">
-                <span className="inline-flex items-center gap-1.5 text-[11px] font-bold px-2 py-1 rounded-lg bg-red-500/90 text-white w-fit leading-none">
-                  <span className="w-1.5 h-1.5 rounded-full bg-white/90 animate-pulse" />
-                  ON NOW
-                </span>
-                <span className="text-gray-500 text-[11px] tabular-nums">
-                  until {formatTime(p.stop)}
-                </span>
+              <div>
+                <div className="flex items-center gap-1.5">
+                  <span className="w-1.5 h-1.5 rounded-full bg-red-500 animate-pulse shrink-0" />
+                  <span className="text-gray-400 text-xs tabular-nums">
+                    until {formatTime(p.stop)}
+                  </span>
+                </div>
                 {progress !== null && (
-                  <div className="h-0.5 w-16 rounded-full bg-gray-700 mt-0.5 overflow-hidden">
+                  <div className="h-px w-full bg-gray-700/80 mt-1.5 overflow-hidden rounded-full">
                     <div
-                      className="h-full rounded-full bg-gray-400/40"
+                      className="h-full bg-red-500/60 rounded-full"
                       style={{ width: `${progress}%` }}
                     />
                   </div>
                 )}
               </div>
             ) : (
-              <div className="flex flex-col gap-0.5">
+              <div>
                 <span
-                  className={`text-base font-semibold tabular-nums ${isSoon ? "text-amber-400" : "text-gray-200"}`}
+                  className={`text-sm font-semibold tabular-nums leading-none ${isSoon ? "text-amber-400" : "text-gray-300"}`}
                 >
                   {formatTime(p.start)}
                 </span>
-                <span className="text-gray-600 text-[11px]">
-                  {isSoon
-                    ? relativeTime(p.start, now)
-                    : `– ${formatTime(p.stop)}`}
+                <span className="block text-gray-600 text-[11px] tabular-nums mt-0.5">
+                  {isSoon ? relativeTime(p.start, now) : `– ${formatTime(p.stop)}`}
                 </span>
               </div>
             )}
@@ -621,9 +388,9 @@ export default function TvTab() {
 
           {/* Film */}
           <div className="min-w-0">
-            <div className="flex items-baseline gap-2 flex-wrap">
+            <div className="flex items-baseline gap-2">
               <span
-                className={`font-semibold text-[15px] leading-snug ${isNow ? "text-white" : "text-gray-100"}`}
+                className={`font-medium text-sm leading-snug truncate ${isNow ? "text-white" : "text-gray-200"}`}
               >
                 {p.title}
               </span>
@@ -637,34 +404,35 @@ export default function TvTab() {
           <div>
             {rating !== null && rating > 0 ? (
               <span
-                className={`inline-flex items-center gap-1 text-xs font-semibold px-2 py-1 rounded-lg ${
+                className={`inline-flex items-center gap-0.5 text-xs font-semibold px-1.5 py-0.5 rounded ${
                   rating >= 7
                     ? "bg-emerald-500/15 text-emerald-400"
                     : rating >= 5
                       ? "bg-yellow-500/15 text-yellow-400"
-                      : "bg-gray-700/50 text-gray-500"
+                      : "bg-gray-700/40 text-gray-500"
                 }`}
               >
                 ★ {rating.toFixed(1)}
               </span>
-            ) : (
-              <span className="text-gray-700 text-xs">—</span>
-            )}
+            ) : null}
           </div>
 
           {/* Channel */}
-          <div className="flex items-center gap-2 min-w-0">
+          <div className="flex items-center gap-1.5 min-w-0">
             {ch?.icon && (
               <img
                 src={ch.icon}
                 alt=""
-                className="w-5 h-5 object-contain rounded shrink-0 opacity-75"
+                className="w-4 h-4 object-contain rounded shrink-0 opacity-60"
                 onError={(e) => {
                   (e.currentTarget as HTMLImageElement).style.display = "none";
                 }}
               />
             )}
-            <span className="text-gray-400 text-sm truncate">
+            <span
+              className="text-gray-500 text-xs truncate"
+              title={channelLabel(ch?.name ?? p.channel)}
+            >
               {channelLabel(ch?.name ?? p.channel)}
             </span>
           </div>
@@ -674,7 +442,7 @@ export default function TvTab() {
             <button
               onClick={() => blacklistChannel(p.channel)}
               title={`Hide ${channelLabel(ch?.name ?? p.channel)}`}
-              className="w-5 h-5 flex items-center justify-center rounded text-gray-700 hover:text-gray-400 hover:bg-white/[0.06] transition-colors"
+              className="w-5 h-5 flex items-center justify-center rounded text-gray-700 opacity-0 group-hover:opacity-100 hover:text-gray-300 hover:bg-white/[0.06] transition-all"
             >
               ×
             </button>
@@ -693,7 +461,7 @@ export default function TvTab() {
         ) : (
           <div>
             {/* Column headers */}
-            <div className="grid grid-cols-[7rem_1fr_5rem_9rem_2rem] gap-x-4 px-4 pb-2 border-b border-gray-800/60">
+            <div className="grid grid-cols-[6rem_1fr_4.5rem_10rem_1.5rem] gap-x-4 px-4 pb-2 border-b border-gray-800/60">
               {["Time", "Film", "Rating", "Channel", ""].map((h) => (
                 <span
                   key={h}
@@ -712,115 +480,4 @@ export default function TvTab() {
     );
   }
 
-  // Channel table view
-  return (
-    <div>
-      {toolbar}
-      {filteredChannels.length === 0 ? (
-        <div className="text-center py-16 text-gray-600">No channels match</div>
-      ) : (
-        <div className="space-y-0">
-          {/* Headers */}
-          <div className="grid grid-cols-[10rem_1fr_14rem_2rem] gap-x-4 px-4 pb-2 border-b border-gray-800/60">
-            {["Channel", "Now Playing", "Up Next", ""].map((h) => (
-              <span key={h} className="text-[11px] uppercase tracking-widest text-gray-600 font-medium">
-                {h}
-              </span>
-            ))}
-          </div>
-
-          {filteredChannels.map((ch) => {
-            const current = getCurrentProgram(ch.id);
-            const upcoming = getUpcoming(ch.id, 3);
-            const currentIsMovie = isMovie(current?.category ?? null);
-            const progress = current
-              ? Math.round(
-                  ((now.getTime() - new Date(current.start).getTime()) /
-                    (new Date(current.stop).getTime() - new Date(current.start).getTime())) * 100,
-                )
-              : null;
-
-            return (
-              <div
-                key={ch.id}
-                className="grid grid-cols-[10rem_1fr_14rem_2rem] gap-x-4 items-start px-4 py-3 border-b border-gray-800/30 hover:bg-white/[0.02] transition-colors"
-              >
-                {/* Channel */}
-                <div className="flex items-center gap-2 min-w-0 pt-0.5">
-                  {ch.icon ? (
-                    <img
-                      src={ch.icon}
-                      alt=""
-                      className="w-5 h-5 object-contain rounded shrink-0 opacity-75"
-                      onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = "none"; }}
-                    />
-                  ) : (
-                    <div className="w-5 h-5 rounded bg-gray-700/60 shrink-0" />
-                  )}
-                  <span className="text-gray-300 text-sm truncate font-medium">
-                    {channelLabel(ch.name)}
-                  </span>
-                </div>
-
-                {/* Now Playing */}
-                <div className="min-w-0">
-                  {current ? (
-                    <div>
-                      <div className="flex items-baseline gap-2 flex-wrap">
-                        <span className={`text-sm font-semibold leading-snug ${currentIsMovie ? "text-white" : "text-gray-300"}`}>
-                          {current.title}
-                        </span>
-                        {currentIsMovie && (
-                          <span className="text-[10px] px-1.5 py-0.5 rounded bg-indigo-500/25 text-indigo-300 leading-none shrink-0">
-                            Film
-                          </span>
-                        )}
-                      </div>
-                      <div className="flex items-center gap-2 mt-1">
-                        <span className="text-gray-600 text-[11px] tabular-nums">
-                          {formatTime(current.start)} – {formatTime(current.stop)}
-                        </span>
-                        {progress !== null && (
-                          <div className="h-0.5 w-20 rounded-full bg-gray-700 overflow-hidden">
-                            <div className="h-full rounded-full bg-gray-400/40" style={{ width: `${progress}%` }} />
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                  ) : (
-                    <span className="text-gray-700 text-sm">—</span>
-                  )}
-                </div>
-
-                {/* Up Next */}
-                <div className="space-y-1">
-                  {upcoming.slice(0, 3).map((p, i) => (
-                    <div key={i} className="flex items-start gap-2">
-                      <span className="text-gray-600 text-[11px] tabular-nums shrink-0 pt-px w-10">
-                        {formatTime(p.start)}
-                      </span>
-                      <span className={`text-xs truncate ${isMovie(p.category) ? "text-indigo-400" : "text-gray-500"}`}>
-                        {p.title}
-                      </span>
-                    </div>
-                  ))}
-                </div>
-
-                {/* Blacklist */}
-                <div className="flex justify-end pt-0.5">
-                  <button
-                    onClick={() => blacklistChannel(ch.id)}
-                    title={`Hide ${channelLabel(ch.name)}`}
-                    className="w-5 h-5 flex items-center justify-center rounded text-gray-700 hover:text-gray-400 hover:bg-white/[0.06] transition-colors"
-                  >
-                    ×
-                  </button>
-                </div>
-              </div>
-            );
-          })}
-        </div>
-      )}
-    </div>
-  );
 }

@@ -110,12 +110,13 @@ function PillButton({
   );
 }
 
-type ConfigTab = "library" | "integrations" | "recommendations";
+type ConfigTab = "library" | "integrations" | "recommendations" | "tv";
 
 const CONFIG_TABS: { value: ConfigTab; label: string }[] = [
   { value: "library", label: "Library" },
   { value: "integrations", label: "Integrations" },
   { value: "recommendations", label: "Recommendations" },
+  { value: "tv", label: "TV" },
 ];
 
 export default function ConfigPanel({
@@ -154,6 +155,7 @@ export default function ConfigPanel({
   const [epgStatus, setEpgStatus] = useState<"idle" | "running" | "error">("idle");
   const [epgLastRefresh, setEpgLastRefresh] = useState<string | null>(null);
   const [epgUrlSaving, setEpgUrlSaving] = useState(false);
+  const [blacklist, setBlacklist] = useState<string[]>([]);
 
   useEffect(() => {
     setDraft({ ...DEFAULTS, ...config });
@@ -179,6 +181,10 @@ export default function ConfigPanel({
         setEpgStatus(s.epg_status ?? "idle");
         setEpgLastRefresh(s.epg_last_refresh ?? null);
       });
+    fetch("/api/tv/blacklist")
+      .then((r) => r.json())
+      .then((list: string[]) => setBlacklist(list))
+      .catch(() => {});
   }, []);
 
   useEffect(() => {
@@ -484,12 +490,19 @@ export default function ConfigPanel({
             </div>
           </section>
 
+        </div>
+      </div>}
+
+      {/* ── TV ──────────────────────────────────────────────── */}
+      {activeTab === "tv" && <div>
+        <SectionHeader>TV Guide</SectionHeader>
+        <div className="space-y-8">
+
           <section>
-            <SubHeader>TV Guide (EPG)</SubHeader>
-            <Hint>Fetch a live TV schedule for Polish or other channels.</Hint>
+            <SubHeader>EPG Source</SubHeader>
+            <Hint>XMLTV feed for live TV schedule. Supports .xml and .xml.gz.</Hint>
             <div className="space-y-4">
 
-              {/* Enable toggle */}
               <div className="flex items-center gap-3">
                 <button
                   onClick={async () => {
@@ -502,17 +515,16 @@ export default function ConfigPanel({
                     });
                     if (!res.ok) setEpgEnabled(!next);
                   }}
-                  className={`px-4 py-2 text-sm rounded-lg transition-colors ${
+                  className={`px-4 py-2 text-sm rounded-lg transition-colors border ${
                     epgEnabled
-                      ? "bg-green-500/20 text-green-300 border border-green-500/30 hover:bg-green-500/30"
-                      : "bg-red-500/20 text-red-300 border border-red-500/30 hover:bg-red-500/30"
+                      ? "bg-green-500/20 text-green-300 border-green-500/30 hover:bg-green-500/30"
+                      : "bg-red-500/20 text-red-300 border-red-500/30 hover:bg-red-500/30"
                   }`}
                 >
                   {epgEnabled ? "TV Guide: On" : "TV Guide: Off"}
                 </button>
               </div>
 
-              {/* Country presets */}
               <div>
                 <p className="text-xs text-gray-500 mb-2">Country preset</p>
                 <div className="flex flex-wrap gap-2">
@@ -529,7 +541,6 @@ export default function ConfigPanel({
                 </div>
               </div>
 
-              {/* Custom URL */}
               <div>
                 <p className="text-xs text-gray-500 mb-2">EPG URL (XMLTV or .xml.gz)</p>
                 <div className="flex items-center gap-2">
@@ -556,9 +567,11 @@ export default function ConfigPanel({
                     {epgUrlSaving ? "Saving…" : "Save"}
                   </button>
                 </div>
+                {!epgUrl && (
+                  <p className="text-gray-600 text-xs mt-1">Using default: Poland</p>
+                )}
               </div>
 
-              {/* Auto-refresh interval */}
               <div>
                 <p className="text-xs text-gray-500 mb-2">Auto-refresh interval</p>
                 <div className="flex gap-2">
@@ -584,7 +597,6 @@ export default function ConfigPanel({
                 </div>
               </div>
 
-              {/* Manual refresh + status */}
               <div className="flex items-center gap-3">
                 <button
                   disabled={epgStatus === "running"}
@@ -599,16 +611,59 @@ export default function ConfigPanel({
                 {epgStatus === "error" && (
                   <span className="text-xs text-red-400">Last refresh failed</span>
                 )}
-              </div>
-
-              <div className="text-xs text-gray-500">
-                Last refreshed:{" "}
-                <span className="text-gray-400">
-                  {epgLastRefresh ? new Date(epgLastRefresh).toLocaleString() : "Never"}
+                <span className="text-xs text-gray-600">
+                  Last: {epgLastRefresh ? new Date(epgLastRefresh).toLocaleString() : "Never"}
                 </span>
               </div>
 
             </div>
+          </section>
+
+          <section>
+            <div className="flex items-center justify-between mb-1">
+              <SubHeader>Hidden Channels</SubHeader>
+              {blacklist.length > 0 && (
+                <button
+                  onClick={async () => {
+                    await fetch("/api/tv/blacklist", {
+                      method: "PUT",
+                      headers: { "Content-Type": "application/json" },
+                      body: JSON.stringify([]),
+                    });
+                    setBlacklist([]);
+                  }}
+                  className="text-xs text-gray-600 hover:text-gray-400 transition-colors"
+                >
+                  Clear all
+                </button>
+              )}
+            </div>
+            <Hint>Channels hidden via the × button in the TV tab. Remove entries to unhide.</Hint>
+            {blacklist.length === 0 ? (
+              <p className="text-gray-700 text-sm">No channels hidden.</p>
+            ) : (
+              <div className="space-y-1.5">
+                {blacklist.map((id) => (
+                  <div key={id} className="flex items-center justify-between px-3 py-2 rounded-lg bg-gray-800/30 border border-gray-700/30">
+                    <span className="text-gray-400 text-sm font-mono text-xs">{id}</span>
+                    <button
+                      onClick={async () => {
+                        const next = blacklist.filter((x) => x !== id);
+                        await fetch("/api/tv/blacklist", {
+                          method: "PUT",
+                          headers: { "Content-Type": "application/json" },
+                          body: JSON.stringify(next),
+                        });
+                        setBlacklist(next);
+                      }}
+                      className="text-xs text-gray-600 hover:text-gray-300 transition-colors px-2 py-0.5 rounded hover:bg-white/[0.05]"
+                    >
+                      Unhide
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
           </section>
 
         </div>
