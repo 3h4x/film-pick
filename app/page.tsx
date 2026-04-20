@@ -909,18 +909,18 @@ export default function Home() {
   return (
     <main className="max-w-7xl w-full mx-auto px-4 sm:px-6 flex-1">
       {/* Top Navigation */}
-      <nav className="sticky top-0 z-40 -mx-4 sm:-mx-6 px-4 sm:px-6 pt-4 pb-4 bg-[#0a0e1a]/80 backdrop-blur-xl border-b border-gray-800/50">
+      <nav className="sticky top-0 z-40 -mx-4 sm:-mx-6 px-4 sm:px-6 pt-4 pb-0 bg-[#0a0e1a]/90 backdrop-blur-2xl border-b border-white/[0.05] shadow-[0_1px_0_0_rgba(255,255,255,0.03)]">
         <div className="max-w-7xl mx-auto">
           {/* Row 1: Logo + Actions */}
-          <div className="flex items-center justify-between mb-4">
+          <div className="flex items-center justify-between mb-3">
             <div className="flex items-center gap-4">
               <h1
                 className="text-lg font-bold text-white tracking-tight flex items-center gap-2 cursor-pointer hover:opacity-80 transition-opacity"
                 onClick={() => router.push("/")}
               >
-                <img src="/icon-192.png" alt="FilmPick" className="w-7 h-7 rounded" />
-                FilmPick
-                <span className="text-xs font-medium px-1.5 py-0.5 rounded-md bg-gray-700/50 text-gray-400">
+                <img src="/icon-192.png" alt="FilmPick" className="w-7 h-7 rounded-lg" />
+                <span className="bg-gradient-to-r from-white to-gray-300 bg-clip-text text-transparent">FilmPick</span>
+                <span className="text-[10px] font-medium px-1.5 py-0.5 rounded-md bg-indigo-500/15 text-indigo-400/80 border border-indigo-500/20">
                   {process.env.NEXT_PUBLIC_APP_VERSION || "dev"}
                 </span>
               </h1>
@@ -1054,7 +1054,7 @@ export default function Home() {
           </div>
 
           {/* Row 2: Tabs */}
-          <div className="flex gap-1">
+          <div className="flex gap-0.5">
             {[
               {
                 key: "recommendations" as const,
@@ -1079,8 +1079,10 @@ export default function Home() {
                 <button
                   key={tab.key}
                   onClick={() => setActiveTab(tab.key)}
-                  className={`relative px-4 py-2 text-sm font-medium transition-all rounded-t-lg ${
-                    active ? "text-white" : "text-gray-500 hover:text-gray-300"
+                  className={`relative px-3.5 py-2 pb-2.5 text-sm font-medium transition-all ${
+                    active
+                      ? "text-white"
+                      : "text-gray-500 hover:text-gray-300"
                   }`}
                 >
                   {tab.label}
@@ -1094,7 +1096,7 @@ export default function Home() {
                     </span>
                   )}
                   {active && (
-                    <div className="absolute bottom-0 left-2 right-2 h-0.5 bg-indigo-500 rounded-full" />
+                    <div className="absolute bottom-0 left-1 right-1 h-[2px] bg-gradient-to-r from-indigo-500/60 via-indigo-500 to-indigo-500/60 rounded-full" />
                   )}
                 </button>
               );

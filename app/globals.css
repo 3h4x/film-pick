@@ -12,7 +12,11 @@ html {
 }
 
 body {
-  background: linear-gradient(145deg, #0a0e1a 0%, #111827 50%, #0f172a 100%);
+  background-color: #0a0e1a;
+  background-image:
+    radial-gradient(ellipse 120% 45% at 50% 0%, rgba(99, 102, 241, 0.10) 0%, transparent 65%),
+    radial-gradient(ellipse 60% 40% at 0% 100%, rgba(15, 23, 42, 0.6) 0%, transparent 70%),
+    linear-gradient(180deg, #0a0e1a 0%, #0d1220 60%, #0f172a 100%);
   color: #f8fafc;
   min-height: 100vh;
 }
