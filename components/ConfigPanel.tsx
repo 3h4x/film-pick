@@ -149,6 +149,7 @@ export default function ConfigPanel({
   const [cdaMovieCount, setCdaMovieCount] = useState<number | null>(null);
 
   // EPG / TV
+  const [tvHideUnrated, setTvHideUnrated] = useState(true);
   const [epgEnabled, setEpgEnabled] = useState(true);
   const [epgUrl, setEpgUrlDraft] = useState("");
   const [epgInterval, setEpgInterval] = useState<0 | 6 | 12 | 24>(0);
@@ -175,6 +176,7 @@ export default function ConfigPanel({
         setCdaStatus(s.cda_refresh_status ?? "idle");
         setCdaLastRefresh(s.cda_last_refresh ?? null);
         setCdaMovieCount(s.cda_movie_count ?? null);
+        setTvHideUnrated(s.tv_hide_unrated ?? true);
         setEpgEnabled(s.epg_enabled ?? true);
         setEpgUrlDraft(s.epg_url ?? "");
         setEpgInterval(s.epg_refresh_interval_hours ?? 0);
@@ -616,6 +618,37 @@ export default function ConfigPanel({
                 </span>
               </div>
 
+            </div>
+          </section>
+
+          <section>
+            <SubHeader>Filters</SubHeader>
+            <div className="space-y-3">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm text-gray-300">Hide films without rating</p>
+                  <p className="text-xs text-gray-600">Only show films that have a TMDb rating</p>
+                </div>
+                <button
+                  onClick={async () => {
+                    const next = !tvHideUnrated;
+                    setTvHideUnrated(next);
+                    const res = await fetch("/api/settings", {
+                      method: "PATCH",
+                      headers: { "Content-Type": "application/json" },
+                      body: JSON.stringify({ tv_hide_unrated: next }),
+                    });
+                    if (!res.ok) setTvHideUnrated(!next);
+                  }}
+                  className={`px-4 py-2 text-sm rounded-lg transition-colors border ${
+                    tvHideUnrated
+                      ? "bg-green-500/20 text-green-300 border-green-500/30 hover:bg-green-500/30"
+                      : "bg-gray-700/40 text-gray-400 border-gray-700/50 hover:bg-gray-700/60"
+                  }`}
+                >
+                  {tvHideUnrated ? "On" : "Off"}
+                </button>
+              </div>
             </div>
           </section>
 

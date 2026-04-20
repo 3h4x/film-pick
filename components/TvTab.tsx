@@ -135,11 +135,16 @@ export default function TvTab() {
   const [now, setNow] = useState(() => new Date());
   const [enrich, setEnrich] = useState<Record<string, EnrichResult>>({});
   const [blacklist, setBlacklist] = useState<Set<string>>(new Set());
-  // Load blacklist from DB
+  const [hideUnrated, setHideUnrated] = useState(true);
+
   useEffect(() => {
     fetch("/api/tv/blacklist")
       .then((r) => r.json())
       .then((list: string[]) => setBlacklist(new Set(list)))
+      .catch(() => {});
+    fetch("/api/settings")
+      .then((r) => r.json())
+      .then((s) => setHideUnrated(s.tv_hide_unrated ?? true))
       .catch(() => {});
   }, []);
 
@@ -274,7 +279,8 @@ export default function TvTab() {
         channelIds.has(p.channel) &&
         isMovie(p.category) &&
         !isFilmBlockedChannel(channelById.get(p.channel)?.name ?? "") &&
-        new Date(p.stop) > now,
+        new Date(p.stop) > now &&
+        (!hideUnrated || ((enrich[p.title]?.rating ?? 0) > 0)),
     )
     .sort((a, b) => new Date(a.start).getTime() - new Date(b.start).getTime());
 
