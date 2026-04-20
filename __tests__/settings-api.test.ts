@@ -15,9 +15,19 @@ vi.mock("@/lib/cda-scheduler", () => ({
   rescheduleCdaJob: vi.fn(),
 }));
 
+vi.mock("@/lib/epg-fetch", () => ({
+  invalidateMemCache: vi.fn(),
+}));
+
+vi.mock("@/lib/epg-scheduler", () => ({
+  rescheduleEpgJob: vi.fn(),
+}));
+
 import { GET, PATCH } from "@/app/api/settings/route";
 import { getDb } from "@/lib/db";
 import { rescheduleCdaJob } from "@/lib/cda-scheduler";
+import { invalidateMemCache } from "@/lib/epg-fetch";
+import { rescheduleEpgJob } from "@/lib/epg-scheduler";
 
 const TEST_DB = path.join(__dirname, "test-settings.db");
 
@@ -233,6 +243,85 @@ describe("settings API", () => {
       // library_path is managed by the sync/import routes, not settings PATCH
       // but it should remain unchanged if we only send disabled_engines
       expect(getSetting(db, "library_path")).toBe("/movies");
+    });
+
+    it("persists epg_url and calls invalidateMemCache", async () => {
+      const res = await PATCH(makeRequest({ epg_url: "https://example.com/epg.xml.gz" }));
+      const data = await res.json();
+      expect(data.ok).toBe(true);
+      expect(getSetting(db, "epg_url")).toBe("https://example.com/epg.xml.gz");
+      expect(invalidateMemCache).toHaveBeenCalledOnce();
+    });
+
+    it("trims epg_url whitespace", async () => {
+      await PATCH(makeRequest({ epg_url: "  https://example.com/epg.xml.gz  " }));
+      expect(getSetting(db, "epg_url")).toBe("https://example.com/epg.xml.gz");
+    });
+
+    it("deletes epg_url when empty string is provided", async () => {
+      setSetting(db, "epg_url", "https://example.com/epg.xml.gz");
+      await PATCH(makeRequest({ epg_url: "" }));
+      expect(getSetting(db, "epg_url")).toBeNull();
+    });
+
+    it("persists epg_enabled=true", async () => {
+      await PATCH(makeRequest({ epg_enabled: true }));
+      expect(getSetting(db, "epg_enabled")).toBe("true");
+    });
+
+    it("persists epg_enabled=false", async () => {
+      await PATCH(makeRequest({ epg_enabled: false }));
+      expect(getSetting(db, "epg_enabled")).toBe("false");
+    });
+
+    it("persists epg_refresh_interval_hours and calls rescheduleEpgJob", async () => {
+      const res = await PATCH(makeRequest({ epg_refresh_interval_hours: 12 }));
+      const data = await res.json();
+      expect(data.ok).toBe(true);
+      expect(getSetting(db, "epg_refresh_interval_hours")).toBe("12");
+      expect(rescheduleEpgJob).toHaveBeenCalledWith(db);
+    });
+
+    it("accepts 0 as valid epg_refresh_interval_hours (disabled)", async () => {
+      const res = await PATCH(makeRequest({ epg_refresh_interval_hours: 0 }));
+      expect(res.status).toBe(200);
+      expect(getSetting(db, "epg_refresh_interval_hours")).toBe("0");
+    });
+
+    it("rejects invalid epg_refresh_interval_hours", async () => {
+      const res = await PATCH(makeRequest({ epg_refresh_interval_hours: 8 }));
+      expect(res.status).toBe(400);
+      expect(getSetting(db, "epg_refresh_interval_hours")).toBeNull();
+    });
+  });
+
+  // ── GET /api/settings — EPG defaults ─────────────────────────────────────
+
+  describe("GET /api/settings — EPG fields", () => {
+    it("returns EPG defaults when no settings are stored", async () => {
+      const res = await GET();
+      const data = await res.json();
+      expect(data.epg_url).toBe("");
+      expect(data.epg_enabled).toBe(true);
+      expect(data.epg_refresh_interval_hours).toBe(0);
+      expect(data.epg_last_refresh).toBeNull();
+      expect(data.epg_status).toBe("idle");
+    });
+
+    it("returns stored EPG settings with correct types", async () => {
+      setSetting(db, "epg_url", "https://example.com/epg.xml.gz");
+      setSetting(db, "epg_enabled", "false");
+      setSetting(db, "epg_refresh_interval_hours", "24");
+      setSetting(db, "epg_last_refresh", "2026-04-20T12:00:00.000Z");
+      setSetting(db, "epg_status", "running");
+
+      const res = await GET();
+      const data = await res.json();
+      expect(data.epg_url).toBe("https://example.com/epg.xml.gz");
+      expect(data.epg_enabled).toBe(false);
+      expect(data.epg_refresh_interval_hours).toBe(24);
+      expect(data.epg_last_refresh).toBe("2026-04-20T12:00:00.000Z");
+      expect(data.epg_status).toBe("running");
     });
   });
 });

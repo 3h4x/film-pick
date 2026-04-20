@@ -12,6 +12,7 @@ import RecommendationRow from "@/components/RecommendationRow";
 import SortFilterBar from "@/components/SortFilterBar";
 import RecommendationSkeleton from "@/components/RecommendationSkeleton";
 import ConfigPanel, { type RecConfig } from "@/components/ConfigPanel";
+import TvTab from "@/components/TvTab";
 import PersonView from "@/components/PersonView";
 import { ToastContainer } from "@/components/Toast";
 
@@ -83,7 +84,7 @@ interface ToastItem {
 
 const PAGE_SIZE = 36;
 
-type AppTab = "library" | "recommendations" | "wishlist" | "config" | "person" | "search";
+type AppTab = "library" | "recommendations" | "wishlist" | "config" | "person" | "search" | "tv";
 
 function formatRefreshTime(iso: string): string {
   const date = new Date(iso);
@@ -107,6 +108,7 @@ function parseHash(): { tab: AppTab; category: string } {
   const hash = window.location.hash.replace("#", "");
   if (hash === "wishlist") return { tab: "wishlist", category: "all" };
   if (hash === "config") return { tab: "config", category: "all" };
+  if (hash === "tv") return { tab: "tv", category: "all" };
   if (hash.startsWith("search/")) return { tab: "search", category: decodeURIComponent(hash.substring(7)) };
   if (hash.startsWith("recommendations")) {
     const parts = hash.split("/");
@@ -138,6 +140,7 @@ export default function Home() {
   const [libraryPath, setLibraryPath] = useState<string | null>(null);
   const [tmdbKeySource, setTmdbKeySource] = useState<"env" | "db" | null>(null);
   const [disabledEngines, setDisabledEngines] = useState<string[]>([]);
+  const [epgEnabled, setEpgEnabled] = useState(true);
 
   // Sort, filter, search
   const [sort, setSort] = useState<SortOption>("created_at");
@@ -209,9 +212,11 @@ export default function Home() {
               ? "#wishlist"
               : activeTab === "config"
                 ? "#config"
-                : recCategory === "all"
-                  ? "#recommendations"
-                  : `#recommendations/${recCategory}`;
+                : activeTab === "tv"
+                  ? "#tv"
+                  : recCategory === "all"
+                    ? "#recommendations"
+                    : `#recommendations/${recCategory}`;
     if (window.location.hash !== hash) {
       window.history.replaceState(null, "", hash);
     }
@@ -450,6 +455,7 @@ export default function Home() {
     setLibraryPath(data.library_path);
     setTmdbKeySource(data.tmdb_api_key_source ?? null);
     setDisabledEngines(data.disabled_engines ?? []);
+    setEpgEnabled(data.epg_enabled ?? true);
     if (data.rec_group_order?.length) {
       setGroupOrder(data.rec_group_order);
     }
@@ -1065,6 +1071,7 @@ export default function Home() {
                 label: "Watchlist",
                 count: initialLoad ? -1 : wishlistMovies.length,
               },
+              ...(epgEnabled ? [{ key: "tv" as const, label: "TV", count: -1 }] : []),
               { key: "config" as const, label: "Config", count: -1 },
             ].map((tab) => {
               const active = activeTab === tab.key;
@@ -1645,6 +1652,8 @@ export default function Home() {
             )}
           </>
         )}
+
+        {activeTab === "tv" && <TvTab />}
 
         {activeTab === "config" && (
           <ConfigPanel
