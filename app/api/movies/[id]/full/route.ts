@@ -1,5 +1,6 @@
 import { NextRequest } from "next/server";
-import { getDb, deleteMovie } from "@/lib/db";
+import { getDb, deleteMovie, Movie } from "@/lib/db";
+import { getErrorMessage } from "@/lib/utils";
 import fs from "fs";
 import path from "path";
 
@@ -13,7 +14,7 @@ export async function DELETE(
 
   const movie = db
     .prepare("SELECT * FROM movies WHERE id = ?")
-    .get(movieId) as any;
+    .get(movieId) as Movie | undefined;
   if (!movie) {
     return Response.json({ error: "Movie not found" }, { status: 404 });
   }
@@ -67,10 +68,11 @@ export async function DELETE(
             fs.unlinkSync(subPath);
           }
         }
-      } catch (e: any) {
-        console.error(`[Delete] Error deleting movie files: ${e.message}`);
+      } catch (e) {
+        const msg = getErrorMessage(e);
+        console.error(`[Delete] Error deleting movie files: ${msg}`);
         return Response.json(
-          { error: `Failed to delete movie files: ${e.message}` },
+          { error: `Failed to delete movie files: ${msg}` },
           { status: 500 },
         );
       }
@@ -112,8 +114,9 @@ export async function DELETE(
               if (fs.existsSync(parentDir)) {
                 fs.rmSync(parentDir, { recursive: true, force: true });
               }
-            } catch (innerError: any) {
-              if (innerError.code === "ENOTEMPTY") {
+            } catch (innerError) {
+              const innerCode = (innerError as NodeJS.ErrnoException).code;
+              if (innerCode === "ENOTEMPTY") {
                 console.log(
                   `[Delete] ENOTEMPTY caught for ${parentDir}. Attempting manual content clearing.`,
                 );
@@ -131,11 +134,12 @@ export async function DELETE(
                           fs.unlinkSync(curPath);
                         }
                       }
-                    } catch (fileErr: any) {
+                    } catch (fileErr) {
+                      const fileErrCode = (fileErr as NodeJS.ErrnoException).code;
                       // Ignore if file disappeared or is already being handled (common on network shares)
-                      if (fileErr.code !== "ENOENT") {
+                      if (fileErrCode !== "ENOENT") {
                         console.warn(
-                          `[Delete] Warning: Failed to delete item ${curPath} during cleanup: ${fileErr.message}`,
+                          `[Delete] Warning: Failed to delete item ${curPath} during cleanup: ${getErrorMessage(fileErr)}`,
                         );
                       }
                     }
@@ -144,32 +148,34 @@ export async function DELETE(
                   if (fs.existsSync(parentDir)) {
                     try {
                       fs.rmdirSync(parentDir);
-                    } catch (finalDirErr: any) {
+                    } catch (finalDirErr) {
+                      const finalCode = (finalDirErr as NodeJS.ErrnoException).code;
                       // If it still says not empty, it's likely a persistent network share artifact (.afpDeleted*)
                       // We will log it but CONTINUE to delete the DB record.
-                      if (finalDirErr.code === "ENOTEMPTY") {
+                      if (finalCode === "ENOTEMPTY") {
                         console.warn(
                           `[Delete] Folder still not empty after manual cleanup (likely .afpDeleted*): ${parentDir}`,
                         );
-                      } else if (finalDirErr.code !== "ENOENT") {
+                      } else if (finalCode !== "ENOENT") {
                         throw finalDirErr;
                       }
                     }
                   }
-                } catch (dirErr: any) {
-                  if (dirErr.code !== "ENOENT") throw dirErr;
+                } catch (dirErr) {
+                  if ((dirErr as NodeJS.ErrnoException).code !== "ENOENT") throw dirErr;
                 }
-              } else if (innerError.code !== "ENOENT") {
+              } else if (innerCode !== "ENOENT") {
                 throw innerError;
               }
             }
           }
-        } catch (e: any) {
-          console.error(`[Delete] Error deleting movie folder: ${e.message}`);
+        } catch (e) {
+          const msg = getErrorMessage(e);
+          console.error(`[Delete] Error deleting movie folder: ${msg}`);
           // If the folder is already gone (ENOENT), we can still proceed to delete from DB
-          if (e.code !== "ENOENT") {
+          if ((e as NodeJS.ErrnoException).code !== "ENOENT") {
             return Response.json(
-              { error: `Failed to delete movie folder: ${e.message}` },
+              { error: `Failed to delete movie folder: ${msg}` },
               { status: 500 },
             );
           }
@@ -200,12 +206,11 @@ export async function DELETE(
   // Delete from database
   try {
     deleteMovie(db, movieId);
-  } catch (dbErr: any) {
-    console.error(
-      `[Delete] Error deleting movie from database: ${dbErr.message}`,
-    );
+  } catch (dbErr) {
+    const msg = getErrorMessage(dbErr);
+    console.error(`[Delete] Error deleting movie from database: ${msg}`);
     return Response.json(
-      { error: `Failed to delete movie from database: ${dbErr.message}` },
+      { error: `Failed to delete movie from database: ${msg}` },
       { status: 500 },
     );
   }

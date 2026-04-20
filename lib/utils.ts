@@ -94,3 +94,7 @@ export function parseFilename(filename: string): {
 
   return { title: name, year };
 }
+
+export function getErrorMessage(error: unknown): string {
+  return error instanceof Error ? error.message : String(error);
+}

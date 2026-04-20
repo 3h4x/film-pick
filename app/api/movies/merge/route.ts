@@ -1,5 +1,5 @@
 import { NextRequest } from "next/server";
-import { getDb } from "@/lib/db";
+import { getDb, Movie } from "@/lib/db";
 
 export async function POST(request: NextRequest) {
   const { sourceId, targetId } = await request.json();
@@ -11,10 +11,10 @@ export async function POST(request: NextRequest) {
   const db = getDb();
   const source = db
     .prepare("SELECT * FROM movies WHERE id = ?")
-    .get(sourceId) as any;
+    .get(sourceId) as Movie | undefined;
   const target = db
     .prepare("SELECT * FROM movies WHERE id = ?")
-    .get(targetId) as any;
+    .get(targetId) as Movie | undefined;
 
   if (!source || !target) {
     return Response.json({ error: "Movie(s) not found" }, { status: 404 });
@@ -71,8 +71,9 @@ export async function POST(request: NextRequest) {
   const existingCols = new Set(cols.map((c) => c.name));
 
   for (const f of fields) {
-    if (existingCols.has(f) && !target[f] && source[f]) {
-      updates[f] = source[f];
+    const key = f as keyof Movie;
+    if (existingCols.has(f) && !target[key] && source[key]) {
+      updates[f] = source[key];
     }
   }
 
@@ -88,7 +89,7 @@ export async function POST(request: NextRequest) {
 
   // Remove fields that already match target to avoid redundant updates
   for (const f in updates) {
-    if (updates[f] === target[f]) {
+    if (updates[f] === target[f as keyof Movie]) {
       delete updates[f];
     }
   }
@@ -139,10 +140,10 @@ export async function POST(request: NextRequest) {
       message: "Movies merged successfully",
       targetId,
     });
-  } catch (error: any) {
+  } catch (error) {
     console.error("Merge failed:", error);
     return Response.json(
-      { error: error.message || "Failed to merge movies" },
+      { error: error instanceof Error ? error.message : "Failed to merge movies" },
       { status: 500 },
     );
   }

@@ -1,5 +1,6 @@
 import { NextRequest } from "next/server";
-import { getDb } from "@/lib/db";
+import { getDb, Movie } from "@/lib/db";
+import { getErrorMessage } from "@/lib/utils";
 import fs from "fs/promises";
 import fsSync from "fs";
 import path from "path";
@@ -16,7 +17,7 @@ export async function GET(
 
   const movie = db
     .prepare("SELECT * FROM movies WHERE id = ?")
-    .get(movieId) as any;
+    .get(movieId) as Movie | undefined;
   if (!movie || !movie.file_path) {
     return Response.json({ hasSubtitles: false });
   }
@@ -69,7 +70,7 @@ export async function POST(
 
   const movie = db
     .prepare("SELECT * FROM movies WHERE id = ?")
-    .get(movieId) as any;
+    .get(movieId) as Movie | undefined;
   if (!movie || !movie.file_path) {
     return Response.json(
       { error: "Movie or file path not found" },
@@ -132,10 +133,10 @@ export async function POST(
       fileName: newFileName,
       path: targetPath,
     });
-  } catch (error: any) {
+  } catch (error) {
     console.error("Failed to add subtitle:", error);
     return Response.json(
-      { error: error.message || "Failed to add subtitle" },
+      { error: getErrorMessage(error) || "Failed to add subtitle" },
       { status: 500 },
     );
   }

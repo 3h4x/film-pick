@@ -1,6 +1,6 @@
 import { NextRequest } from "next/server";
-import { getDb } from "@/lib/db";
-import { parseFilename } from "@/lib/utils";
+import { getDb, Movie } from "@/lib/db";
+import { parseFilename, getErrorMessage } from "@/lib/utils";
 import fs from "fs/promises";
 import fsSync from "fs";
 import path from "path";
@@ -26,7 +26,7 @@ export async function POST(
 
   const movie = db
     .prepare("SELECT * FROM movies WHERE id = ?")
-    .get(movieId) as any;
+    .get(movieId) as Movie | undefined;
   if (!movie) {
     return Response.json({ error: "Movie not found" }, { status: 404 });
   }
@@ -35,10 +35,10 @@ export async function POST(
   const mergeMovies = (sourceId: number, targetId: number) => {
     const s = db
       .prepare("SELECT * FROM movies WHERE id = ?")
-      .get(sourceId) as any;
+      .get(sourceId) as Movie | undefined;
     const t = db
       .prepare("SELECT * FROM movies WHERE id = ?")
-      .get(targetId) as any;
+      .get(targetId) as Movie | undefined;
     if (!s || !t) return;
 
     const updates: Record<string, any> = {};
@@ -79,8 +79,9 @@ export async function POST(
       "extra_files",
     ];
     for (const f of fields) {
-      if (!t[f] && s[f]) {
-        updates[f] = s[f];
+      const key = f as keyof Movie;
+      if (!t[key] && s[key]) {
+        updates[f] = s[key];
       }
     }
 
@@ -422,10 +423,10 @@ export async function POST(
 
     console.log(`Successfully standardized movie: id=${movieId}`);
     return Response.json({ ok: true, newPath, newTitle: finalTitle });
-  } catch (error: any) {
+  } catch (error) {
     console.error("Standardization failed:", error);
     return Response.json(
-      { error: error.message || "Failed to standardize path" },
+      { error: getErrorMessage(error) || "Failed to standardize path" },
       { status: 500 },
     );
   }

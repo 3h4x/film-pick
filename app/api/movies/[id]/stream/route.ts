@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getDb } from "@/lib/db";
+import { getDb, Movie } from "@/lib/db";
+import { getErrorMessage } from "@/lib/utils";
 import fs from "fs";
 import { stat } from "fs/promises";
 import path from "path";
@@ -14,7 +15,7 @@ export async function GET(
     const db = getDb();
     const movie = db
       .prepare("SELECT * FROM movies WHERE id = ?")
-      .get(movieId) as any;
+      .get(movieId) as Movie | undefined;
     if (!movie || !movie.file_path) {
       return new NextResponse("Movie or file path not found", { status: 404 });
     }
@@ -98,8 +99,8 @@ export async function GET(
         headers: head,
       });
     }
-  } catch (error: any) {
+  } catch (error) {
     console.error("[Stream API Error]", error);
-    return new NextResponse(error.message, { status: 500 });
+    return new NextResponse(getErrorMessage(error), { status: 500 });
   }
 }
