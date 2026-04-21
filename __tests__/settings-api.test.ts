@@ -293,6 +293,97 @@ describe("settings API", () => {
       expect(res.status).toBe(400);
       expect(getSetting(db, "epg_refresh_interval_hours")).toBeNull();
     });
+
+    it("persists backup_enabled=true", async () => {
+      const res = await PATCH(makeRequest({ backup_enabled: true }));
+      expect(res.status).toBe(200);
+      expect(getSetting(db, "backup_enabled")).toBe("true");
+    });
+
+    it("persists backup_enabled=false", async () => {
+      const res = await PATCH(makeRequest({ backup_enabled: false }));
+      expect(res.status).toBe(200);
+      expect(getSetting(db, "backup_enabled")).toBe("false");
+    });
+
+    it("persists tv_hide_unrated=true", async () => {
+      const res = await PATCH(makeRequest({ tv_hide_unrated: true }));
+      expect(res.status).toBe(200);
+      expect(getSetting(db, "tv_hide_unrated")).toBe("true");
+    });
+
+    it("persists tv_hide_unrated=false", async () => {
+      const res = await PATCH(makeRequest({ tv_hide_unrated: false }));
+      expect(res.status).toBe(200);
+      expect(getSetting(db, "tv_hide_unrated")).toBe("false");
+    });
+
+    it("persists library_path and trims whitespace", async () => {
+      const res = await PATCH(makeRequest({ library_path: "  /media/movies  " }));
+      expect(res.status).toBe(200);
+      expect(getSetting(db, "library_path")).toBe("/media/movies");
+    });
+
+    it("deletes library_path when an empty string is provided", async () => {
+      setSetting(db, "library_path", "/media/movies");
+      const res = await PATCH(makeRequest({ library_path: "" }));
+      expect(res.status).toBe(200);
+      expect(getSetting(db, "library_path")).toBeNull();
+    });
+
+    it("deletes library_path when a whitespace-only string is provided", async () => {
+      setSetting(db, "library_path", "/media/movies");
+      const res = await PATCH(makeRequest({ library_path: "   " }));
+      expect(res.status).toBe(200);
+      expect(getSetting(db, "library_path")).toBeNull();
+    });
+
+    it("returns 500 with SQLITE_READONLY error message", async () => {
+      db.close();
+      // Reopen as read-only to simulate SQLITE_READONLY
+      const roDb = new Database(TEST_DB, { readonly: true });
+      vi.mocked(getDb).mockReturnValue(roDb as unknown as ReturnType<typeof getDb>);
+
+      const res = await PATCH(makeRequest({ rec_group_order: ["genre"] }));
+      expect(res.status).toBe(500);
+      const data = await res.json();
+      expect(data.error).toMatch(/read-only/i);
+
+      roDb.close();
+      // Reopen writable for afterEach cleanup
+      db = new Database(TEST_DB);
+      vi.mocked(getDb).mockReturnValue(db as unknown as ReturnType<typeof getDb>);
+    });
+  });
+
+  // ── GET /api/settings — backup_enabled and tv_hide_unrated ───────────────
+
+  describe("GET /api/settings — backup_enabled and tv_hide_unrated", () => {
+    it("returns backup_enabled=true by default", async () => {
+      const res = await GET();
+      const data = await res.json();
+      expect(data.backup_enabled).toBe(true);
+    });
+
+    it("returns backup_enabled=false when stored as false", async () => {
+      setSetting(db, "backup_enabled", "false");
+      const res = await GET();
+      const data = await res.json();
+      expect(data.backup_enabled).toBe(false);
+    });
+
+    it("returns tv_hide_unrated=true by default", async () => {
+      const res = await GET();
+      const data = await res.json();
+      expect(data.tv_hide_unrated).toBe(true);
+    });
+
+    it("returns tv_hide_unrated=false when stored as false", async () => {
+      setSetting(db, "tv_hide_unrated", "false");
+      const res = await GET();
+      const data = await res.json();
+      expect(data.tv_hide_unrated).toBe(false);
+    });
   });
 
   // ── GET /api/settings — EPG defaults ─────────────────────────────────────
