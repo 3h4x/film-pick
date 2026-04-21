@@ -74,27 +74,25 @@ export async function GET(
       const head = {
         "Content-Range": `bytes ${start}-${end}/${fileStat.size}`,
         "Accept-Ranges": "bytes",
-        "Content-Length": chunksize,
+        "Content-Length": String(chunksize),
         "Content-Type": activeFilePath.toLowerCase().endsWith(".mkv")
           ? "video/x-matroska"
           : "video/mp4",
       };
 
-      // @ts-ignore
-      return new NextResponse(file, {
+      return new NextResponse(file as unknown as BodyInit, {
         status: 206,
         headers: head,
       });
     } else {
       const head = {
-        "Content-Length": fileStat.size,
+        "Content-Length": String(fileStat.size),
         "Content-Type": activeFilePath.toLowerCase().endsWith(".mkv")
           ? "video/x-matroska"
           : "video/mp4",
       };
       const file = fs.createReadStream(activeFilePath);
-      // @ts-ignore
-      return new NextResponse(file, {
+      return new NextResponse(file as unknown as BodyInit, {
         status: 200,
         headers: head,
       });
