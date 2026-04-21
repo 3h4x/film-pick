@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { cleanTitle, parseFilename } from "@/lib/utils";
+import { cleanTitle, parseFilename, getErrorMessage } from "@/lib/utils";
 
 describe("cleanTitle", () => {
   it("removes file extension", () => {
@@ -158,5 +158,32 @@ describe("parseFilename", () => {
   it("returns empty string for filename with only release tags", () => {
     const { title } = parseFilename("1080p.BluRay.x264.mkv");
     expect(typeof title).toBe("string");
+  });
+});
+
+describe("getErrorMessage", () => {
+  it("returns the message property of an Error object", () => {
+    const err = new Error("something went wrong");
+    expect(getErrorMessage(err)).toBe("something went wrong");
+  });
+
+  it("converts a plain string to a string", () => {
+    expect(getErrorMessage("oops")).toBe("oops");
+  });
+
+  it("converts a number to a string", () => {
+    expect(getErrorMessage(404)).toBe("404");
+  });
+
+  it("converts null to string", () => {
+    expect(getErrorMessage(null)).toBe("null");
+  });
+
+  it("converts undefined to string", () => {
+    expect(getErrorMessage(undefined)).toBe("undefined");
+  });
+
+  it("converts an object to its string representation", () => {
+    expect(getErrorMessage({ code: 1 })).toBe("[object Object]");
   });
 });
