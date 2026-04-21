@@ -1,5 +1,14 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { searchTmdb, getTmdbRecommendations, getTmdbSimilar } from "@/lib/tmdb";
+import {
+  searchTmdb,
+  getTmdbRecommendations,
+  getTmdbSimilar,
+  genreNameToId,
+  getMovieLocalized,
+  getPolishTitle,
+  getTmdbMovieDetails,
+  getMovieCredits,
+} from "@/lib/tmdb";
 
 const mockFetch = vi.fn();
 global.fetch = mockFetch;
@@ -135,5 +144,189 @@ describe("tmdb client", () => {
 
     const similar = await getTmdbSimilar(100);
     expect(similar).toHaveLength(5);
+  });
+});
+
+describe("genreNameToId", () => {
+  it("returns the TMDb genre ID for a known genre", () => {
+    expect(genreNameToId("Action")).toBe(28);
+    expect(genreNameToId("Drama")).toBe(18);
+    expect(genreNameToId("Sci-Fi")).toBe(878);
+    expect(genreNameToId("Horror")).toBe(27);
+  });
+
+  it("returns null for an unknown genre", () => {
+    expect(genreNameToId("Telenovela")).toBeNull();
+    expect(genreNameToId("")).toBeNull();
+  });
+});
+
+describe("getMovieLocalized", () => {
+  beforeEach(() => {
+    vi.resetAllMocks();
+    process.env.TMDB_API_KEY = "test-key";
+  });
+
+  it("returns pl_title and description from the API response", async () => {
+    mockFetch.mockResolvedValueOnce({
+      ok: true,
+      json: async () => ({ title: "Incepcja", overview: "Film o snach." }),
+    });
+
+    const result = await getMovieLocalized(27205);
+    expect(result.pl_title).toBe("Incepcja");
+    expect(result.description).toBe("Film o snach.");
+    expect(mockFetch).toHaveBeenCalledWith(
+      expect.stringContaining("language=pl-PL"),
+      expect.any(Object),
+    );
+  });
+
+  it("returns nulls on API error", async () => {
+    mockFetch.mockResolvedValueOnce({ ok: false, status: 404 });
+    const result = await getMovieLocalized(99999);
+    expect(result).toEqual({ pl_title: null, description: null });
+  });
+
+  it("returns nulls when title and overview are missing", async () => {
+    mockFetch.mockResolvedValueOnce({
+      ok: true,
+      json: async () => ({}),
+    });
+    const result = await getMovieLocalized(1);
+    expect(result).toEqual({ pl_title: null, description: null });
+  });
+});
+
+describe("getPolishTitle", () => {
+  beforeEach(() => {
+    vi.resetAllMocks();
+    process.env.TMDB_API_KEY = "test-key";
+  });
+
+  it("returns the Polish title when available", async () => {
+    mockFetch.mockResolvedValueOnce({
+      ok: true,
+      json: async () => ({ title: "Labirynt Fauna", overview: "..." }),
+    });
+    expect(await getPolishTitle(268)).toBe("Labirynt Fauna");
+  });
+
+  it("returns null when the API errors", async () => {
+    mockFetch.mockResolvedValueOnce({ ok: false, status: 500 });
+    expect(await getPolishTitle(1)).toBeNull();
+  });
+});
+
+describe("getTmdbMovieDetails", () => {
+  beforeEach(() => {
+    vi.resetAllMocks();
+    process.env.TMDB_API_KEY = "test-key";
+  });
+
+  it("parses director, writer and top actors from credits", async () => {
+    mockFetch.mockResolvedValueOnce({
+      ok: true,
+      json: async () => ({
+        credits: {
+          crew: [
+            { job: "Director", name: "Christopher Nolan" },
+            { job: "Screenplay", name: "Christopher Nolan" },
+          ],
+          cast: [
+            { name: "Leonardo DiCaprio", character: "Cobb" },
+            { name: "Joseph Gordon-Levitt", character: "Arthur" },
+          ],
+        },
+      }),
+    });
+
+    const details = await getTmdbMovieDetails(27205);
+    expect(details.director).toBe("Christopher Nolan");
+    expect(details.writer).toBe("Christopher Nolan");
+    expect(details.actors).toBe("Leonardo DiCaprio, Joseph Gordon-Levitt");
+  });
+
+  it("returns nulls when credits are missing", async () => {
+    mockFetch.mockResolvedValueOnce({
+      ok: true,
+      json: async () => ({}),
+    });
+    const details = await getTmdbMovieDetails(1);
+    expect(details).toEqual({ director: null, writer: null, actors: null });
+  });
+
+  it("returns nulls on API error", async () => {
+    mockFetch.mockResolvedValueOnce({ ok: false, status: 404 });
+    const details = await getTmdbMovieDetails(99999);
+    expect(details).toEqual({ director: null, writer: null, actors: null });
+  });
+
+  it("limits actors to 5 names", async () => {
+    mockFetch.mockResolvedValueOnce({
+      ok: true,
+      json: async () => ({
+        credits: {
+          crew: [],
+          cast: Array.from({ length: 10 }, (_, i) => ({
+            name: `Actor ${i + 1}`,
+            character: "Someone",
+          })),
+        },
+      }),
+    });
+    const details = await getTmdbMovieDetails(1);
+    expect(details.actors?.split(", ")).toHaveLength(5);
+  });
+});
+
+describe("getMovieCredits", () => {
+  beforeEach(() => {
+    vi.resetAllMocks();
+    process.env.TMDB_API_KEY = "test-key";
+  });
+
+  it("returns directors and top cast from the credits endpoint", async () => {
+    mockFetch.mockResolvedValueOnce({
+      ok: true,
+      json: async () => ({
+        crew: [
+          { id: 525, name: "Christopher Nolan", job: "Director" },
+          { id: 526, name: "Emma Thomas", job: "Producer" },
+        ],
+        cast: [
+          { id: 6193, name: "Leonardo DiCaprio", character: "Cobb" },
+          { id: 24045, name: "Joseph Gordon-Levitt", character: "Arthur" },
+        ],
+      }),
+    });
+
+    const credits = await getMovieCredits(27205);
+    expect(credits.directors).toHaveLength(1);
+    expect(credits.directors[0].name).toBe("Christopher Nolan");
+    expect(credits.cast).toHaveLength(2);
+    expect(credits.cast[0].character).toBe("Cobb");
+  });
+
+  it("returns empty arrays on API error", async () => {
+    mockFetch.mockResolvedValueOnce({ ok: false, status: 404 });
+    const credits = await getMovieCredits(99999);
+    expect(credits).toEqual({ directors: [], cast: [] });
+  });
+
+  it("limits cast to 5 members", async () => {
+    mockFetch.mockResolvedValueOnce({
+      ok: true,
+      json: async () => ({
+        crew: [],
+        cast: Array.from({ length: 10 }, (_, i) => ({
+          id: i,
+          name: `Actor ${i}`,
+          character: "Someone",
+        })),
+      }),
+    });
+    const credits = await getMovieCredits(1);
+    expect(credits.cast).toHaveLength(5);
   });
 });
