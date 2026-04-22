@@ -451,4 +451,36 @@ describe("cdaEngine", () => {
     const result = await cdaEngine(ctx);
     expect(result[0].type).toBe("cda");
   });
+
+  it("sorts genres alphabetically when preference scores are equal", async () => {
+    mockGetDismissedIds.mockReturnValue(new Set());
+    mockGetRecommendedMovies.mockReturnValue([
+      makeRecommendedMovie({ tmdb_id: 1, title: "Zombie Film", genre: "Horror" }),
+      makeRecommendedMovie({ tmdb_id: 2, title: "Action Film", genre: "Action" }),
+    ]);
+
+    // Empty library → all genre scores are 0 → alphabetical fallback
+    const ctx = buildContext([], new Set());
+    const result = await cdaEngine(ctx);
+    const genreNames = result.map((g) => g.reason.replace(" on CDA", ""));
+    expect(genreNames).toEqual([...genreNames].sort());
+  });
+
+  it("ignores low-rated library movies (user_rating < 5) when building genre scores", async () => {
+    mockGetDismissedIds.mockReturnValue(new Set());
+    mockGetRecommendedMovies.mockReturnValue([
+      makeRecommendedMovie({ tmdb_id: 1, title: "Horror Film", genre: "Horror" }),
+      makeRecommendedMovie({ tmdb_id: 2, title: "Drama Film", genre: "Drama" }),
+    ]);
+
+    // Drama is disliked (user_rating < 5); Horror is liked
+    const library = [
+      makeMovie({ id: 1, title: "Good Horror", genre: "Horror", user_rating: 8 }),
+      makeMovie({ id: 2, title: "Bad Drama", genre: "Drama", user_rating: 2 }),
+    ];
+    const ctx = buildContext(library, new Set());
+    const result = await cdaEngine(ctx);
+    // Horror should come first because Drama's low rating is excluded from scoring
+    expect(result[0].reason).toContain("Horror");
+  });
 });
