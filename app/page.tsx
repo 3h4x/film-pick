@@ -6,6 +6,7 @@ import MovieCard from "@/components/MovieCard";
 import MovieDetail from "@/components/MovieDetail";
 import SearchModal from "@/components/SearchModal";
 import { cleanTitle } from "@/lib/utils";
+import type { TmdbSearchResult } from "@/lib/tmdb";
 import ImportModal from "@/components/ImportModal";
 import SyncModal from "@/components/SyncModal";
 import RecommendationRow from "@/components/RecommendationRow";
@@ -60,7 +61,7 @@ type RecType =
 interface RecommendationGroup {
   reason: string;
   type: RecType;
-  recommendations: any[];
+  recommendations: TmdbSearchResult[];
 }
 
 const REC_CATEGORIES: { value: string; label: string }[] = [
@@ -169,7 +170,7 @@ export default function Home() {
   );
 
   // TMDb search results (inline search tab)
-  const [tmdbResults, setTmdbResults] = useState<any[]>([]);
+  const [tmdbResults, setTmdbResults] = useState<TmdbSearchResult[]>([]);
   const [tmdbLoading, setTmdbLoading] = useState(false);
   const [tmdbAdded, setTmdbAdded] = useState<Set<number>>(new Set());
   const [tmdbError, setTmdbError] = useState<string | null>(null);
@@ -254,7 +255,7 @@ export default function Home() {
           recommendations: skipFilter
             ? g.recommendations
             : g.recommendations.filter(
-                (r: any) => !ratedTmdbIds.has(r.tmdb_id),
+                (r) => !ratedTmdbIds.has(r.tmdb_id),
               ),
         }))
         .filter((g) => g.recommendations.length > 0);
@@ -263,7 +264,7 @@ export default function Home() {
       const seen = new Set<number>();
       return filterRated(Object.values(recGroups).flat()).map((g) => ({
         ...g,
-        recommendations: g.recommendations.filter((r: any) => {
+        recommendations: g.recommendations.filter((r) => {
           if (seen.has(r.tmdb_id)) return false;
           seen.add(r.tmdb_id);
           return true;
@@ -283,7 +284,7 @@ export default function Home() {
     const counts: Record<string, number> = {};
     for (const [key, groups] of Object.entries(recGroups)) {
       const count = groups.reduce(
-        (acc, g) => acc + g.recommendations.filter((r: any) => !ratedTmdbIds.has(r.tmdb_id)).length,
+        (acc, g) => acc + g.recommendations.filter((r) => !ratedTmdbIds.has(r.tmdb_id)).length,
         0,
       );
       if (count > 0) counts[key] = count;
@@ -291,7 +292,7 @@ export default function Home() {
     const allSeen = new Set<number>();
     for (const groups of Object.values(recGroups)) {
       for (const g of groups) {
-        for (const r of g.recommendations as any[]) {
+        for (const r of g.recommendations) {
           if (!ratedTmdbIds.has(r.tmdb_id)) allSeen.add(r.tmdb_id);
         }
       }
@@ -301,7 +302,7 @@ export default function Home() {
   }, [recGroups, movies]);
 
   const wishlistMovies = useMemo(
-    () => movies.filter((m) => (m as any).wishlist === 1 && !m.user_rating),
+    () => movies.filter((m) => m.wishlist === 1 && !m.user_rating),
     [movies],
   );
 
@@ -542,7 +543,7 @@ export default function Home() {
     disabledEngines,
   ]);
 
-  async function handleAddMovie(searchResult: any, isWishlist: boolean) {
+  async function handleAddMovie(searchResult: TmdbSearchResult, isWishlist: boolean) {
     if (searchTargetId) {
       // Update existing movie instead of adding new one
       const res = await fetch(`/api/movies/${searchTargetId}`, {
@@ -789,7 +790,7 @@ export default function Home() {
           .map((g) => ({
             ...g,
             recommendations: g.recommendations.filter(
-              (r: any) => r.tmdb_id !== tmdbId && (!title || r.title !== title),
+              (r) => r.tmdb_id !== tmdbId && (!title || r.title !== title),
             ),
           }))
           .filter((g) => g.recommendations.length > 0);
@@ -798,7 +799,7 @@ export default function Home() {
     });
   }
 
-  async function handleRecAction(tmdbId: number, action: string, rec: any) {
+  async function handleRecAction(tmdbId: number, action: string, rec: TmdbSearchResult) {
     removeFromView(tmdbId, rec.title);
     setTotalRecsCount((c) => Math.max(0, c - 1));
 
@@ -827,16 +828,18 @@ export default function Home() {
         year: rec.year,
         genre: rec.genre,
         director: null,
+        writer: null,
+        actors: null,
         rating: rec.rating,
         user_rating: userRating,
         poster_url: rec.poster_url,
-        source: (rec as any).cda_url ? "cda" : "tmdb",
+        source: rec.cda_url ? "cda" : "tmdb",
         type: "movie",
         rated_at: null,
         created_at: new Date().toISOString(),
         wishlist: isWishlist ? 1 : 0,
-        cda_url: (rec as any).cda_url || null,
-      } as any;
+        cda_url: rec.cda_url || null,
+      };
       setMovies((prev) => {
         const exists = prev.some((m) => m.tmdb_id === rec.tmdb_id);
         return exists
@@ -856,13 +859,13 @@ export default function Home() {
           director: null,
           rating: rec.rating,
           poster_url: rec.poster_url,
-          source: (rec as any).cda_url ? "cda" : "tmdb",
+          source: rec.cda_url ? "cda" : "tmdb",
           imdb_id: null,
           tmdb_id: rec.tmdb_id,
           type: "movie",
           user_rating: userRating,
           wishlist: isWishlist ? 1 : 0,
-          cda_url: (rec as any).cda_url || null,
+          cda_url: rec.cda_url || null,
         }),
       });
     }
@@ -874,7 +877,7 @@ export default function Home() {
     });
   }
 
-  async function handleRecClick(rec: any) {
+  async function handleRecClick(rec: TmdbSearchResult) {
     const existing = movies.find((m) => m.tmdb_id === rec.tmdb_id);
     if (existing) {
       setSelectedMovie(existing);
@@ -953,12 +956,12 @@ export default function Home() {
                           setTmdbAdded(new Set());
                           const q = searchQuery.trim().toLowerCase();
                           const libraryMatches = movies.filter(
-                            (m) => (m.source !== "recommendation" || (m.user_rating != null && (m.user_rating as number) > 0)) && !(m as any).wishlist
+                            (m) => (m.source !== "recommendation" || (m.user_rating != null && (m.user_rating as number) > 0)) && !m.wishlist
                           ).filter(
                             (m) => m.title.toLowerCase().includes(q) || m.pl_title?.toLowerCase().includes(q)
                           );
                           const wishlistMatches = movies.filter(
-                            (m) => (m as any).wishlist === 1
+                            (m) => m.wishlist === 1
                           ).filter(
                             (m) => m.title.toLowerCase().includes(q) || m.pl_title?.toLowerCase().includes(q)
                           );
@@ -1138,16 +1141,16 @@ export default function Home() {
             ) : (() => {
               const q = searchQuery.toLowerCase();
               const libraryMatches = movies.filter(
-                (m) => (m.source !== "recommendation" || (m.user_rating != null && (m.user_rating as number) > 0)) && !(m as any).wishlist
+                (m) => (m.source !== "recommendation" || (m.user_rating != null && (m.user_rating as number) > 0)) && !m.wishlist
               ).filter(
                 (m) => m.title.toLowerCase().includes(q) || m.pl_title?.toLowerCase().includes(q)
               );
               const wishlistMatches = movies.filter(
-                (m) => (m as any).wishlist === 1
+                (m) => m.wishlist === 1
               ).filter(
                 (m) => m.title.toLowerCase().includes(q) || m.pl_title?.toLowerCase().includes(q)
               );
-              const tmdbOnly = tmdbResults.filter((r: any) => !movies.some((m) => m.tmdb_id === r.tmdb_id));
+              const tmdbOnly = tmdbResults.filter((r) => !movies.some((m) => m.tmdb_id === r.tmdb_id));
               return (
                 <div className="space-y-8">
                   {/* Library matches */}
@@ -1214,7 +1217,7 @@ export default function Home() {
                     <div>
                       <p className="text-xs font-semibold uppercase tracking-widest text-gray-500 mb-3">From TMDb</p>
                       <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 xl:grid-cols-7 gap-3">
-                        {tmdbOnly.map((r: any) => {
+                        {tmdbOnly.map((r) => {
                           const justAdded = tmdbAdded.has(r.tmdb_id);
                           return (
                             <div key={r.tmdb_id} className="relative group/card">
@@ -1499,7 +1502,7 @@ export default function Home() {
                 ) : (
                   <>{recCategory === "all" ? (
                     <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4">
-                      {recommendations.flatMap((g) => g.recommendations).map((r: any) => (
+                      {recommendations.flatMap((g) => g.recommendations).map((r) => (
                         <div key={r.tmdb_id} className="relative group/rec">
                           <MovieCard
                             title={r.title}

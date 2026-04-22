@@ -1,16 +1,7 @@
 "use client";
 
 import MovieCard from "./MovieCard";
-
-interface Recommendation {
-  title: string;
-  year: number | null;
-  genre: string;
-  rating: number;
-  poster_url: string | null;
-  tmdb_id: number;
-  cda_url?: string;
-}
+import type { TmdbSearchResult } from "@/lib/tmdb";
 
 export type RecAction =
   | "liked"
@@ -22,9 +13,9 @@ export type RecAction =
 interface RecommendationRowProps {
   reason: string;
   type: string;
-  recommendations: Recommendation[];
-  onAction: (tmdbId: number, action: RecAction, rec: Recommendation) => void;
-  onClickMovie: (rec: Recommendation) => void | Promise<void>;
+  recommendations: TmdbSearchResult[];
+  onAction: (tmdbId: number, action: RecAction, rec: TmdbSearchResult) => void;
+  onClickMovie: (rec: TmdbSearchResult) => void | Promise<void>;
   onMoveUp?: () => void;
   onMoveDown?: () => void;
   isFirst?: boolean;
