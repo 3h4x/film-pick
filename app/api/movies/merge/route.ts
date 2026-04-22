@@ -87,6 +87,16 @@ export async function POST(request: NextRequest) {
     updates.genre = allGenres.join(", ");
   }
 
+  // Combine extra_files when either side has them (must happen before updateKeys snapshot)
+  if (source.extra_files || target.extra_files) {
+    const sExtra: string[] = source.extra_files ? JSON.parse(source.extra_files) : [];
+    const tExtra: string[] = target.extra_files ? JSON.parse(target.extra_files) : [];
+    const allExtra = Array.from(new Set([...sExtra, ...tExtra])).filter(Boolean);
+    if (allExtra.length > 0) {
+      updates.extra_files = JSON.stringify(allExtra);
+    }
+  }
+
   // Remove fields that already match target to avoid redundant updates
   for (const f in updates) {
     const k = f as keyof Movie;
@@ -110,18 +120,6 @@ export async function POST(request: NextRequest) {
         db.prepare(
           "UPDATE movies SET title = 'merged-placeholder', year = NULL WHERE id = ?",
         ).run(sourceId);
-      }
-
-      // Combine extra_files if both exist
-      if (source.extra_files || target.extra_files) {
-        const sExtra = source.extra_files ? JSON.parse(source.extra_files) : [];
-        const tExtra = target.extra_files ? JSON.parse(target.extra_files) : [];
-        const allExtra = Array.from(new Set([...sExtra, ...tExtra])).filter(
-          Boolean,
-        );
-        if (allExtra.length > 0) {
-          updates.extra_files = JSON.stringify(allExtra);
-        }
       }
 
       if (updateKeys.length > 0) {
