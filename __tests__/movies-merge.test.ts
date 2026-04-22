@@ -208,4 +208,105 @@ describe("POST /api/movies/merge", () => {
     // No duplicates
     expect(genres.filter((g) => g === "Drama")).toHaveLength(1);
   });
+
+  it("takes the higher global rating from source and target", async () => {
+    const sourceId = insertTestMovie(db, { title: "Source", rating: 9.2 });
+    const targetId = insertTestMovie(db, { title: "Target", rating: 7.5 });
+
+    await POST(makeRequest({ sourceId, targetId }));
+
+    const target = db
+      .prepare("SELECT rating FROM movies WHERE id = ?")
+      .get(targetId) as { rating: number };
+    expect(target.rating).toBe(9.2);
+  });
+
+  it("copies poster_url from source when target has none", async () => {
+    const sourceId = insertTestMovie(db, {
+      title: "Source",
+      poster_url: "https://image.tmdb.org/poster.jpg",
+    });
+    const targetId = insertTestMovie(db, {
+      title: "Target",
+      poster_url: null,
+    });
+
+    await POST(makeRequest({ sourceId, targetId }));
+
+    const target = db
+      .prepare("SELECT poster_url FROM movies WHERE id = ?")
+      .get(targetId) as { poster_url: string };
+    expect(target.poster_url).toBe("https://image.tmdb.org/poster.jpg");
+  });
+
+  it("copies file_path from source to target when target has none", async () => {
+    const sourceId = insertTestMovie(db, { title: "Source" });
+    const targetId = insertTestMovie(db, { title: "Target" });
+    db.prepare("UPDATE movies SET file_path = ? WHERE id = ?").run(
+      "/movies/source.mkv",
+      sourceId,
+    );
+
+    await POST(makeRequest({ sourceId, targetId }));
+
+    const target = db
+      .prepare("SELECT file_path FROM movies WHERE id = ?")
+      .get(targetId) as { file_path: string };
+    expect(target.file_path).toBe("/movies/source.mkv");
+    // source must be deleted
+    const src = db.prepare("SELECT id FROM movies WHERE id = ?").get(sourceId);
+    expect(src).toBeUndefined();
+  });
+
+  it("merges extra_files from both source and target without duplicates", async () => {
+    const sourceId = insertTestMovie(db, { title: "Source" });
+    const targetId = insertTestMovie(db, { title: "Target" });
+    db.prepare("UPDATE movies SET extra_files = ? WHERE id = ?").run(
+      JSON.stringify(["/movies/bonus.mkv", "/movies/shared.mkv"]),
+      sourceId,
+    );
+    db.prepare("UPDATE movies SET extra_files = ? WHERE id = ?").run(
+      JSON.stringify(["/movies/shared.mkv", "/movies/featurette.mkv"]),
+      targetId,
+    );
+
+    await POST(makeRequest({ sourceId, targetId }));
+
+    const target = db
+      .prepare("SELECT extra_files FROM movies WHERE id = ?")
+      .get(targetId) as { extra_files: string };
+    const extras: string[] = JSON.parse(target.extra_files);
+    expect(extras).toContain("/movies/bonus.mkv");
+    expect(extras).toContain("/movies/shared.mkv");
+    expect(extras).toContain("/movies/featurette.mkv");
+    // No duplicates
+    expect(extras.filter((e) => e === "/movies/shared.mkv")).toHaveLength(1);
+  });
+
+  it("copies director from source when target director is null", async () => {
+    const sourceId = insertTestMovie(db, {
+      title: "Source",
+      director: "Kubrick",
+    });
+    const targetId = insertTestMovie(db, { title: "Target", director: null });
+
+    await POST(makeRequest({ sourceId, targetId }));
+
+    const target = db
+      .prepare("SELECT director FROM movies WHERE id = ?")
+      .get(targetId) as { director: string };
+    expect(target.director).toBe("Kubrick");
+  });
+
+  it("returns ok and targetId in response body on success", async () => {
+    const sourceId = insertTestMovie(db, { title: "Source" });
+    const targetId = insertTestMovie(db, { title: "Target" });
+
+    const res = await POST(makeRequest({ sourceId, targetId }));
+    expect(res.status).toBe(200);
+    const data = await res.json();
+    expect(data.ok).toBe(true);
+    expect(data.targetId).toBe(targetId);
+    expect(data.message).toMatch(/merged/i);
+  });
 });
