@@ -3,7 +3,7 @@ import { NextRequest } from "next/server";
 import Database from "better-sqlite3";
 import fs from "fs";
 import path from "path";
-import { initDb } from "@/lib/db";
+import { initDb, getSetting } from "@/lib/db";
 
 vi.mock("@/lib/db", async (importOriginal) => {
   const actual = await importOriginal<typeof import("@/lib/db")>();
@@ -254,5 +254,172 @@ describe("import API route", () => {
 
     expect(complete!.failed).toBe(1);
     expect(complete!.added).toBe(0);
+  });
+
+  // ── Year-proximity matching ─────────────────────────────────────────────────
+
+  it("accepts a TMDb result whose year is within ±1 of parsedYear", async () => {
+    vi.mocked(scanDirectoryGenerator).mockReturnValue(
+      (function* () {
+        yield {
+          filePath: "/movies/Dune (2021)/dune.mkv",
+          filename: "dune.mkv",
+          parsedTitle: "Dune",
+          parsedYear: 2021,
+        };
+      })() as ReturnType<typeof scanDirectoryGenerator>,
+    );
+
+    // TMDb returns year=2022 (1 off) — should still match
+    vi.mocked(searchTmdb).mockResolvedValue([
+      {
+        title: "Dune: Part One",
+        year: 2022,
+        genre: "Sci-Fi",
+        rating: 8.0,
+        poster_url: null,
+        tmdb_id: 438631,
+        imdb_id: null,
+      },
+    ]);
+
+    const res = await POST(makeRequest({ path: "/movies" }));
+    const lines = await readNDJSON(res);
+    const complete = lines.find((l) => l.type === "complete");
+
+    expect(complete!.added).toBe(1);
+    expect(complete!.failed).toBe(0);
+
+    const row = db
+      .prepare("SELECT title, year FROM movies WHERE tmdb_id = 438631")
+      .get() as { title: string; year: number } | undefined;
+    expect(row).toBeDefined();
+    expect(row!.title).toBe("Dune: Part One");
+  });
+
+  it("falls back to first TMDb result when no result matches parsedYear", async () => {
+    vi.mocked(scanDirectoryGenerator).mockReturnValue(
+      (function* () {
+        yield {
+          filePath: "/movies/Alien (1979)/alien.mkv",
+          filename: "alien.mkv",
+          parsedTitle: "Alien",
+          parsedYear: 1979,
+        };
+      })() as ReturnType<typeof scanDirectoryGenerator>,
+    );
+
+    // Returns a result with year far off — should fall back to first result
+    vi.mocked(searchTmdb).mockResolvedValue([
+      {
+        title: "Alien: Covenant",
+        year: 2017,
+        genre: "Horror",
+        rating: 6.4,
+        poster_url: null,
+        tmdb_id: 395992,
+        imdb_id: null,
+      },
+    ]);
+
+    const res = await POST(makeRequest({ path: "/movies" }));
+    const lines = await readNDJSON(res);
+    const complete = lines.find((l) => l.type === "complete");
+
+    expect(complete!.added).toBe(1);
+
+    const row = db
+      .prepare("SELECT tmdb_id FROM movies WHERE tmdb_id = 395992")
+      .get() as { tmdb_id: number } | undefined;
+    expect(row).toBeDefined();
+  });
+
+  it("accepts any TMDb result when parsedYear is null", async () => {
+    vi.mocked(scanDirectoryGenerator).mockReturnValue(
+      (function* () {
+        yield {
+          filePath: "/movies/Casablanca/casablanca.mkv",
+          filename: "casablanca.mkv",
+          parsedTitle: "Casablanca",
+          parsedYear: null,
+        };
+      })() as ReturnType<typeof scanDirectoryGenerator>,
+    );
+
+    vi.mocked(searchTmdb).mockResolvedValue([
+      {
+        title: "Casablanca",
+        year: 1942,
+        genre: "Drama, Romance",
+        rating: 8.5,
+        poster_url: null,
+        tmdb_id: 289,
+        imdb_id: "tt0034583",
+      },
+    ]);
+
+    const res = await POST(makeRequest({ path: "/movies" }));
+    const lines = await readNDJSON(res);
+    const complete = lines.find((l) => l.type === "complete");
+
+    expect(complete!.added).toBe(1);
+
+    const row = db
+      .prepare("SELECT tmdb_id FROM movies WHERE tmdb_id = 289")
+      .get() as { tmdb_id: number } | undefined;
+    expect(row).toBeDefined();
+  });
+
+  // ── Settings persistence ────────────────────────────────────────────────────
+
+  it("saves the import path as library_path in settings", async () => {
+    vi.mocked(scanDirectoryGenerator).mockReturnValue(
+      (function* () {})() as ReturnType<typeof scanDirectoryGenerator>,
+    );
+
+    await POST(makeRequest({ path: "/movies/library" }));
+
+    const stored = getSetting(db, "library_path");
+    expect(stored).toBe("/movies/library");
+  });
+
+  // ── Multi-file summary ──────────────────────────────────────────────────────
+
+  it("totals added + skipped + failed correctly across multiple files", async () => {
+    const { insertMovie } = await import("@/lib/db");
+    insertMovie(db, {
+      title: "Already Here",
+      year: 2000,
+      genre: null,
+      director: null,
+      rating: null,
+      poster_url: null,
+      source: "local",
+      imdb_id: null,
+      tmdb_id: null,
+      type: "movie",
+      file_path: "/movies/already.mkv",
+    });
+
+    vi.mocked(scanDirectoryGenerator).mockReturnValue(
+      (function* () {
+        yield { filePath: "/movies/already.mkv", filename: "already.mkv", parsedTitle: "Already Here", parsedYear: 2000 };
+        yield { filePath: "/movies/new.mkv", filename: "new.mkv", parsedTitle: "New Film", parsedYear: 2023 };
+        yield { filePath: "/movies/broken.mkv", filename: "broken.mkv", parsedTitle: "Broken", parsedYear: 2022 };
+      })() as ReturnType<typeof scanDirectoryGenerator>,
+    );
+
+    vi.mocked(searchTmdb)
+      .mockResolvedValueOnce([{ title: "New Film", year: 2023, genre: "Action", rating: 7.0, poster_url: null, tmdb_id: 999, imdb_id: null }])
+      .mockRejectedValueOnce(new Error("timeout"));
+
+    const res = await POST(makeRequest({ path: "/movies" }));
+    const lines = await readNDJSON(res);
+    const complete = lines.find((l) => l.type === "complete");
+
+    expect(complete!.total).toBe(3);
+    expect(complete!.skipped).toBe(1);
+    expect(complete!.added).toBe(1);
+    expect(complete!.failed).toBe(1);
   });
 });
