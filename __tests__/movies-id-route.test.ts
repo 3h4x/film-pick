@@ -160,6 +160,25 @@ describe("movies/[id] PATCH handler", () => {
     // Confirm malicious_field was not persisted.
     expect(body).not.toHaveProperty("malicious_field");
   });
+
+  it("sets wishlist flag via PATCH", async () => {
+    const res = await PATCH(patchReq({ wishlist: 1 }), makeParams(movieId));
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body.wishlist).toBe(1);
+
+    const row = db.prepare("SELECT wishlist FROM movies WHERE id = ?").get(movieId) as { wishlist: number };
+    expect(row.wishlist).toBe(1);
+  });
+
+  it("clears wishlist flag via PATCH", async () => {
+    db.prepare("UPDATE movies SET wishlist = 1 WHERE id = ?").run(movieId);
+
+    const res = await PATCH(patchReq({ wishlist: 0 }), makeParams(movieId));
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body.wishlist).toBe(0);
+  });
 });
 
 describe("movies/[id] DELETE handler", () => {
@@ -384,5 +403,98 @@ describe("movies/[id] GET handler", () => {
     // tmdb_id should remain null
     expect(body.movie.tmdb_id).toBeNull();
     expect(vi.mocked(getTmdbMovieDetails)).not.toHaveBeenCalled();
+  });
+
+  it("falls back to results[0] when no exact title match during auto-link", async () => {
+    const unlinkId = insertMovie(db, {
+      title: "Blade Runner",
+      year: 1982,
+      genre: null,
+      director: null,
+      rating: null,
+      poster_url: null,
+      source: "manual",
+      imdb_id: null,
+      tmdb_id: null,
+      type: "movie",
+    });
+
+    // Return a result whose normalized title differs from the movie title
+    vi.mocked(searchTmdb).mockResolvedValueOnce([
+      {
+        tmdb_id: 78,
+        title: "Blade Runner 2049",
+        year: 2017,
+        genre: "Sci-Fi",
+        rating: 7.5,
+        poster_url: "/br2049.jpg",
+        imdb_id: "tt1856101",
+      },
+    ]);
+    vi.mocked(getMovieLocalized).mockResolvedValueOnce({
+      pl_title: "Łowca androidów 2049",
+      description: "Sequel.",
+    });
+
+    const res = await GET(getReq(unlinkId), makeParams(unlinkId));
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    // Should have used results[0] as fallback
+    expect(body.movie.tmdb_id).toBe(78);
+    expect(body.movie.title).toBe("Blade Runner 2049");
+    expect(body.movie.pl_title).toBe("Łowca androidów 2049");
+    expect(body.movie.source).toBe("tmdb");
+  });
+
+  it("skips auto-link when getMovieLocalized throws", async () => {
+    const unlinkId = insertMovie(db, {
+      title: "Casablanca",
+      year: 1942,
+      genre: null,
+      director: null,
+      rating: null,
+      poster_url: null,
+      source: "manual",
+      imdb_id: null,
+      tmdb_id: null,
+      type: "movie",
+    });
+
+    vi.mocked(searchTmdb).mockResolvedValueOnce([
+      {
+        tmdb_id: 289,
+        title: "Casablanca",
+        year: 1942,
+        genre: "Drama",
+        rating: 8.5,
+        poster_url: "/casa.jpg",
+        imdb_id: "tt0034583",
+      },
+    ]);
+    vi.mocked(getMovieLocalized).mockRejectedValueOnce(new Error("localization service unavailable"));
+
+    const res = await GET(getReq(unlinkId), makeParams(unlinkId));
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    // auto-link skipped due to error; tmdb_id stays null
+    expect(body.movie.tmdb_id).toBeNull();
+    expect(body.movie.source).toBe("manual");
+  });
+
+  it("returns metadata error object when file exists but ffprobe fails", async () => {
+    // Use the TEST_DB path as a stand-in for a real existing file.
+    // The promisify mock always rejects, so ffprobe throws → metadata error.
+    db.prepare("UPDATE movies SET file_path = ? WHERE id = ?").run(TEST_DB, movieId);
+
+    vi.mocked(getTmdbMovieDetails).mockResolvedValueOnce({
+      director: "Christopher Nolan",
+      writer: null,
+      actors: null,
+    });
+
+    const res = await GET(getReq(movieId), makeParams(movieId));
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body.metadata).toMatchObject({ error: expect.stringContaining("ffprobe") });
   });
 });

@@ -5,13 +5,14 @@ import fs from "fs";
 import path from "path";
 import { initDb, insertMovie } from "@/lib/db";
 
-const { mockExistsSync, mockMkdir, mockRename, mockReaddir, mockRm } =
+const { mockExistsSync, mockMkdir, mockRename, mockReaddir, mockRm, mockStat } =
   vi.hoisted(() => ({
     mockExistsSync: vi.fn(),
     mockMkdir: vi.fn(),
     mockRename: vi.fn(),
     mockReaddir: vi.fn(),
     mockRm: vi.fn(),
+    mockStat: vi.fn(),
   }));
 
 vi.mock("fs/promises", () => ({
@@ -20,11 +21,13 @@ vi.mock("fs/promises", () => ({
     rename: mockRename,
     readdir: mockReaddir,
     rm: mockRm,
+    stat: mockStat,
   },
   mkdir: mockMkdir,
   rename: mockRename,
   readdir: mockReaddir,
   rm: mockRm,
+  stat: mockStat,
 }));
 
 vi.mock("fs", async (importOriginal) => {
@@ -71,6 +74,7 @@ describe("movies/[id]/standardize POST handler", () => {
     mockRename.mockResolvedValue(undefined);
     mockReaddir.mockResolvedValue([]);
     mockRm.mockResolvedValue(undefined);
+    mockStat.mockResolvedValue({ size: 0 });
   });
 
   afterEach(() => {
