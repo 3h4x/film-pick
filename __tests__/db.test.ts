@@ -567,3 +567,166 @@ describe("getMovies sort order", () => {
     expect(series.every((m) => m.type === "series")).toBe(true);
   });
 });
+
+// The original movies schema (before any migrations were added).
+// All base columns that have always been present must be here so that
+// the index creation at the end of initDb does not fail on missing columns.
+const ORIGINAL_MOVIES_SCHEMA = `
+  CREATE TABLE movies (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    title TEXT NOT NULL,
+    year INTEGER,
+    genre TEXT,
+    director TEXT,
+    rating REAL,
+    poster_url TEXT,
+    source TEXT,
+    imdb_id TEXT,
+    tmdb_id INTEGER,
+    type TEXT DEFAULT 'movie'
+  );
+  CREATE TABLE IF NOT EXISTS _migrations (name TEXT PRIMARY KEY);
+  CREATE TABLE IF NOT EXISTS settings (key TEXT PRIMARY KEY, value TEXT NOT NULL);
+`;
+
+describe("database migrations on existing schema", () => {
+  let db: Database.Database;
+  const MIGRATION_DB = path.join(__dirname, "test-migrations.db");
+
+  afterEach(() => {
+    db.close();
+    if (fs.existsSync(MIGRATION_DB)) fs.unlinkSync(MIGRATION_DB);
+  });
+
+  it("adds missing columns to movies table created without migrations", () => {
+    db = new Database(MIGRATION_DB);
+    db.exec(ORIGINAL_MOVIES_SCHEMA);
+
+    initDb(db);
+
+    const cols = (db.pragma("table_info(movies)") as { name: string }[]).map((c) => c.name);
+    expect(cols).toContain("file_path");
+    expect(cols).toContain("video_metadata");
+    expect(cols).toContain("writer");
+    expect(cols).toContain("actors");
+    expect(cols).toContain("extra_files");
+    expect(cols).toContain("user_rating");
+    expect(cols).toContain("wishlist");
+    expect(cols).toContain("rated_at");
+    expect(cols).toContain("pl_title");
+    expect(cols).toContain("description");
+    expect(cols).toContain("cda_url");
+    expect(cols).toContain("filmweb_id");
+    expect(cols).toContain("filmweb_url");
+  });
+
+  it("records all migrations in _migrations table", () => {
+    db = new Database(MIGRATION_DB);
+    db.exec(ORIGINAL_MOVIES_SCHEMA);
+
+    initDb(db);
+
+    const migrationNames = (
+      db.prepare("SELECT name FROM _migrations").all() as { name: string }[]
+    ).map((r) => r.name);
+    expect(migrationNames).toContain("add_file_path");
+    expect(migrationNames).toContain("add_video_metadata");
+    expect(migrationNames).toContain("add_credits");
+    expect(migrationNames).toContain("add_extra_files");
+    expect(migrationNames).toContain("add_user_columns");
+  });
+
+  it("is idempotent — calling initDb twice does not throw or duplicate migrations", () => {
+    db = new Database(MIGRATION_DB);
+    initDb(db);
+    expect(() => initDb(db)).not.toThrow();
+
+    const migrationRows = db.prepare("SELECT COUNT(*) as c FROM _migrations").get() as { c: number };
+    // Exactly 5 named migrations, no duplicates
+    expect(migrationRows.c).toBe(5);
+  });
+
+  it("migrates old id-based recommendation_cache to engine-based schema", () => {
+    db = new Database(MIGRATION_DB);
+    db.exec(ORIGINAL_MOVIES_SCHEMA);
+    // Old schema had 'id' column and no 'engine' column
+    db.exec(`
+      CREATE TABLE recommendation_cache (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        data TEXT NOT NULL,
+        movie_count INTEGER NOT NULL,
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+      );
+    `);
+
+    initDb(db);
+
+    const cols = (db.pragma("table_info(recommendation_cache)") as { name: string }[]).map((c) => c.name);
+    expect(cols).toContain("engine");
+    expect(cols).not.toContain("id");
+  });
+
+  it("adds description column to recommended_movies when missing", () => {
+    db = new Database(MIGRATION_DB);
+    db.exec(ORIGINAL_MOVIES_SCHEMA);
+    // Create recommended_movies without the description column
+    db.exec(`
+      CREATE TABLE recommended_movies (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        tmdb_id INTEGER NOT NULL,
+        engine TEXT NOT NULL,
+        reason TEXT NOT NULL,
+        title TEXT NOT NULL,
+        year INTEGER,
+        genre TEXT,
+        rating REAL,
+        poster_url TEXT,
+        pl_title TEXT,
+        cda_url TEXT,
+        UNIQUE(tmdb_id, engine)
+      );
+    `);
+
+    initDb(db);
+
+    const cols = (db.pragma("table_info(recommended_movies)") as { name: string }[]).map((c) => c.name);
+    expect(cols).toContain("description");
+  });
+
+  it("preserves existing movie data through migrations", () => {
+    db = new Database(MIGRATION_DB);
+    db.exec(ORIGINAL_MOVIES_SCHEMA);
+    db.prepare("INSERT INTO movies (title, year) VALUES (?, ?)").run("The Matrix", 1999);
+
+    initDb(db);
+
+    const movie = db.prepare("SELECT * FROM movies WHERE title = 'The Matrix'").get() as { title: string; year: number; file_path: unknown };
+    expect(movie).toBeDefined();
+    expect(movie.title).toBe("The Matrix");
+    expect(movie.year).toBe(1999);
+    expect(movie.file_path).toBeNull();
+  });
+
+  it("skips already-applied migrations and still runs pending ones", () => {
+    db = new Database(MIGRATION_DB);
+    // Simulate a DB at the state after add_file_path and add_video_metadata have run,
+    // but before add_credits was applied.
+    db.exec(ORIGINAL_MOVIES_SCHEMA);
+    db.exec("ALTER TABLE movies ADD COLUMN file_path TEXT");
+    db.exec("ALTER TABLE movies ADD COLUMN video_metadata TEXT");
+    db.prepare("INSERT INTO _migrations (name) VALUES (?)").run("add_file_path");
+    db.prepare("INSERT INTO _migrations (name) VALUES (?)").run("add_video_metadata");
+
+    expect(() => initDb(db)).not.toThrow();
+
+    const cols = (db.pragma("table_info(movies)") as { name: string }[]).map((c) => c.name);
+    // Already-applied columns still present
+    expect(cols).toContain("file_path");
+    expect(cols).toContain("video_metadata");
+    // Pending migrations ran
+    expect(cols).toContain("writer");
+    expect(cols).toContain("actors");
+    expect(cols).toContain("extra_files");
+    expect(cols).toContain("user_rating");
+  });
+});
