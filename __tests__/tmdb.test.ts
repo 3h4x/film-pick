@@ -147,6 +147,114 @@ describe("tmdb client", () => {
   });
 });
 
+describe("searchTmdb year fallback", () => {
+  beforeEach(() => {
+    vi.resetAllMocks();
+    process.env.TMDB_API_KEY = "test-key";
+  });
+
+  function okPage(id: number, year: number) {
+    return {
+      ok: true,
+      json: async () => ({
+        results: [
+          {
+            id,
+            title: `Film ${year}`,
+            release_date: `${year}-06-01`,
+            genre_ids: [18],
+            vote_average: 7.0,
+            poster_path: null,
+          },
+        ],
+      }),
+    };
+  }
+
+  const emptyPage = { ok: true, json: async () => ({ results: [] }) };
+
+  it("returns first-call results when year provided and results found", async () => {
+    mockFetch.mockResolvedValueOnce(okPage(1, 2020));
+
+    const results = await searchTmdb("Film", 2020);
+    expect(results).toHaveLength(1);
+    expect(mockFetch).toHaveBeenCalledTimes(1);
+    expect(mockFetch).toHaveBeenCalledWith(
+      expect.stringContaining("year=2020"),
+      expect.any(Object),
+    );
+  });
+
+  it("tries year+1 when exact year returns no results", async () => {
+    mockFetch.mockResolvedValueOnce(emptyPage).mockResolvedValueOnce(okPage(2, 2021));
+
+    const results = await searchTmdb("Film", 2020);
+    expect(results).toHaveLength(1);
+    expect(results[0].year).toBe(2021);
+    expect(mockFetch).toHaveBeenCalledTimes(2);
+    expect(mockFetch.mock.calls[0][0]).toContain("year=2020");
+    expect(mockFetch.mock.calls[1][0]).toContain("year=2021");
+  });
+
+  it("tries year-1 when year and year+1 both return no results", async () => {
+    mockFetch
+      .mockResolvedValueOnce(emptyPage)
+      .mockResolvedValueOnce(emptyPage)
+      .mockResolvedValueOnce(okPage(3, 2019));
+
+    const results = await searchTmdb("Film", 2020);
+    expect(results).toHaveLength(1);
+    expect(results[0].year).toBe(2019);
+    expect(mockFetch).toHaveBeenCalledTimes(3);
+    expect(mockFetch.mock.calls[2][0]).toContain("year=2019");
+  });
+
+  it("falls back to no-year query when year, year+1, and year-1 all return no results", async () => {
+    mockFetch
+      .mockResolvedValueOnce(emptyPage)
+      .mockResolvedValueOnce(emptyPage)
+      .mockResolvedValueOnce(emptyPage)
+      .mockResolvedValueOnce(okPage(4, 2018));
+
+    const results = await searchTmdb("Film", 2020);
+    expect(results).toHaveLength(1);
+    expect(mockFetch).toHaveBeenCalledTimes(4);
+    // Final call must not include a year filter
+    expect(mockFetch.mock.calls[3][0]).not.toContain("year=");
+  });
+
+  it("returns empty array when all four fallbacks return no results", async () => {
+    mockFetch.mockResolvedValue(emptyPage);
+
+    const results = await searchTmdb("Film", 2020);
+    expect(results).toEqual([]);
+    expect(mockFetch).toHaveBeenCalledTimes(4);
+  });
+
+  it("makes only one fetch call when no year is provided", async () => {
+    mockFetch.mockResolvedValueOnce(emptyPage);
+
+    const results = await searchTmdb("Film");
+    expect(results).toEqual([]);
+    expect(mockFetch).toHaveBeenCalledTimes(1);
+  });
+
+  it("makes only one fetch call when year is null", async () => {
+    mockFetch.mockResolvedValueOnce(emptyPage);
+
+    const results = await searchTmdb("Film", null);
+    expect(results).toEqual([]);
+    expect(mockFetch).toHaveBeenCalledTimes(1);
+  });
+
+  it("does not start year fallback when year is provided and first call succeeds", async () => {
+    mockFetch.mockResolvedValueOnce(okPage(5, 2020));
+
+    await searchTmdb("Film", 2020);
+    expect(mockFetch).toHaveBeenCalledTimes(1);
+  });
+});
+
 describe("genreNameToId", () => {
   it("returns the TMDb genre ID for a known genre", () => {
     expect(genreNameToId("Action")).toBe(28);
