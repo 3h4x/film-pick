@@ -510,4 +510,260 @@ describe("movies/[id]/standardize POST handler", () => {
       expect.objectContaining({ recursive: true, force: true }),
     );
   });
+
+  it("detects CD1 file and moves sibling CD2 alongside", async () => {
+    movieId = insertMovie(db, {
+      title: "Inception",
+      year: 2010,
+      genre: null,
+      director: null,
+      rating: null,
+      poster_url: null,
+      source: "tmdb",
+      imdb_id: null,
+      tmdb_id: null,
+      type: "movie",
+    });
+    const oldPath = "/library/movies_folder/inception.cd1.mkv";
+    db.prepare("UPDATE movies SET file_path = ? WHERE id = ?").run(oldPath, movieId);
+
+    const expectedNewPath = "/library/Inception [2010]/Inception CD1.mkv";
+    const expectedSiblingPath = "/library/Inception [2010]/Inception CD2.mkv";
+    mockExistsSync.mockImplementation((p: string) => p === oldPath);
+
+    // call #1 (CD grouping): readdir returns both CD files
+    mockReaddir.mockResolvedValueOnce(["inception.cd1.mkv", "inception.cd2.mkv"]);
+    // call #2 (subtitle scan): no subtitles
+    mockReaddir.mockResolvedValueOnce([]);
+    // call #3 (getDirSize with withFileTypes): empty dir
+    mockReaddir.mockResolvedValueOnce([]);
+
+    const res = await POST(postReq(movieId), makeParams(movieId));
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body.ok).toBe(true);
+    expect(body.newPath).toBe(expectedNewPath);
+
+    const renameCalls = mockRename.mock.calls as [string, string][];
+    expect(renameCalls).toContainEqual([oldPath, expectedNewPath]);
+    expect(renameCalls).toContainEqual([
+      "/library/movies_folder/inception.cd2.mkv",
+      expectedSiblingPath,
+    ]);
+
+    const row = db
+      .prepare("SELECT extra_files FROM movies WHERE id = ?")
+      .get(movieId) as any;
+    const extra = JSON.parse(row.extra_files);
+    expect(extra).toContain(expectedSiblingPath);
+  });
+
+  it("merges both-live conflict metadata into current movie and moves file", async () => {
+    movieId = insertMovie(db, {
+      title: "Inception 4K",
+      year: 2010,
+      genre: "Sci-Fi",
+      director: null,
+      rating: 8.0,
+      poster_url: null,
+      source: "local",
+      imdb_id: null,
+      tmdb_id: null,
+      type: "movie",
+    });
+    const oldPath = "/library/messy_folder/Inception.4K.mkv";
+    db.prepare("UPDATE movies SET file_path = ? WHERE id = ?").run(oldPath, movieId);
+
+    const conflictFilePath = "/library/other_folder/Inception.avi";
+    db.prepare(
+      "INSERT INTO movies (title, year, source, type, file_path, director, rating) VALUES (?, ?, ?, ?, ?, ?, ?)",
+    ).run("Inception", 2010, "tmdb", "movie", conflictFilePath, "Christopher Nolan", 9.0);
+    const conflictRow = db
+      .prepare("SELECT id FROM movies WHERE file_path = ?")
+      .get(conflictFilePath) as { id: number };
+    const conflictId = conflictRow.id;
+
+    const expectedNewPath = "/library/Inception [2010]/Inception.mkv";
+    // oldPath and conflictPath both exist; expectedNewPath does not
+    mockExistsSync.mockImplementation(
+      (p: string) => p === oldPath || p === conflictFilePath,
+    );
+    mockReaddir.mockResolvedValueOnce([]); // subtitle scan
+    mockReaddir.mockResolvedValueOnce([]); // getDirSize
+
+    const res = await POST(postReq(movieId), makeParams(movieId));
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body.ok).toBe(true);
+    expect(body.newPath).toBe(expectedNewPath);
+
+    // Conflict should be deleted (merged into movieId)
+    const deleted = db.prepare("SELECT id FROM movies WHERE id = ?").get(conflictId);
+    expect(deleted).toBeUndefined();
+
+    // Movie gets merged metadata and new path
+    const row = db
+      .prepare("SELECT file_path, director, rating FROM movies WHERE id = ?")
+      .get(movieId) as any;
+    expect(row.file_path).toBe(expectedNewPath);
+    expect(row.director).toBe("Christopher Nolan");
+    expect(row.rating).toBe(9.0); // max of 8.0 and 9.0
+  });
+
+  it("recovery: merges current movie into conflict that already has the target path", async () => {
+    movieId = insertMovie(db, {
+      title: "Inception",
+      year: 2010,
+      genre: null,
+      director: null,
+      rating: 7.0,
+      poster_url: null,
+      source: "manual",
+      imdb_id: null,
+      tmdb_id: null,
+      type: "movie",
+    });
+    const oldPath = "/library/old_folder/inception.mkv";
+    const newPath = "/library/Inception [2010]/Inception.mkv";
+    db.prepare("UPDATE movies SET file_path = ? WHERE id = ?").run(oldPath, movieId);
+
+    // Conflict is already sitting at the exact target path
+    db.prepare(
+      "INSERT INTO movies (title, year, source, type, file_path, rating) VALUES (?, ?, ?, ?, ?, ?)",
+    ).run("Inception", 2010, "tmdb", "movie", newPath, 9.0);
+    const conflictRow = db
+      .prepare("SELECT id FROM movies WHERE file_path = ?")
+      .get(newPath) as { id: number };
+    const conflictId = conflictRow.id;
+
+    // old path missing, new path exists (recovery mode)
+    mockExistsSync.mockImplementation((p: string) => p === newPath);
+
+    const res = await POST(postReq(movieId), makeParams(movieId));
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body.ok).toBe(true);
+    expect(body.mergedId).toBe(conflictId);
+    expect(body.message).toMatch(/target already had path/i);
+
+    // movieId deleted (merged into conflict)
+    const deleted = db.prepare("SELECT id FROM movies WHERE id = ?").get(movieId);
+    expect(deleted).toBeUndefined();
+
+    // conflictId survives with merged rating (max of 7.0 and 9.0)
+    const survivor = db
+      .prepare("SELECT rating FROM movies WHERE id = ?")
+      .get(conflictId) as any;
+    expect(survivor).toBeDefined();
+    expect(survivor.rating).toBe(9.0);
+  });
+
+  it("recovery: merges conflict into current when conflict path differs from target", async () => {
+    movieId = insertMovie(db, {
+      title: "Inception",
+      year: 2010,
+      genre: null,
+      director: null,
+      rating: 8.0,
+      poster_url: null,
+      source: "manual",
+      imdb_id: null,
+      tmdb_id: null,
+      type: "movie",
+    });
+    const oldPath = "/library/old_folder/inception.mkv";
+    const newPath = "/library/Inception [2010]/Inception.mkv";
+    db.prepare("UPDATE movies SET file_path = ? WHERE id = ?").run(oldPath, movieId);
+
+    // Conflict at a different path (not the target)
+    const conflictFilePath = "/library/some_other_path/Inception.mp4";
+    db.prepare(
+      "INSERT INTO movies (title, year, source, type, file_path, director) VALUES (?, ?, ?, ?, ?, ?)",
+    ).run("Inception", 2010, "tmdb", "movie", conflictFilePath, "Christopher Nolan");
+    const conflictRow = db
+      .prepare("SELECT id FROM movies WHERE file_path = ?")
+      .get(conflictFilePath) as { id: number };
+    const conflictId = conflictRow.id;
+
+    // old path missing, new path exists (recovery mode)
+    mockExistsSync.mockImplementation((p: string) => p === newPath);
+
+    const res = await POST(postReq(movieId), makeParams(movieId));
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body.ok).toBe(true);
+    expect(body.message).toMatch(/merged and DB updated/i);
+    expect(body.newPath).toBe(newPath);
+
+    // conflictId deleted (merged into movieId)
+    const deleted = db.prepare("SELECT id FROM movies WHERE id = ?").get(conflictId);
+    expect(deleted).toBeUndefined();
+
+    // movieId updated with new path and merged metadata (director from conflict)
+    const row = db
+      .prepare("SELECT file_path, director FROM movies WHERE id = ?")
+      .get(movieId) as any;
+    expect(row.file_path).toBe(newPath);
+    expect(row.director).toBe("Christopher Nolan");
+  });
+
+  it("skips old directory deletion when remaining size exceeds 10 MB", async () => {
+    movieId = insertMovie(db, {
+      title: "Inception",
+      year: 2010,
+      genre: null,
+      director: null,
+      rating: null,
+      poster_url: null,
+      source: "tmdb",
+      imdb_id: null,
+      tmdb_id: null,
+      type: "movie",
+    });
+    const oldPath = "/library/old_folder/inception_720p.mkv";
+    db.prepare("UPDATE movies SET file_path = ? WHERE id = ?").run(oldPath, movieId);
+
+    mockExistsSync.mockImplementation((p: string) => p === oldPath);
+    // subtitle scan: no subtitles
+    mockReaddir.mockResolvedValueOnce([]);
+    // getDirSize readdir (withFileTypes): one large leftover file
+    mockReaddir.mockResolvedValueOnce([
+      { name: "extras.mkv", isDirectory: () => false },
+    ]);
+    // stat returns 11 MB for that file
+    mockStat.mockResolvedValueOnce({ size: 11 * 1024 * 1024 });
+
+    const res = await POST(postReq(movieId), makeParams(movieId));
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body.ok).toBe(true);
+
+    // rm should NOT have been called
+    expect(mockRm).not.toHaveBeenCalled();
+  });
+
+  it("returns 500 when file rename fails", async () => {
+    movieId = insertMovie(db, {
+      title: "Inception",
+      year: 2010,
+      genre: null,
+      director: null,
+      rating: null,
+      poster_url: null,
+      source: "tmdb",
+      imdb_id: null,
+      tmdb_id: null,
+      type: "movie",
+    });
+    const oldPath = "/library/old_folder/inception_720p.mkv";
+    db.prepare("UPDATE movies SET file_path = ? WHERE id = ?").run(oldPath, movieId);
+
+    mockExistsSync.mockImplementation((p: string) => p === oldPath);
+    mockRename.mockRejectedValueOnce(new Error("EXDEV: cross-device link not permitted"));
+
+    const res = await POST(postReq(movieId), makeParams(movieId));
+    expect(res.status).toBe(500);
+    const body = await res.json();
+    expect(body.error).toMatch(/cross-device/i);
+  });
 });
