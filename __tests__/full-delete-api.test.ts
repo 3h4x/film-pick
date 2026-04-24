@@ -219,4 +219,94 @@ describe("movies/[id]/full DELETE handler", () => {
     expect(mockUnlinkSync).toHaveBeenCalledWith(filePath);
     expect(mockUnlinkSync).toHaveBeenCalledWith(extraFile);
   });
+
+  it("also deletes companion subtitle files when movie is in library root", async () => {
+    const filePath = `${LIBRARY_ROOT}/somemovie.mkv`;
+    const srtPath = `${LIBRARY_ROOT}/somemovie.srt`;
+    const assPath = `${LIBRARY_ROOT}/somemovie.ass`;
+    const id = insertWithFile(filePath);
+
+    // existsSync: movie file + srt exist, .ass and others do not
+    mockExistsSync.mockImplementation((p: string) => {
+      return p === filePath || p === srtPath;
+    });
+
+    const res = await DELETE(deleteReq(id), makeParams(id));
+    expect(res.status).toBe(200);
+    expect(mockUnlinkSync).toHaveBeenCalledWith(filePath);
+    expect(mockUnlinkSync).toHaveBeenCalledWith(srtPath);
+    expect(mockUnlinkSync).not.toHaveBeenCalledWith(assPath);
+  });
+
+  it("recovers from ENOTEMPTY by manually clearing folder contents", async () => {
+    const filePath = `${LIBRARY_ROOT}/Inception.2010/Inception.2010.mkv`;
+    const parentDir = path.dirname(filePath);
+    const id = insertWithFile(filePath);
+
+    // Simulate: rmSync throws ENOTEMPTY, then files are present
+    const enotempty = Object.assign(new Error("ENOTEMPTY"), { code: "ENOTEMPTY" });
+    mockRmSync.mockImplementationOnce(() => { throw enotempty; });
+    mockReaddirSync.mockReturnValue(["Inception.2010.mkv", "thumbs.db"] as unknown as ReturnType<typeof mockReaddirSync>);
+    mockLstatSync.mockReturnValue({ isDirectory: () => false } as unknown as ReturnType<typeof mockLstatSync>);
+
+    const res = await DELETE(deleteReq(id), makeParams(id));
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body.ok).toBe(true);
+
+    // Should have tried to unlink each file in the directory
+    expect(mockUnlinkSync).toHaveBeenCalledWith(path.join(parentDir, "Inception.2010.mkv"));
+    expect(mockUnlinkSync).toHaveBeenCalledWith(path.join(parentDir, "thumbs.db"));
+    // Then tried rmdirSync
+    expect(mockRmdirSync).toHaveBeenCalledWith(parentDir);
+  });
+
+  it("recovers from ENOTEMPTY when directory contains a subdirectory", async () => {
+    const filePath = `${LIBRARY_ROOT}/SomeMovie.2019/SomeMovie.2019.mkv`;
+    const parentDir = path.dirname(filePath);
+    const id = insertWithFile(filePath);
+
+    const enotempty = Object.assign(new Error("ENOTEMPTY"), { code: "ENOTEMPTY" });
+    mockRmSync
+      .mockImplementationOnce(() => { throw enotempty; }) // first rmSync on parentDir throws
+      .mockReturnValue(undefined); // subsequent rmSync (on subdir) succeeds
+
+    mockReaddirSync.mockReturnValue(["Subs"] as unknown as ReturnType<typeof mockReaddirSync>);
+    // The "Subs" entry is a directory
+    mockLstatSync.mockReturnValue({ isDirectory: () => true } as unknown as ReturnType<typeof mockLstatSync>);
+
+    const res = await DELETE(deleteReq(id), makeParams(id));
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body.ok).toBe(true);
+
+    // rmSync should be called recursively on the subdirectory
+    expect(mockRmSync).toHaveBeenCalledWith(
+      path.join(parentDir, "Subs"),
+      expect.objectContaining({ recursive: true }),
+    );
+    expect(mockRmdirSync).toHaveBeenCalledWith(parentDir);
+  });
+
+  it("continues to delete DB entry when ENOTEMPTY rmdirSync still fails with ENOTEMPTY", async () => {
+    const filePath = `${LIBRARY_ROOT}/AnotherMovie.2020/AnotherMovie.2020.mkv`;
+    const parentDir = path.dirname(filePath);
+    const id = insertWithFile(filePath);
+
+    const enotempty = Object.assign(new Error("ENOTEMPTY"), { code: "ENOTEMPTY" });
+    mockRmSync.mockImplementationOnce(() => { throw enotempty; });
+    mockReaddirSync.mockReturnValue([] as unknown as ReturnType<typeof mockReaddirSync>);
+    // Final rmdirSync also throws ENOTEMPTY (network share artifact)
+    mockRmdirSync.mockImplementationOnce(() => { throw enotempty; });
+
+    const res = await DELETE(deleteReq(id), makeParams(id));
+    // Should still succeed — ENOTEMPTY on final rmdir is treated as non-fatal
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body.ok).toBe(true);
+
+    // Movie should be deleted from DB
+    const still = db.prepare("SELECT id FROM movies WHERE id = ?").get(id);
+    expect(still).toBeUndefined();
+  });
 });
