@@ -24,14 +24,18 @@ export async function GET(request: NextRequest) {
         db.prepare(
           "UPDATE movies SET pl_title = ? WHERE tmdb_id = ? AND pl_title IS NULL",
         ).run(pl_title, tmdbId);
-      } catch {}
+      } catch (e) {
+        console.warn("[pl-title] pl_title column update failed:", e);
+      }
     }
     if (description) {
       try {
         db.prepare(
           "UPDATE movies SET description = ? WHERE tmdb_id = ? AND description IS NULL",
         ).run(description, tmdbId);
-      } catch {}
+      } catch (e) {
+        console.warn("[pl-title] description column update failed:", e);
+      }
     }
   }
 

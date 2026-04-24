@@ -9,7 +9,15 @@ export async function GET() {
 
 export async function PUT(request: Request) {
   const db = getDb();
-  const list = (await request.json()) as string[];
-  setSetting(db, "tv_channel_blacklist", JSON.stringify(list));
+  const body = await request.json();
+
+  if (!Array.isArray(body)) {
+    return Response.json({ error: "body must be an array" }, { status: 400 });
+  }
+  if (body.some((item) => typeof item !== "string")) {
+    return Response.json({ error: "all items must be strings" }, { status: 400 });
+  }
+
+  setSetting(db, "tv_channel_blacklist", JSON.stringify(body as string[]));
   return Response.json({ ok: true });
 }

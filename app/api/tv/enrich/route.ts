@@ -8,7 +8,18 @@ interface EnrichResult {
 const cache = new Map<string, EnrichResult>();
 
 export async function POST(request: Request) {
-  const { titles } = (await request.json()) as { titles: string[] };
+  const body = await request.json();
+  const { titles } = body as { titles: unknown };
+
+  if (!Array.isArray(titles)) {
+    return Response.json({ error: "titles must be an array" }, { status: 400 });
+  }
+  if (titles.length > 500) {
+    return Response.json({ error: "too many titles (max 500)" }, { status: 400 });
+  }
+  if (titles.some((t) => typeof t !== "string")) {
+    return Response.json({ error: "all titles must be strings" }, { status: 400 });
+  }
 
   const result: Record<string, EnrichResult> = {};
 

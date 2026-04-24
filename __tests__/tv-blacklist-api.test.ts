@@ -93,5 +93,29 @@ describe("TV blacklist API", () => {
       const data = await res.json();
       expect(data).toEqual(ids);
     });
+
+    it("returns 400 when body is not an array", async () => {
+      const req = new Request("http://localhost/api/tv/blacklist", {
+        method: "PUT",
+        body: JSON.stringify({ channels: ["ch1"] }),
+        headers: { "content-type": "application/json" },
+      });
+      const res = await PUT(req);
+      expect(res.status).toBe(400);
+      const data = await res.json();
+      expect(data.error).toMatch(/array/i);
+    });
+
+    it("returns 400 when body contains non-string items", async () => {
+      const req = new Request("http://localhost/api/tv/blacklist", {
+        method: "PUT",
+        body: JSON.stringify(["valid", 123, null]),
+        headers: { "content-type": "application/json" },
+      });
+      const res = await PUT(req);
+      expect(res.status).toBe(400);
+      const data = await res.json();
+      expect(data.error).toMatch(/string/i);
+    });
   });
 });
