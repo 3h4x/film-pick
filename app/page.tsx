@@ -16,6 +16,7 @@ import ConfigPanel, { type RecConfig } from "@/components/ConfigPanel";
 import TvTab from "@/components/TvTab";
 import PersonView from "@/components/PersonView";
 import { ToastContainer } from "@/components/Toast";
+import { MOOD_PRESETS, MOOD_KEYS, type MoodKey } from "@/lib/mood-presets";
 
 type SortOption =
   | "user_rating"
@@ -56,7 +57,8 @@ type RecType =
   | "hidden_gem"
   | "star_studded"
   | "random"
-  | "cda";
+  | "cda"
+  | "mood";
 
 interface RecommendationGroup {
   reason: string;
@@ -104,7 +106,7 @@ function formatRefreshTime(iso: string): string {
   return date.toLocaleDateString("en", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" });
 }
 
-function parseHash(): { tab: AppTab; category: string } {
+function parseHash(): { tab: AppTab; category: string; moodKey?: MoodKey } {
   if (typeof window === "undefined") return { tab: "recommendations", category: "all" };
   const hash = window.location.hash.replace("#", "");
   if (hash === "wishlist") return { tab: "wishlist", category: "all" };
@@ -113,6 +115,12 @@ function parseHash(): { tab: AppTab; category: string } {
   if (hash.startsWith("search/")) return { tab: "search", category: decodeURIComponent(hash.substring(7)) };
   if (hash.startsWith("recommendations")) {
     const parts = hash.split("/");
+    if (parts[1] === "mood" && parts[2] && parts[2] in MOOD_PRESETS) {
+      return { tab: "recommendations", category: "all", moodKey: parts[2] as MoodKey };
+    }
+    if (parts[1] === "mood") {
+      return { tab: "recommendations", category: "all" };
+    }
     return { tab: "recommendations", category: parts[1] || "all" };
   }
   if (hash.startsWith("person/")) {
@@ -177,6 +185,10 @@ export default function Home() {
 
   // Rec state
   const [recCategory, setRecCategory] = useState("all");
+  const [activeMood, setActiveMood] = useState<MoodKey | null>(null);
+  const [moodGroups, setMoodGroups] = useState<RecommendationGroup[]>([]);
+  const [moodLoading, setMoodLoading] = useState(false);
+  const [moodError, setMoodError] = useState<string | null>(null);
   const [recConfig, setRecConfig] = useState<RecConfig>({
     excluded_genres: [],
     min_year: null,
@@ -192,12 +204,15 @@ export default function Home() {
 
   // Read hash on mount (after hydration to avoid mismatch)
   useEffect(() => {
-    const { tab, category } = parseHash();
+    const { tab, category, moodKey } = parseHash();
     // Don't restore search tab on mount — it has no cached results
     if (tab === "search") return;
     if (tab !== "recommendations") setActiveTab(tab);
     if (tab === "person") setPersonFilter(category);
-    else if (tab === "recommendations" && category !== "all") setRecCategory(category);
+    else if (tab === "recommendations") {
+      if (moodKey) setActiveMood(moodKey);
+      else if (category !== "all") setRecCategory(category);
+    }
   }, []);
 
   // Sync URL hash with state
@@ -215,28 +230,55 @@ export default function Home() {
                 ? "#config"
                 : activeTab === "tv"
                   ? "#tv"
-                  : recCategory === "all"
-                    ? "#recommendations"
-                    : `#recommendations/${recCategory}`;
+                  : activeMood
+                    ? `#recommendations/mood/${activeMood}`
+                    : recCategory === "all"
+                      ? "#recommendations"
+                      : `#recommendations/${recCategory}`;
     if (window.location.hash !== hash) {
       window.history.replaceState(null, "", hash);
     }
-  }, [activeTab, recCategory, personFilter, searchQuery]);
+  }, [activeTab, recCategory, activeMood, personFilter, searchQuery]);
 
   // Handle browser back/forward
   useEffect(() => {
     function onHashChange() {
-      const { tab, category } = parseHash();
+      const { tab, category, moodKey } = parseHash();
       setActiveTab(tab);
       if (tab === "person") {
         setPersonFilter(category);
       } else {
+        setActiveMood(moodKey ?? null);
         setRecCategory(category);
       }
     }
     window.addEventListener("hashchange", onHashChange);
     return () => window.removeEventListener("hashchange", onHashChange);
   }, []);
+
+  // Fetch mood results when activeMood changes
+  useEffect(() => {
+    if (!activeMood) {
+      setMoodGroups([]);
+      setMoodError(null);
+      return;
+    }
+    setMoodLoading(true);
+    setMoodError(null);
+    fetch(`/api/recommendations/mood?key=${activeMood}`)
+      .then((r) => {
+        if (!r.ok) throw new Error(`Request failed (${r.status})`);
+        return r.json();
+      })
+      .then((data: RecommendationGroup[]) => {
+        setMoodGroups(data);
+        setMoodLoading(false);
+      })
+      .catch((err: unknown) => {
+        setMoodError(err instanceof Error ? err.message : "Failed to load mood picks");
+        setMoodLoading(false);
+      });
+  }, [activeMood]);
 
   const recommendations = useMemo(() => {
     // Filter out movies the user has already rated
@@ -797,11 +839,21 @@ export default function Home() {
       }
       return next;
     });
+    setMoodGroups((prev) =>
+      prev
+        .map((g) => ({
+          ...g,
+          recommendations: g.recommendations.filter(
+            (r) => r.tmdb_id !== tmdbId && (!title || r.title !== title),
+          ),
+        }))
+        .filter((g) => g.recommendations.length > 0),
+    );
   }
 
-  async function handleRecAction(tmdbId: number, action: string, rec: TmdbSearchResult) {
+  async function handleRecAction(tmdbId: number, action: string, rec: TmdbSearchResult, fromMood = false) {
     removeFromView(tmdbId, rec.title);
-    setTotalRecsCount((c) => Math.max(0, c - 1));
+    if (!fromMood) setTotalRecsCount((c) => Math.max(0, c - 1));
 
     const actionLabels: Record<string, string> = {
       liked: `Liked "${rec.title}" — added to library`,
@@ -1446,46 +1498,128 @@ export default function Home() {
               </div>
             ) : (
               <>
-                {/* Category tabs + CDA toggle */}
-                <div className="flex items-center justify-between gap-4">
-                  <div className="flex gap-1 overflow-x-auto bg-gray-800/40 p-1 rounded-xl">
-                    {REC_CATEGORIES.filter((cat) => cat.value === "all" || !disabledEngines.includes(cat.value)).map((cat) => (
+                {/* Mood chips */}
+                <div className="flex gap-2 overflow-x-auto pb-1">
+                  {MOOD_KEYS.map((key) => {
+                    const preset = MOOD_PRESETS[key];
+                    const isActive = activeMood === key;
+                    return (
                       <button
-                        key={cat.value}
-                        onClick={() => setRecCategory(cat.value)}
-                        className={`px-3 py-1.5 text-xs font-medium rounded-lg transition-all whitespace-nowrap flex items-center gap-1.5 ${
-                          recCategory === cat.value
-                            ? "bg-gray-700/80 text-white shadow-sm"
-                            : "text-gray-500 hover:text-gray-300 hover:bg-gray-700/30"
+                        key={key}
+                        onClick={() => setActiveMood(isActive ? null : key)}
+                        className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium whitespace-nowrap transition-all border ${
+                          isActive
+                            ? "bg-indigo-600 border-indigo-500 text-white shadow-md"
+                            : "bg-gray-800/60 border-gray-700/50 text-gray-400 hover:text-gray-200 hover:border-gray-600"
                         }`}
                       >
-                        {cat.label}
-                        {categoryCounts[cat.value] != null && (
-                          <span className={`text-xs tabular-nums ${recCategory === cat.value ? "text-gray-400" : "text-gray-600"}`}>
-                            {categoryCounts[cat.value]}
-                          </span>
-                        )}
+                        <span>{preset.icon}</span>
+                        <span>{preset.label}</span>
                       </button>
-                    ))}
-                  </div>
-                  <div className="flex items-center gap-2 flex-shrink-0">
-                    {lastRecsRefresh && (
-                      <span className="text-gray-600 text-xs hidden sm:inline">
-                        refreshed {formatRefreshTime(lastRecsRefresh)}
-                      </span>
-                    )}
-                    <button
-                      onClick={refreshRecs}
-                      className="text-gray-500 hover:text-white p-1.5 rounded-lg hover:bg-gray-800/60 transition-all"
-                      title="Refresh recommendations"
-                    >
-                      <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                        <path strokeLinecap="round" strokeLinejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-                      </svg>
-                    </button>
-                  </div>
+                    );
+                  })}
                 </div>
-                {recsLoading ? (
+
+                {/* Category tabs + refresh */}
+                {!activeMood && (
+                  <div className="flex items-center justify-between gap-4">
+                    <div className="flex gap-1 overflow-x-auto bg-gray-800/40 p-1 rounded-xl">
+                      {REC_CATEGORIES.filter((cat) => cat.value === "all" || !disabledEngines.includes(cat.value)).map((cat) => (
+                        <button
+                          key={cat.value}
+                          onClick={() => setRecCategory(cat.value)}
+                          className={`px-3 py-1.5 text-xs font-medium rounded-lg transition-all whitespace-nowrap flex items-center gap-1.5 ${
+                            recCategory === cat.value
+                              ? "bg-gray-700/80 text-white shadow-sm"
+                              : "text-gray-500 hover:text-gray-300 hover:bg-gray-700/30"
+                          }`}
+                        >
+                          {cat.label}
+                          {categoryCounts[cat.value] != null && (
+                            <span className={`text-xs tabular-nums ${recCategory === cat.value ? "text-gray-400" : "text-gray-600"}`}>
+                              {categoryCounts[cat.value]}
+                            </span>
+                          )}
+                        </button>
+                      ))}
+                    </div>
+                    <div className="flex items-center gap-2 flex-shrink-0">
+                      {lastRecsRefresh && (
+                        <span className="text-gray-600 text-xs hidden sm:inline">
+                          refreshed {formatRefreshTime(lastRecsRefresh)}
+                        </span>
+                      )}
+                      <button
+                        onClick={refreshRecs}
+                        className="text-gray-500 hover:text-white p-1.5 rounded-lg hover:bg-gray-800/60 transition-all"
+                        title="Refresh recommendations"
+                      >
+                        <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                        </svg>
+                      </button>
+                    </div>
+                  </div>
+                )}
+
+                {/* Mood results */}
+                {activeMood ? (
+                  moodLoading ? (
+                    <RecommendationSkeleton />
+                  ) : moodError ? (
+                    <div className="text-center py-24">
+                      <div className="w-20 h-20 mx-auto mb-6 rounded-2xl bg-gray-800/50 flex items-center justify-center">
+                        <span className="text-4xl">⚠️</span>
+                      </div>
+                      <p className="text-gray-400 text-lg font-medium">
+                        Failed to load mood picks
+                      </p>
+                      <p className="text-gray-600 text-sm mt-2">{moodError}</p>
+                    </div>
+                  ) : moodGroups.length === 0 ? (
+                    <div className="text-center py-24">
+                      <div className="w-20 h-20 mx-auto mb-6 rounded-2xl bg-gray-800/50 flex items-center justify-center">
+                        <span className="text-4xl">{MOOD_PRESETS[activeMood].icon}</span>
+                      </div>
+                      <p className="text-gray-400 text-lg font-medium">
+                        No results for this mood
+                      </p>
+                      <p className="text-gray-600 text-sm mt-2">
+                        Try adding more movies or select a different mood
+                      </p>
+                    </div>
+                  ) : (
+                    <div>
+                      <p className="text-gray-500 text-xs mb-3">
+                        {MOOD_PRESETS[activeMood].reason} — {moodGroups.flatMap((g) => g.recommendations).length} picks
+                      </p>
+                      <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4">
+                        {moodGroups.flatMap((g) => g.recommendations).map((r) => (
+                          <div key={r.tmdb_id} className="relative group/rec">
+                            <MovieCard
+                              title={r.title}
+                              year={r.year}
+                              genre={r.genre}
+                              rating={r.rating}
+                              userRating={null}
+                              posterUrl={r.poster_url}
+                              source="tmdb"
+                              cdaUrl={r.cda_url}
+                              onClick={() => handleRecClick(r)}
+                            />
+                            <div className="absolute bottom-14 right-1 flex flex-col gap-1 opacity-0 group-hover/rec:opacity-100 transition-all duration-200">
+                              <button onClick={() => handleRecAction(r.tmdb_id, "liked", r, true)} className="bg-green-600/90 backdrop-blur-sm text-white rounded-lg w-7 h-7 text-sm flex items-center justify-center hover:bg-green-500 transition-colors" title="Watched &amp; liked">👍</button>
+                              <button onClick={() => handleRecAction(r.tmdb_id, "watched", r, true)} className="bg-gray-600/90 backdrop-blur-sm text-white rounded-lg w-7 h-7 text-sm flex items-center justify-center hover:bg-gray-500 transition-colors" title="Watched">👁</button>
+                              <button onClick={() => handleRecAction(r.tmdb_id, "wishlist", r, true)} className="bg-blue-600/90 backdrop-blur-sm text-white rounded-lg w-7 h-7 text-sm flex items-center justify-center hover:bg-blue-500 transition-colors" title="Add to watchlist">🔖</button>
+                              <button onClick={() => handleRecAction(r.tmdb_id, "disliked", r, true)} className="bg-orange-600/90 backdrop-blur-sm text-white rounded-lg w-7 h-7 text-sm flex items-center justify-center hover:bg-orange-500 transition-colors" title="Watched &amp; disliked">👎</button>
+                              <button onClick={() => handleRecAction(r.tmdb_id, "dismiss", r, true)} className="bg-red-600/90 backdrop-blur-sm text-white rounded-lg w-7 h-7 text-sm flex items-center justify-center hover:bg-red-500 transition-colors" title="Don't show again">✕</button>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )
+                ) : recsLoading ? (
                   <RecommendationSkeleton />
                 ) : recommendations.length === 0 ? (
                   <div className="text-center py-24">

@@ -52,7 +52,9 @@ export async function POST(request: NextRequest) {
         id,
       );
     }
-  } catch {}
+  } catch (e) {
+    console.warn("[Movies POST] optional column update failed:", e);
+  }
 
   return Response.json({ id }, { status: 201 });
 }

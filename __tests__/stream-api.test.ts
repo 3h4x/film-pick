@@ -236,5 +236,31 @@ describe("movies/[id]/stream GET handler", () => {
       const text = await res.text();
       expect(text).toMatch(/subtitle not found/i);
     });
+
+    it("rejects path traversal via .. segments", async () => {
+      const res = await GET(getReq(movieId, { sub: "../secret.txt" }), makeParams(movieId));
+      expect(res.status).toBe(400);
+      const text = await res.text();
+      expect(text).toMatch(/invalid subtitle path/i);
+      expect(mockReadFile).not.toHaveBeenCalled();
+    });
+
+    it("rejects deeply nested path traversal", async () => {
+      const res = await GET(getReq(movieId, { sub: "../../etc/passwd" }), makeParams(movieId));
+      expect(res.status).toBe(400);
+      expect(mockReadFile).not.toHaveBeenCalled();
+    });
+
+    it("allows subtitle in a valid subdirectory", async () => {
+      const vttContent = "WEBVTT\n\n00:00:01.000 --> 00:00:03.000\nSub";
+      mockReadFile.mockResolvedValue(vttContent);
+
+      const res = await GET(getReq(movieId, { sub: "subs/Dune.vtt" }), makeParams(movieId));
+      expect(res.status).toBe(200);
+      expect(mockReadFile).toHaveBeenCalledWith(
+        path.join(SUB_DIR, "subs/Dune.vtt"),
+        "utf-8",
+      );
+    });
   });
 });

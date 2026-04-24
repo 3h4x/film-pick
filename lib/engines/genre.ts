@@ -11,7 +11,7 @@ export async function genreEngine(
   const genreScores = new Map<string, number>();
   for (const movie of ctx.library) {
     if (!movie.genre) continue;
-    const weight = movie.user_rating ?? 5;
+    const weight = (movie.user_rating == null || movie.user_rating === 0) ? 5 : movie.user_rating;
     if (weight < 5) continue; // exclude disliked
     for (const g of movie.genre.split(", ")) {
       const genre = g.trim();

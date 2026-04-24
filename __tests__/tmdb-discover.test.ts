@@ -5,6 +5,7 @@ import {
   discoverHiddenGems,
   discoverStarStudded,
   discoverRandom,
+  discoverByMood,
   getTmdbMovieDetails,
   getMovieCredits,
   getMovieLocalized,
@@ -200,6 +201,135 @@ describe("discoverRandom", () => {
     expect(mockFetch).toHaveBeenCalledTimes(3);
     const firstUrl = mockFetch.mock.calls[0][0] as string;
     expect(firstUrl).toContain("vote_average.gte=6.5");
+  });
+});
+
+describe("discoverByMood", () => {
+  beforeEach(() => {
+    vi.resetAllMocks();
+    process.env.TMDB_API_KEY = "test-key";
+  });
+
+  it("fetches 3 pages by default and returns aggregated results", async () => {
+    mockFetch
+      .mockResolvedValueOnce(okPage([rawMovie(1, "Comedy A")]))
+      .mockResolvedValueOnce(okPage([rawMovie(2, "Comedy B")]))
+      .mockResolvedValueOnce(okPage([rawMovie(3, "Comedy C")]));
+
+    const results = await discoverByMood({ genreIds: [35], minRating: 6.5, minVotes: 200 });
+
+    expect(results).toHaveLength(3);
+    expect(mockFetch).toHaveBeenCalledTimes(3);
+  });
+
+  it("includes with_genres in URL when genreIds provided", async () => {
+    mockFetch.mockResolvedValue(okPage([]));
+
+    await discoverByMood({ genreIds: [35, 10751] });
+
+    const firstUrl = mockFetch.mock.calls[0][0] as string;
+    expect(firstUrl).toContain("with_genres=35,10751");
+  });
+
+  it("does not include with_genres in URL when genreIds is omitted", async () => {
+    mockFetch.mockResolvedValue(okPage([]));
+
+    await discoverByMood({ languages: ["fr"] });
+
+    const firstUrl = mockFetch.mock.calls[0][0] as string;
+    expect(firstUrl).not.toContain("with_genres");
+  });
+
+  it("applies minRating and minVotes to URL", async () => {
+    mockFetch.mockResolvedValue(okPage([]));
+
+    await discoverByMood({ minRating: 7.5, minVotes: 500 });
+
+    const firstUrl = mockFetch.mock.calls[0][0] as string;
+    expect(firstUrl).toContain("vote_average.gte=7.5");
+    expect(firstUrl).toContain("vote_count.gte=500");
+  });
+
+  it("uses default minRating=6.5 and minVotes=200 when not specified", async () => {
+    mockFetch.mockResolvedValue(okPage([]));
+
+    await discoverByMood({});
+
+    const firstUrl = mockFetch.mock.calls[0][0] as string;
+    expect(firstUrl).toContain("vote_average.gte=6.5");
+    expect(firstUrl).toContain("vote_count.gte=200");
+  });
+
+  it("appends with_runtime.lte when maxRuntime is provided", async () => {
+    mockFetch.mockResolvedValue(okPage([]));
+
+    await discoverByMood({ maxRuntime: 100 });
+
+    const firstUrl = mockFetch.mock.calls[0][0] as string;
+    expect(firstUrl).toContain("with_runtime.lte=100");
+  });
+
+  it("does not append with_runtime.lte when maxRuntime is omitted", async () => {
+    mockFetch.mockResolvedValue(okPage([]));
+
+    await discoverByMood({});
+
+    const firstUrl = mockFetch.mock.calls[0][0] as string;
+    expect(firstUrl).not.toContain("with_runtime");
+  });
+
+  it("fetches separate pages per language and aggregates all results", async () => {
+    mockFetch
+      .mockResolvedValueOnce(okPage([rawMovie(10, "French Film")]))
+      .mockResolvedValueOnce(okPage([rawMovie(11, "French Film 2")]))
+      .mockResolvedValueOnce(okPage([rawMovie(12, "French Film 3")]))
+      .mockResolvedValueOnce(okPage([rawMovie(20, "Japanese Film")]))
+      .mockResolvedValueOnce(okPage([rawMovie(21, "Japanese Film 2")]))
+      .mockResolvedValueOnce(okPage([rawMovie(22, "Japanese Film 3")]));
+
+    const results = await discoverByMood({ languages: ["fr", "ja"], pages: 3 });
+
+    expect(results).toHaveLength(6);
+    expect(mockFetch).toHaveBeenCalledTimes(6);
+  });
+
+  it("adds with_original_language to URL for each language", async () => {
+    mockFetch.mockResolvedValue(okPage([]));
+
+    await discoverByMood({ languages: ["ko"], pages: 1 });
+
+    const firstUrl = mockFetch.mock.calls[0][0] as string;
+    expect(firstUrl).toContain("with_original_language=ko");
+  });
+
+  it("respects custom pages parameter", async () => {
+    mockFetch
+      .mockResolvedValueOnce(okPage([rawMovie(1, "Film 1")]))
+      .mockResolvedValueOnce(okPage([rawMovie(2, "Film 2")]));
+
+    const results = await discoverByMood({ pages: 2 });
+
+    expect(results).toHaveLength(2);
+    expect(mockFetch).toHaveBeenCalledTimes(2);
+  });
+
+  it("stops fetching after a non-ok response", async () => {
+    mockFetch
+      .mockResolvedValueOnce(okPage([rawMovie(1, "Film A")]))
+      .mockResolvedValueOnce({ ok: false, status: 429 })
+      .mockResolvedValueOnce(okPage([rawMovie(3, "Film C")]));
+
+    const results = await discoverByMood({});
+
+    expect(results).toHaveLength(1);
+    expect(mockFetch).toHaveBeenCalledTimes(2);
+  });
+
+  it("returns empty array when first page fails", async () => {
+    mockFetch.mockResolvedValueOnce({ ok: false, status: 401 });
+
+    const results = await discoverByMood({ genreIds: [28] });
+    expect(results).toEqual([]);
   });
 });
 

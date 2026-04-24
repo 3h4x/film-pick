@@ -32,7 +32,12 @@ export async function GET(
     const subName = req.nextUrl.searchParams.get("sub");
 
     if (subName) {
-      const subPath = path.join(path.dirname(activeFilePath), subName);
+      const movieDir = path.dirname(activeFilePath);
+      const subPath = path.join(movieDir, subName);
+      // Prevent path traversal: resolved subtitle must stay within the movie's directory
+      if (!path.resolve(subPath).startsWith(path.resolve(movieDir) + path.sep)) {
+        return new NextResponse("Invalid subtitle path", { status: 400 });
+      }
       try {
         let subContent = await fs.promises.readFile(subPath, "utf-8");
 

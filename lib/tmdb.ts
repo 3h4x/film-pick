@@ -339,6 +339,59 @@ export async function discoverRandom(): Promise<TmdbSearchResult[]> {
   return all;
 }
 
+export interface MoodDiscoverParams {
+  genreIds?: number[];
+  minRating?: number;
+  minVotes?: number;
+  maxRuntime?: number;
+  languages?: string[];
+  pages?: number;
+}
+
+export async function discoverByMood(
+  params: MoodDiscoverParams,
+): Promise<TmdbSearchResult[]> {
+  const apiKey = getApiKey();
+  const {
+    genreIds,
+    minRating = 6.5,
+    minVotes = 200,
+    maxRuntime,
+    languages,
+    pages = 3,
+  } = params;
+
+  function buildUrl(page: number, lang?: string): string {
+    let url = `${TMDB_BASE}/discover/movie?sort_by=vote_average.desc&vote_count.gte=${minVotes}&vote_average.gte=${minRating}&language=en-US&page=${page}`;
+    if (genreIds?.length) url += `&with_genres=${genreIds.join(",")}`;
+    if (maxRuntime) url += `&with_runtime.lte=${maxRuntime}`;
+    if (lang) url += `&with_original_language=${lang}`;
+    return url;
+  }
+
+  function shuffle<T>(arr: T[]): T[] {
+    for (let i = arr.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [arr[i], arr[j]] = [arr[j], arr[i]];
+    }
+    return arr;
+  }
+
+  if (languages?.length) {
+    const all: TmdbSearchResult[] = [];
+    for (const lang of languages) {
+      const urls = Array.from({ length: pages }, (_, i) =>
+        buildUrl(i + 1, lang),
+      );
+      all.push(...(await fetchDiscoverPages(urls, apiKey)));
+    }
+    return shuffle(all);
+  }
+
+  const urls = Array.from({ length: pages }, (_, i) => buildUrl(i + 1));
+  return shuffle(await fetchDiscoverPages(urls, apiKey));
+}
+
 export async function getMovieCredits(
   tmdbId: number,
 ): Promise<{ directors: TmdbCredit[]; cast: TmdbCredit[] }> {

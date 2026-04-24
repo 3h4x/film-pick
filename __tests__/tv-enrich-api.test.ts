@@ -109,4 +109,43 @@ describe("POST /api/tv/enrich", () => {
     const res = await POST(makeRequest(["Status Check"]));
     expect(res.status).toBe(200);
   });
+
+  it("returns 400 when titles is not an array", async () => {
+    const req = new Request("http://localhost/api/tv/enrich", {
+      method: "POST",
+      body: JSON.stringify({ titles: "not an array" }),
+      headers: { "content-type": "application/json" },
+    });
+    const res = await POST(req);
+    expect(res.status).toBe(400);
+    const data = await res.json();
+    expect(data.error).toMatch(/array/i);
+    expect(searchTmdb).not.toHaveBeenCalled();
+  });
+
+  it("returns 400 when titles contains non-string items", async () => {
+    const req = new Request("http://localhost/api/tv/enrich", {
+      method: "POST",
+      body: JSON.stringify({ titles: ["valid", 42, null] }),
+      headers: { "content-type": "application/json" },
+    });
+    const res = await POST(req);
+    expect(res.status).toBe(400);
+    const data = await res.json();
+    expect(data.error).toMatch(/string/i);
+    expect(searchTmdb).not.toHaveBeenCalled();
+  });
+
+  it("returns 400 when titles array exceeds 500 items", async () => {
+    const req = new Request("http://localhost/api/tv/enrich", {
+      method: "POST",
+      body: JSON.stringify({ titles: Array.from({ length: 501 }, (_, i) => `Film ${i}`) }),
+      headers: { "content-type": "application/json" },
+    });
+    const res = await POST(req);
+    expect(res.status).toBe(400);
+    const data = await res.json();
+    expect(data.error).toMatch(/500/);
+    expect(searchTmdb).not.toHaveBeenCalled();
+  });
 });
