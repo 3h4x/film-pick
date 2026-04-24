@@ -151,6 +151,38 @@ describe("genreEngine", () => {
     expect(mockDiscoverByGenre).not.toHaveBeenCalledWith(18);
   });
 
+  it("treats user_rating=0 as unrated (default weight 5), not disliked", async () => {
+    // user_rating=0 means "not yet rated" throughout the codebase — it should
+    // contribute the same default weight as null, not be excluded as disliked.
+    const library = [
+      makeMovie({ id: 1, title: "Unrated Drama", genre: "Drama", user_rating: 0 }),
+    ];
+    const ctx = buildContext(library, new Set());
+    mockGenreNameToId.mockReturnValue(18);
+    mockDiscoverByGenre.mockResolvedValue([makeResult({ tmdb_id: 500, title: "Found Drama" })]);
+
+    const result = await genreEngine(ctx);
+    expect(result).toHaveLength(1);
+    expect(result[0].reason).toContain("Drama");
+    expect(mockDiscoverByGenre).toHaveBeenCalledWith(18);
+  });
+
+  it("unrated (user_rating=0) and null-rated movies contribute equal weight to genre scoring", async () => {
+    const library = [
+      makeMovie({ id: 1, title: "Null Rated", genre: "Drama", user_rating: undefined }),
+      makeMovie({ id: 2, title: "Zero Rated", genre: "Drama", user_rating: 0 }),
+    ];
+    const ctx = buildContext(library, new Set());
+    mockGenreNameToId.mockReturnValue(18);
+    mockDiscoverByGenre.mockResolvedValue([makeResult({ tmdb_id: 500, title: "Drama Film" })]);
+
+    const result = await genreEngine(ctx);
+    expect(result).toHaveLength(1);
+    // Both movies contribute weight 5 each = total 10 for Drama
+    expect(mockDiscoverByGenre).toHaveBeenCalledTimes(1);
+    expect(mockDiscoverByGenre).toHaveBeenCalledWith(18);
+  });
+
   it("skips genres marked as 'Unknown'", async () => {
     const library = [makeMovie({ id: 1, title: "Film", genre: "Unknown", user_rating: 8 })];
     const ctx = buildContext(library, new Set());
