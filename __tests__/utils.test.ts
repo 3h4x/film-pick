@@ -159,6 +159,38 @@ describe("parseFilename", () => {
     const { title } = parseFilename("1080p.BluRay.x264.mkv");
     expect(typeof title).toBe("string");
   });
+
+  it("ignores years below 1900 in parentheses", () => {
+    const { year, title } = parseFilename("Movie (1899).mkv");
+    expect(year).toBeNull();
+    expect(title).toContain("Movie");
+  });
+
+  it("ignores years above 2099 in parentheses", () => {
+    const { year } = parseFilename("Movie (2100).mkv");
+    expect(year).toBeNull();
+  });
+
+  it("ignores years below 1900 in brackets", () => {
+    const { year } = parseFilename("Movie [1750].mkv");
+    expect(year).toBeNull();
+  });
+
+  it("ignores years above 2099 in brackets", () => {
+    const { year } = parseFilename("Movie [2150].mkv");
+    expect(year).toBeNull();
+  });
+
+  it("ignores out-of-range bare years", () => {
+    const { year } = parseFilename("Movie.1850.1080p.mkv");
+    expect(year).toBeNull();
+  });
+
+  it("does not extract bare year when not followed by known tag or end", () => {
+    // "Nothing" after 1987 is not a known release tag, so year should not be extracted
+    const { year } = parseFilename("One.1987.Nothing.mkv");
+    expect(year).toBeNull();
+  });
 });
 
 describe("getErrorMessage", () => {
