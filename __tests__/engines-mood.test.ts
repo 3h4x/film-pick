@@ -195,6 +195,63 @@ describe("moodEngine (TMDb-backed)", () => {
       }),
     );
   });
+
+  it("filters out excluded genres from config", async () => {
+    const library = [makeMovie({ id: 1, title: "Film A" })];
+    const ctx = buildContext(library, new Set(), {
+      excluded_genres: ["Horror"],
+      min_year: null,
+      min_rating: null,
+      max_per_group: 10,
+    });
+    mockDiscoverByMood.mockResolvedValue([
+      makeResult({ tmdb_id: 100, title: "Horror Film", genre: "Horror" }),
+      makeResult({ tmdb_id: 200, title: "Comedy Film", genre: "Comedy" }),
+    ]);
+
+    const result = await moodEngine(ctx, "light_funny");
+    const titles = result[0].recommendations.map((r) => r.title);
+    expect(titles).not.toContain("Horror Film");
+    expect(titles).toContain("Comedy Film");
+  });
+
+  it("filters out movies below min_year from config", async () => {
+    const library = [makeMovie({ id: 1, title: "Film A" })];
+    const ctx = buildContext(library, new Set(), {
+      excluded_genres: [],
+      min_year: 2010,
+      min_rating: null,
+      max_per_group: 10,
+    });
+    mockDiscoverByMood.mockResolvedValue([
+      makeResult({ tmdb_id: 100, title: "Old Film", year: 1990 }),
+      makeResult({ tmdb_id: 200, title: "New Film", year: 2015 }),
+    ]);
+
+    const result = await moodEngine(ctx, "light_funny");
+    const titles = result[0].recommendations.map((r) => r.title);
+    expect(titles).not.toContain("Old Film");
+    expect(titles).toContain("New Film");
+  });
+
+  it("filters out movies below min_rating from config", async () => {
+    const library = [makeMovie({ id: 1, title: "Film A" })];
+    const ctx = buildContext(library, new Set(), {
+      excluded_genres: [],
+      min_year: null,
+      min_rating: 8.0,
+      max_per_group: 10,
+    });
+    mockDiscoverByMood.mockResolvedValue([
+      makeResult({ tmdb_id: 100, title: "Low Rated", rating: 6.0 }),
+      makeResult({ tmdb_id: 200, title: "High Rated", rating: 8.5 }),
+    ]);
+
+    const result = await moodEngine(ctx, "light_funny");
+    const titles = result[0].recommendations.map((r) => r.title);
+    expect(titles).not.toContain("Low Rated");
+    expect(titles).toContain("High Rated");
+  });
 });
 
 // ---------------------------------------------------------------------------
@@ -293,5 +350,17 @@ describe("moodEngine (comfort_rewatch)", () => {
     ];
     const ctx = buildContext(library, new Set());
     expect(await moodEngine(ctx, "comfort_rewatch")).toEqual([]);
+  });
+
+  it("excludes movies without tmdb_id from comfort picks", async () => {
+    const library = [
+      makeMovie({ id: 1, title: "No ID Film", tmdb_id: undefined as unknown as number, user_rating: 9 }),
+      makeMovie({ id: 2, title: "Has ID Film", tmdb_id: 200, user_rating: 9 }),
+    ];
+    const ctx = buildContext(library, new Set());
+    const result = await moodEngine(ctx, "comfort_rewatch");
+    const titles = result[0].recommendations.map((r) => r.title);
+    expect(titles).not.toContain("No ID Film");
+    expect(titles).toContain("Has ID Film");
   });
 });
