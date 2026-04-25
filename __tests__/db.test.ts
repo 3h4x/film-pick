@@ -294,6 +294,38 @@ describe("insertMovie deduplication", () => {
     const extras = JSON.parse(row.extra_files);
     expect(extras).toContain("/movies/gits-b.mkv");
   });
+
+  it("enriches missing genre when tmdb_id match finds entry without genre", () => {
+    const id = insertMovie(db, { ...base, genre: null, rating: null, poster_url: null });
+    insertMovie(db, { ...base, genre: "Animation, Action", rating: 8.5, poster_url: "/poster.jpg" });
+
+    const row = db.prepare("SELECT genre, rating, poster_url FROM movies WHERE id = ?").get(id) as any;
+    expect(row.genre).toBe("Animation, Action");
+    expect(row.rating).toBe(8.5);
+    expect(row.poster_url).toBe("/poster.jpg");
+  });
+
+  it("does not overwrite existing genre when tmdb_id match finds entry with genre", () => {
+    const id = insertMovie(db, { ...base, genre: "Animation", rating: 7.0 });
+    insertMovie(db, { ...base, genre: "Action", rating: 9.0 });
+
+    const row = db.prepare("SELECT genre, rating FROM movies WHERE id = ?").get(id) as any;
+    expect(row.genre).toBe("Animation");
+    expect(row.rating).toBe(7.0);
+  });
+
+  it("enriches tmdb_id and genre when title+year match finds entry without them", () => {
+    const noTmdb = { ...base, tmdb_id: null, genre: null, poster_url: null };
+    const id = insertMovie(db, { ...noTmdb, file_path: null });
+
+    // Now insertMovie with tmdb_id and genre — should enrich the existing pathless entry
+    insertMovie(db, { ...base, tmdb_id: 9323, genre: "Animation", poster_url: "/p.jpg", file_path: null });
+
+    const row = db.prepare("SELECT tmdb_id, genre, poster_url FROM movies WHERE id = ?").get(id) as any;
+    expect(row.tmdb_id).toBe(9323);
+    expect(row.genre).toBe("Animation");
+    expect(row.poster_url).toBe("/p.jpg");
+  });
 });
 
 describe("recommended movies", () => {
