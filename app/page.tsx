@@ -1498,69 +1498,64 @@ export default function Home() {
               </div>
             ) : (
               <>
-                {/* Mood chips */}
-                <div className="flex gap-2 overflow-x-auto pb-1">
-                  {MOOD_KEYS.map((key) => {
-                    const preset = MOOD_PRESETS[key];
-                    const isActive = activeMood === key;
-                    return (
+                {/* Unified filter row: engines + mood chips + refresh */}
+                <div className="flex items-center gap-2">
+                  <div className="flex gap-1 overflow-x-auto min-w-0 bg-gray-800/40 p-1 rounded-xl">
+                    {REC_CATEGORIES.filter((cat) => cat.value === "all" || !disabledEngines.includes(cat.value)).map((cat) => (
                       <button
-                        key={key}
-                        onClick={() => setActiveMood(isActive ? null : key)}
-                        className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium whitespace-nowrap transition-all border ${
-                          isActive
-                            ? "bg-indigo-600 border-indigo-500 text-white shadow-md"
-                            : "bg-gray-800/60 border-gray-700/50 text-gray-400 hover:text-gray-200 hover:border-gray-600"
+                        key={cat.value}
+                        onClick={() => { setRecCategory(cat.value); setActiveMood(null); }}
+                        className={`px-3 py-1.5 text-xs font-medium rounded-lg transition-all whitespace-nowrap flex items-center gap-1.5 ${
+                          !activeMood && recCategory === cat.value
+                            ? "bg-gray-700/80 text-white shadow-sm"
+                            : "text-gray-500 hover:text-gray-300 hover:bg-gray-700/30"
                         }`}
                       >
-                        <span>{preset.icon}</span>
-                        <span>{preset.label}</span>
+                        {cat.label}
+                        {categoryCounts[cat.value] != null && (
+                          <span className={`text-xs tabular-nums ${!activeMood && recCategory === cat.value ? "text-gray-400" : "text-gray-600"}`}>
+                            {categoryCounts[cat.value]}
+                          </span>
+                        )}
                       </button>
-                    );
-                  })}
-                </div>
-
-                {/* Category tabs + refresh */}
-                {!activeMood && (
-                  <div className="flex items-center justify-between gap-4">
-                    <div className="flex gap-1 overflow-x-auto bg-gray-800/40 p-1 rounded-xl">
-                      {REC_CATEGORIES.filter((cat) => cat.value === "all" || !disabledEngines.includes(cat.value)).map((cat) => (
+                    ))}
+                    <div className="w-px self-stretch bg-gray-700/60 mx-0.5 flex-shrink-0" />
+                    {MOOD_KEYS.map((key) => {
+                      const preset = MOOD_PRESETS[key];
+                      const isActive = activeMood === key;
+                      return (
                         <button
-                          key={cat.value}
-                          onClick={() => setRecCategory(cat.value)}
-                          className={`px-3 py-1.5 text-xs font-medium rounded-lg transition-all whitespace-nowrap flex items-center gap-1.5 ${
-                            recCategory === cat.value
-                              ? "bg-gray-700/80 text-white shadow-sm"
+                          key={key}
+                          onClick={() => setActiveMood(isActive ? null : key)}
+                          className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium whitespace-nowrap transition-all ${
+                            isActive
+                              ? "bg-indigo-600/80 text-white shadow-sm"
                               : "text-gray-500 hover:text-gray-300 hover:bg-gray-700/30"
                           }`}
                         >
-                          {cat.label}
-                          {categoryCounts[cat.value] != null && (
-                            <span className={`text-xs tabular-nums ${recCategory === cat.value ? "text-gray-400" : "text-gray-600"}`}>
-                              {categoryCounts[cat.value]}
-                            </span>
-                          )}
+                          <span>{preset.icon}</span>
+                          <span>{preset.label}</span>
                         </button>
-                      ))}
-                    </div>
-                    <div className="flex items-center gap-2 flex-shrink-0">
-                      {lastRecsRefresh && (
-                        <span className="text-gray-600 text-xs hidden sm:inline">
-                          refreshed {formatRefreshTime(lastRecsRefresh)}
-                        </span>
-                      )}
-                      <button
-                        onClick={refreshRecs}
-                        className="text-gray-500 hover:text-white p-1.5 rounded-lg hover:bg-gray-800/60 transition-all"
-                        title="Refresh recommendations"
-                      >
-                        <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                          <path strokeLinecap="round" strokeLinejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-                        </svg>
-                      </button>
-                    </div>
+                      );
+                    })}
                   </div>
-                )}
+                  <div className="flex items-center gap-2 flex-shrink-0">
+                    {lastRecsRefresh && (
+                      <span className="text-gray-600 text-xs hidden sm:inline">
+                        refreshed {formatRefreshTime(lastRecsRefresh)}
+                      </span>
+                    )}
+                    <button
+                      onClick={refreshRecs}
+                      className="text-gray-500 hover:text-white p-1.5 rounded-lg hover:bg-gray-800/60 transition-all"
+                      title="Refresh recommendations"
+                    >
+                      <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                      </svg>
+                    </button>
+                  </div>
+                </div>
 
                 {/* Mood results */}
                 {activeMood ? (
