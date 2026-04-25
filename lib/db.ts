@@ -241,6 +241,26 @@ export function getDb(): Database.Database {
   return _db;
 }
 
+// Fills in null/empty metadata fields on an existing row from an incoming MovieInput.
+// Only overwrites fields that are currently null or empty — never replaces user data.
+function enrichMissingMetadata(
+  db: Database.Database,
+  id: number,
+  existing: { genre: string | null; rating: number | null; poster_url: string | null; imdb_id: string | null; tmdb_id?: number | null },
+  incoming: MovieInput,
+): void {
+  const sets: string[] = [];
+  const values: (string | number | null)[] = [];
+  if (!existing.genre && incoming.genre) { sets.push("genre = ?"); values.push(incoming.genre); }
+  if (!existing.rating && incoming.rating) { sets.push("rating = ?"); values.push(incoming.rating); }
+  if (!existing.poster_url && incoming.poster_url) { sets.push("poster_url = ?"); values.push(incoming.poster_url); }
+  if (!existing.imdb_id && incoming.imdb_id) { sets.push("imdb_id = ?"); values.push(incoming.imdb_id); }
+  if ("tmdb_id" in existing && !existing.tmdb_id && incoming.tmdb_id) { sets.push("tmdb_id = ?"); values.push(incoming.tmdb_id); }
+  if (sets.length === 0) return;
+  values.push(id);
+  db.prepare(`UPDATE movies SET ${sets.join(", ")} WHERE id = ?`).run(...values);
+}
+
 export function insertMovie(db: Database.Database, movie: MovieInput): number {
   if (movie.file_path) {
     const existing = db
@@ -252,8 +272,8 @@ export function insertMovie(db: Database.Database, movie: MovieInput): number {
   // If a movie with the same tmdb_id already exists, link the file to it
   if (movie.tmdb_id) {
     const byTmdbId = db
-      .prepare("SELECT id, file_path, extra_files FROM movies WHERE tmdb_id = ?")
-      .get(movie.tmdb_id) as { id: number; file_path: string | null; extra_files: string | null } | undefined;
+      .prepare("SELECT id, file_path, extra_files, genre, rating, poster_url, imdb_id FROM movies WHERE tmdb_id = ?")
+      .get(movie.tmdb_id) as { id: number; file_path: string | null; extra_files: string | null; genre: string | null; rating: number | null; poster_url: string | null; imdb_id: string | null } | undefined;
     if (byTmdbId) {
       if (movie.file_path) {
         if (!byTmdbId.file_path) {
@@ -268,6 +288,8 @@ export function insertMovie(db: Database.Database, movie: MovieInput): number {
           }
         }
       }
+      // Fill in missing metadata from the incoming record (e.g. recommendation enriching a scanned entry)
+      enrichMissingMetadata(db, byTmdbId.id, byTmdbId, movie);
       return byTmdbId.id;
     }
   }
@@ -277,9 +299,9 @@ export function insertMovie(db: Database.Database, movie: MovieInput): number {
   if (movie.title) {
     const byTitleYear = db
       .prepare(
-        "SELECT id, file_path, extra_files FROM movies WHERE LOWER(title) = LOWER(?) AND year IS ?",
+        "SELECT id, file_path, extra_files, genre, rating, poster_url, imdb_id, tmdb_id FROM movies WHERE LOWER(title) = LOWER(?) AND year IS ?",
       )
-      .get(movie.title, movie.year ?? null) as { id: number; file_path: string | null; extra_files: string | null } | undefined;
+      .get(movie.title, movie.year ?? null) as { id: number; file_path: string | null; extra_files: string | null; genre: string | null; rating: number | null; poster_url: string | null; imdb_id: string | null; tmdb_id: number | null } | undefined;
     if (byTitleYear) {
       if (movie.file_path) {
         if (!byTitleYear.file_path) {
@@ -292,6 +314,8 @@ export function insertMovie(db: Database.Database, movie: MovieInput): number {
           }
         }
       }
+      // Fill in missing metadata (e.g. tmdb_id, genre, rating) from the incoming record
+      enrichMissingMetadata(db, byTitleYear.id, byTitleYear, movie);
       return byTitleYear.id;
     }
   }
