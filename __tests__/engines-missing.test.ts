@@ -483,4 +483,48 @@ describe("cdaEngine", () => {
     // Horror should come first because Drama's low rating is excluded from scoring
     expect(result[0].reason).toContain("Horror");
   });
+
+  it("treats user_rating=null as weight 5 (unrated contributes to genre score)", async () => {
+    mockGetDismissedIds.mockReturnValue(new Set());
+    mockGetRecommendedMovies.mockReturnValue([
+      makeRecommendedMovie({ tmdb_id: 1, title: "Sci-Fi Pick", genre: "Sci-Fi" }),
+    ]);
+
+    // Movie with no rating: user_rating=null → weight defaults to 5 via ??
+    const library = [
+      makeMovie({ id: 1, title: "Unrated Sci-Fi", genre: "Sci-Fi", user_rating: null }),
+    ];
+    const ctx = buildContext(library, new Set());
+    const result = await cdaEngine(ctx);
+    // Genre score should be 5 (>=5), so Sci-Fi group should appear
+    expect(result).toHaveLength(1);
+    expect(result[0].reason).toContain("Sci-Fi");
+  });
+
+  it("treats user_rating=0 as weight 0 (excluded from genre score, unlike null)", async () => {
+    mockGetDismissedIds.mockReturnValue(new Set());
+    mockGetRecommendedMovies.mockReturnValue([
+      makeRecommendedMovie({ tmdb_id: 1, title: "Drama Pick", genre: "Drama" }),
+      makeRecommendedMovie({ tmdb_id: 2, title: "Comedy Pick", genre: "Comedy" }),
+    ]);
+
+    // user_rating=0 → weight 0 via ?? (0 is not null/undefined) → filtered out (< 5)
+    // user_rating=8 → weight 8 → contributes
+    const library = [
+      makeMovie({ id: 10, title: "Zero-rated Drama", genre: "Drama", user_rating: 0 }),
+      makeMovie({ id: 11, title: "Liked Comedy", genre: "Comedy", user_rating: 8 }),
+    ];
+    const ctx = buildContext(library, new Set());
+    const result = await cdaEngine(ctx);
+    // Drama gets no score (weight 0 < 5), Comedy gets score 8
+    // So Comedy should appear first (or Drama might not appear at all if equal 0)
+    const reasons = result.map((g) => g.reason);
+    const comedyIdx = reasons.findIndex((r) => r.includes("Comedy"));
+    const dramaIdx = reasons.findIndex((r) => r.includes("Drama"));
+    // Comedy (score 8) must rank ahead of Drama (score 0)
+    expect(comedyIdx).toBeGreaterThanOrEqual(0);
+    if (dramaIdx >= 0) {
+      expect(comedyIdx).toBeLessThan(dramaIdx);
+    }
+  });
 });

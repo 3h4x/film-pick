@@ -369,6 +369,35 @@ describe("recommended movies", () => {
     const movies = getRecommendedMovies(db);
     expect(movies[0].cda_url).toBe("https://www.cda.pl/video/arrival");
   });
+
+  it("updateRecommendedMovie updates description", () => {
+    saveRecommendedMovies(db, "genre", "Sci-Fi", [sampleMovie]);
+    updateRecommendedMovie(db, 329865, { description: "A story about first contact." });
+    const movies = getRecommendedMovies(db);
+    expect(movies[0].description).toBe("A story about first contact.");
+  });
+
+  it("updateRecommendedMovie updates all three fields at once", () => {
+    saveRecommendedMovies(db, "genre", "Sci-Fi", [sampleMovie]);
+    updateRecommendedMovie(db, 329865, {
+      pl_title: "Przybycie",
+      cda_url: "https://www.cda.pl/video/arrival",
+      description: "Linguist deciphers alien language.",
+    });
+    const movies = getRecommendedMovies(db);
+    expect(movies[0].pl_title).toBe("Przybycie");
+    expect(movies[0].cda_url).toBe("https://www.cda.pl/video/arrival");
+    expect(movies[0].description).toBe("Linguist deciphers alien language.");
+  });
+
+  it("updateRecommendedMovie is a no-op when no fields are provided", () => {
+    saveRecommendedMovies(db, "genre", "Sci-Fi", [sampleMovie]);
+    updateRecommendedMovie(db, 329865, {});
+    const movies = getRecommendedMovies(db);
+    expect(movies[0].pl_title).toBeNull();
+    expect(movies[0].cda_url).toBeNull();
+    expect(movies[0].description).toBeNull();
+  });
 });
 
 describe("getSetting / setSetting", () => {

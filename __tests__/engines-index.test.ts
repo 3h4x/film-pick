@@ -275,3 +275,58 @@ describe("enrichWithCda", () => {
     expect(enriched[2].cda_url).toBe("https://cda.pl/c");
   });
 });
+
+// ---------------------------------------------------------------------------
+// buildContext
+// ---------------------------------------------------------------------------
+
+describe("buildContext", () => {
+  it("returns the library and dismissedIds unchanged", () => {
+    const library = [makeMovie({ id: 1, title: "Inception" })];
+    const dismissed = new Set([42]);
+    const ctx = buildContext(library, dismissed);
+    expect(ctx.library).toBe(library);
+    expect(ctx.dismissedIds).toBe(dismissed);
+  });
+
+  it("builds libraryTmdbIds from non-null tmdb_ids", () => {
+    const library = [
+      makeMovie({ id: 1, title: "Film A", tmdb_id: 111 }),
+      makeMovie({ id: 2, title: "Film B", tmdb_id: 222 }),
+      makeMovie({ id: 3, title: "Film C", tmdb_id: null as unknown as number }),
+    ];
+    const ctx = buildContext(library, new Set());
+    expect(ctx.libraryTmdbIds.has(111)).toBe(true);
+    expect(ctx.libraryTmdbIds.has(222)).toBe(true);
+    // null tmdb_id should be excluded
+    expect(ctx.libraryTmdbIds.size).toBe(2);
+  });
+
+  it("builds libraryTitles as lowercase set", () => {
+    const library = [
+      makeMovie({ id: 1, title: "Inception" }),
+      makeMovie({ id: 2, title: "THE MATRIX" }),
+    ];
+    const ctx = buildContext(library, new Set());
+    expect(ctx.libraryTitles.has("inception")).toBe(true);
+    expect(ctx.libraryTitles.has("the matrix")).toBe(true);
+    expect(ctx.libraryTitles.has("Inception")).toBe(false);
+  });
+
+  it("attaches config when provided", () => {
+    const config = { excluded_genres: ["Horror"], min_year: 2000, min_rating: 7, max_per_group: 10 };
+    const ctx = buildContext([], new Set(), config);
+    expect(ctx.config).toBe(config);
+  });
+
+  it("leaves config undefined when not provided", () => {
+    const ctx = buildContext([], new Set());
+    expect(ctx.config).toBeUndefined();
+  });
+
+  it("handles empty library gracefully", () => {
+    const ctx = buildContext([], new Set());
+    expect(ctx.libraryTmdbIds.size).toBe(0);
+    expect(ctx.libraryTitles.size).toBe(0);
+  });
+});
