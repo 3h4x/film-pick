@@ -245,6 +245,29 @@ describe("genreEngine", () => {
 
     expect(await genreEngine(ctx)).toEqual([]);
   });
+
+  it("only processes the top 12 genres even when library has more", async () => {
+    // Create 15 distinct genres each with one high-rated movie
+    const genres = Array.from(
+      { length: 15 },
+      (_, i) => `Genre${String.fromCharCode(65 + i)}`,
+    );
+    const library = genres.map((g, i) =>
+      makeMovie({ id: i + 1, title: `Film ${g}`, genre: g, user_rating: 8 }),
+    );
+    const ctx = buildContext(library, new Set());
+
+    // All genres resolve to a valid ID and return one unique result each
+    mockGenreNameToId.mockImplementation((g: string) => genres.indexOf(g) + 1);
+    mockDiscoverByGenre.mockImplementation((id: number) =>
+      Promise.resolve([makeResult({ tmdb_id: id * 1000, title: `Discovered ${id}` })]),
+    );
+
+    const result = await genreEngine(ctx);
+    // Should produce at most 12 groups (top-12 genre limit)
+    expect(result.length).toBeLessThanOrEqual(12);
+    expect(mockDiscoverByGenre).toHaveBeenCalledTimes(12);
+  });
 });
 
 // ---------------------------------------------------------------------------
