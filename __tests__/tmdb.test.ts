@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from "vitest";
+import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import {
   searchTmdb,
   getTmdbRecommendations,
@@ -436,5 +436,133 @@ describe("getMovieCredits", () => {
     });
     const credits = await getMovieCredits(1);
     expect(credits.cast).toHaveLength(5);
+  });
+});
+
+// ── fetchWithRetry behaviour (429 rate-limit handling) ───────────────────────
+// These tests use fake timers to skip the exponential-backoff sleep without
+// waiting real time, so they run instantly.
+
+const rawFilm = {
+  id: 999,
+  title: "Retry Film",
+  release_date: "2020-01-01",
+  genre_ids: [18],
+  vote_average: 7.5,
+  poster_path: null,
+};
+
+describe("fetchWithRetry — 429 rate-limit handling", () => {
+  beforeEach(() => {
+    vi.resetAllMocks();
+    vi.useFakeTimers();
+    process.env.TMDB_API_KEY = "test-key";
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  it("getTmdbRecommendations retries once on 429 and returns results on the next attempt", async () => {
+    mockFetch
+      .mockResolvedValueOnce({ ok: false, status: 429 })
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ results: [rawFilm] }),
+      });
+
+    const promise = getTmdbRecommendations(12345);
+    await vi.advanceTimersByTimeAsync(1001); // past the 1 s first-retry delay
+    const results = await promise;
+
+    expect(results).toHaveLength(1);
+    expect(results[0].title).toBe("Retry Film");
+    expect(mockFetch).toHaveBeenCalledTimes(2);
+  });
+
+  it("getTmdbRecommendations returns [] after exhausting all 3 retries", async () => {
+    // All 4 attempts (attempt 0 + 3 retries) get 429.
+    mockFetch.mockResolvedValue({ ok: false, status: 429 });
+
+    const promise = getTmdbRecommendations(12345);
+    // Total sleep: 1 s + 2 s + 4 s = 7 s
+    await vi.advanceTimersByTimeAsync(7001);
+    const results = await promise;
+
+    expect(results).toEqual([]);
+    expect(mockFetch).toHaveBeenCalledTimes(4);
+  });
+
+  it("getTmdbSimilar retries on 429 and returns results on success", async () => {
+    mockFetch
+      .mockResolvedValueOnce({ ok: false, status: 429 })
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ results: [rawFilm] }),
+      });
+
+    const promise = getTmdbSimilar(12345);
+    await vi.advanceTimersByTimeAsync(1001);
+    const results = await promise;
+
+    expect(results).toHaveLength(1);
+    expect(mockFetch).toHaveBeenCalledTimes(2);
+  });
+
+  it("getMovieLocalized retries on 429 and returns data on success", async () => {
+    mockFetch
+      .mockResolvedValueOnce({ ok: false, status: 429 })
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ title: "Retrybowiec", overview: "Opis." }),
+      });
+
+    const promise = getMovieLocalized(12345);
+    await vi.advanceTimersByTimeAsync(1001);
+    const result = await promise;
+
+    expect(result.pl_title).toBe("Retrybowiec");
+    expect(mockFetch).toHaveBeenCalledTimes(2);
+  });
+
+  it("getTmdbMovieDetails retries on 429 and returns credits on success", async () => {
+    mockFetch
+      .mockResolvedValueOnce({ ok: false, status: 429 })
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({
+          credits: {
+            crew: [{ job: "Director", name: "A. Director" }],
+            cast: [],
+          },
+        }),
+      });
+
+    const promise = getTmdbMovieDetails(12345);
+    await vi.advanceTimersByTimeAsync(1001);
+    const details = await promise;
+
+    expect(details.director).toBe("A. Director");
+    expect(mockFetch).toHaveBeenCalledTimes(2);
+  });
+
+  it("getMovieCredits retries on 429 and returns credits on success", async () => {
+    mockFetch
+      .mockResolvedValueOnce({ ok: false, status: 429 })
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({
+          crew: [{ id: 1, name: "A. Director", job: "Director" }],
+          cast: [],
+        }),
+      });
+
+    const promise = getMovieCredits(12345);
+    await vi.advanceTimersByTimeAsync(1001);
+    const credits = await promise;
+
+    expect(credits.directors).toHaveLength(1);
+    expect(credits.directors[0].name).toBe("A. Director");
+    expect(mockFetch).toHaveBeenCalledTimes(2);
   });
 });

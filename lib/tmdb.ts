@@ -118,6 +118,14 @@ async function fetchDiscoverPages(
   return all;
 }
 
+function shuffle<T>(arr: T[]): T[] {
+  for (let i = arr.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [arr[i], arr[j]] = [arr[j], arr[i]];
+  }
+  return arr;
+}
+
 async function sleep(ms: number) {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
@@ -185,9 +193,8 @@ export async function getMovieLocalized(
   tmdbId: number,
 ): Promise<{ pl_title: string | null; description: string | null }> {
   const url = `${TMDB_BASE}/movie/${tmdbId}?language=pl-PL`;
-  const res = await fetch(url, {
-    headers: { Authorization: `Bearer ${getApiKey()}` },
-  });
+  const apiKey = getApiKey();
+  const res = await fetchWithRetry(url, apiKey);
   if (!res.ok) return { pl_title: null, description: null };
   const data = (await res.json()) as { title?: string; overview?: string };
   return {
@@ -210,9 +217,8 @@ export async function getTmdbMovieDetails(
   actors: string | null;
 }> {
   const url = `${TMDB_BASE}/movie/${tmdbId}?append_to_response=credits`;
-  const res = await fetch(url, {
-    headers: { Authorization: `Bearer ${getApiKey()}` },
-  });
+  const apiKey = getApiKey();
+  const res = await fetchWithRetry(url, apiKey);
 
   if (!res.ok) return { director: null, writer: null, actors: null };
 
@@ -242,9 +248,8 @@ export async function getTmdbRecommendations(
   tmdbId: number,
 ): Promise<TmdbSearchResult[]> {
   const url = `${TMDB_BASE}/movie/${tmdbId}/recommendations?language=en-US&page=1`;
-  const res = await fetch(url, {
-    headers: { Authorization: `Bearer ${getApiKey()}` },
-  });
+  const apiKey = getApiKey();
+  const res = await fetchWithRetry(url, apiKey);
 
   if (!res.ok) return [];
 
@@ -257,9 +262,8 @@ export async function getTmdbSimilar(
   tmdbId: number,
 ): Promise<TmdbSearchResult[]> {
   const url = `${TMDB_BASE}/movie/${tmdbId}/similar?language=en-US&page=1`;
-  const res = await fetch(url, {
-    headers: { Authorization: `Bearer ${getApiKey()}` },
-  });
+  const apiKey = getApiKey();
+  const res = await fetchWithRetry(url, apiKey);
 
   if (!res.ok) return [];
 
@@ -330,13 +334,7 @@ export async function discoverRandom(): Promise<TmdbSearchResult[]> {
     const page = Math.floor(Math.random() * 20) + 1;
     return `${TMDB_BASE}/discover/movie?sort_by=popularity.desc&vote_count.gte=200&vote_average.gte=6.5&language=en-US&page=${page}`;
   });
-  const all = await fetchDiscoverPages(urls, apiKey);
-  // Shuffle
-  for (let i = all.length - 1; i > 0; i--) {
-    const j = Math.floor(Math.random() * (i + 1));
-    [all[i], all[j]] = [all[j], all[i]];
-  }
-  return all;
+  return shuffle(await fetchDiscoverPages(urls, apiKey));
 }
 
 export interface MoodDiscoverParams {
@@ -369,14 +367,6 @@ export async function discoverByMood(
     return url;
   }
 
-  function shuffle<T>(arr: T[]): T[] {
-    for (let i = arr.length - 1; i > 0; i--) {
-      const j = Math.floor(Math.random() * (i + 1));
-      [arr[i], arr[j]] = [arr[j], arr[i]];
-    }
-    return arr;
-  }
-
   if (languages?.length) {
     const all: TmdbSearchResult[] = [];
     for (const lang of languages) {
@@ -396,9 +386,8 @@ export async function getMovieCredits(
   tmdbId: number,
 ): Promise<{ directors: TmdbCredit[]; cast: TmdbCredit[] }> {
   const url = `${TMDB_BASE}/movie/${tmdbId}/credits`;
-  const res = await fetch(url, {
-    headers: { Authorization: `Bearer ${getApiKey()}` },
-  });
+  const apiKey = getApiKey();
+  const res = await fetchWithRetry(url, apiKey);
   if (!res.ok) return { directors: [], cast: [] };
   const data = (await res.json()) as {
     crew?: TmdbRawCrewMember[];
