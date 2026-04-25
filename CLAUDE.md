@@ -188,3 +188,47 @@ TMDB_API_KEY=<your_key> docker run -p 4000:4000 -v $(pwd)/data:/app/data -e TMDB
 - Use `pnpm` exclusively (not npm)
 - Conventional commits suggested
 - Type check with `pnpm type-check` before committing
+
+## Coding Conventions
+
+1. **TypeScript strict mode is on.** All code must pass `pnpm type-check` with no errors. Avoid `any` even though the ESLint rule is disabled — use proper types or `unknown`.
+2. **Path alias `@/*` maps to the project root.** Use it for all cross-directory imports (e.g. `import { getDb } from "@/lib/db"`). Avoid `../..` relative chains.
+3. **React components are functional only.** No class components.
+4. **All DB access goes through `lib/db.ts`.** Never call `better-sqlite3` directly in route handlers or components — only through the exported functions in `lib/db.ts`.
+5. **All TMDb API calls go through `lib/tmdb.ts`.** Never call `fetch("https://api.themoviedb.org/...")` directly outside that module.
+6. **Async/await only.** No raw `.then()` chains.
+7. **ESLint + lint-staged run automatically** on `git commit` (ESLint `--fix` + type-check + full test suite). Do not skip hooks with `--no-verify`.
+8. **Pre-push hook runs `pnpm lint && pnpm test`.** Ensure both pass before pushing.
+
+## Testing Rules
+
+1. **Test runner:** Vitest (`pnpm test` = `vitest run`; `pnpm test:watch` = interactive).
+2. **Tests live in `__tests__/`** and are named `<subject>.test.ts`. No colocated tests.
+3. **Use a real SQLite file for DB tests** (pattern: `new Database(TEST_DB)` + `initDb(db)` in `beforeEach`; close and `unlinkSync` in `afterEach`). Never mock the database layer — integration test against real SQLite.
+4. **Mock external HTTP** (TMDb, CDA) with `vi.fn()` assigned to `global.fetch`. Do not make real network calls in tests.
+5. **Run `pnpm test` after every code change** to verify nothing regressed. The lint-staged config also runs the full suite on commit.
+6. **New API routes and business logic require tests.** Trivial pass-through wrappers and UI-only components do not.
+7. **E2E tests** use Playwright (`pnpm test:e2e`). These are separate from unit tests and are not run by the pre-push hook.
+
+## Architecture Patterns
+
+1. New API routes belong under `app/api/<resource>/route.ts` following Next.js App Router conventions.
+2. New React components belong in `components/`.
+3. Shared utility logic belongs in `lib/utils.ts`; domain-specific modules get their own file under `lib/`.
+4. New recommendation engines go under `lib/engines/` and must be registered in `lib/engines/index.ts`.
+5. Database schema changes require a migration block inside `initDb()` in `lib/db.ts` (additive `ALTER TABLE` or new table — never destructive).
+
+## Dependency & Supply-Chain Security
+
+1. **Always commit `pnpm-lock.yaml`.** Never install without a lock file.
+2. **Run `pnpm audit` after any dependency change** and resolve high/critical findings before committing.
+3. **Only `better-sqlite3`, `esbuild`, and `sharp` are allowed to run install scripts** (`pnpm.onlyBuiltDependencies` in `package.json`). Do not add packages with `postinstall`/`prepare` scripts without explicit user approval.
+4. **Never add a new dependency without explicit user approval.** Justify every new dep in the commit message.
+
+## Scope & Safety Rules
+
+1. **Conventional commits are enforced** by commitlint + husky `commit-msg` hook (not optional). Format: `type(scope): description` — types: `feat`, `fix`, `refactor`, `test`, `docs`, `build`, `chore`.
+2. **Never commit to a feature branch and force-push master** — this repo deploys automatically on push to `master` via GHA + Watchtower. Every push to master triggers a Docker build and live deployment.
+3. **Never commit secrets or `.env` files.** Use `bioenv` for all secrets.
+4. **Never modify `data/` contents** (SQLite DB and backups are gitignored and must stay that way).
+5. **Schema migrations must be additive.** Never drop columns or tables — the live DB on the server has real user data.
