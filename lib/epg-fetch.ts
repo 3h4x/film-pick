@@ -126,17 +126,38 @@ export async function fetchAndCacheEpg(db: Database.Database): Promise<EpgCache>
 
   setSetting(db, "epg_status", "running");
 
-  try {
-    const resp = await fetch(epgUrl, {
+  async function tryFetch(url: string): Promise<Response> {
+    return fetch(url, {
       signal: AbortSignal.timeout(90000),
       headers: { "User-Agent": "Mozilla/5.0 (compatible; FilmPick/1.0)" },
     });
+  }
+
+  try {
+    let resp: Response;
+    let fetchedUrl = epgUrl;
+    try {
+      resp = await tryFetch(epgUrl);
+    } catch (firstErr) {
+      // If HTTPS fails with a network/TLS error, retry over HTTP as fallback
+      if (epgUrl.startsWith("https://")) {
+        const httpUrl = epgUrl.replace(/^https:\/\//, "http://");
+        try {
+          resp = await tryFetch(httpUrl);
+          fetchedUrl = httpUrl;
+        } catch {
+          throw firstErr; // Re-throw original error if HTTP also fails
+        }
+      } else {
+        throw firstErr;
+      }
+    }
     if (!resp.ok) throw new Error(`EPG source returned ${resp.status}`);
 
     const buffer = await resp.arrayBuffer();
     const bytes = new Uint8Array(buffer);
     let xml: string;
-    if (epgUrl.endsWith(".gz") || (bytes[0] === 0x1f && bytes[1] === 0x8b)) {
+    if (fetchedUrl.endsWith(".gz") || (bytes[0] === 0x1f && bytes[1] === 0x8b)) {
       xml = gunzipSync(Buffer.from(buffer)).toString("utf-8");
     } else {
       xml = new TextDecoder("utf-8").decode(buffer);
@@ -153,7 +174,7 @@ export async function fetchAndCacheEpg(db: Database.Database): Promise<EpgCache>
       channels,
       programs,
       cachedAt: new Date().toISOString(),
-      epgUrl,
+      epgUrl: fetchedUrl,
     };
 
     setMemCache(result);
