@@ -291,11 +291,40 @@ describe("fetchAndCacheEpg", () => {
     expect(getSetting(db, "epg_status")).toBe("error");
   });
 
-  it("sets epg_status to 'error' and rethrows when fetch throws", async () => {
+  it("sets epg_status to 'error' and rethrows when fetch throws (both https and http fallback fail)", async () => {
+    // HTTPS fails → HTTP fallback also fails → original HTTPS error is rethrown
     mockFetch.mockRejectedValueOnce(new Error("Network failure"));
+    mockFetch.mockRejectedValueOnce(new Error("HTTP fallback also failed"));
 
     await expect(fetchAndCacheEpg(db)).rejects.toThrow("Network failure");
     expect(getSetting(db, "epg_status")).toBe("error");
+  });
+
+  it("falls back to HTTP when HTTPS fetch throws and HTTP succeeds", async () => {
+    const epgXml = buildXmltv({ channelId: "test.pl", channelName: "Test" });
+
+    // HTTPS fails, HTTP succeeds
+    mockFetch.mockRejectedValueOnce(new Error("TLS handshake failed"));
+    mockOkText(epgXml);
+
+    const result = await fetchAndCacheEpg(db);
+    expect(result.channels).toHaveLength(1);
+    expect(mockFetch).toHaveBeenCalledTimes(2);
+    // Second call should use http://
+    expect(mockFetch.mock.calls[1][0]).toMatch(/^http:\/\//);
+    // result.epgUrl must reflect the actual URL used, not the original https:// one
+    expect(result.epgUrl).toMatch(/^http:\/\//);
+  });
+
+  it("does not attempt HTTP fallback when the URL is already http://", async () => {
+    db.prepare("INSERT OR REPLACE INTO settings (key, value) VALUES (?, ?)").run(
+      "epg_url",
+      "http://example.com/feed.xml",
+    );
+    mockFetch.mockRejectedValueOnce(new Error("connection refused"));
+
+    await expect(fetchAndCacheEpg(db)).rejects.toThrow("connection refused");
+    expect(mockFetch).toHaveBeenCalledTimes(1);
   });
 
   it("uses epg_url from settings when set", async () => {

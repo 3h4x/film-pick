@@ -109,6 +109,101 @@ describe("GET /api/tv", () => {
     const data = await res.json();
     expect(data.error).toContain("timeout");
   });
+
+  describe("502 error hint classification", () => {
+    async function getErrorFor(err: unknown): Promise<string> {
+      vi.mocked(getMemCache).mockReturnValue(null);
+      vi.mocked(fetchAndCacheEpg).mockRejectedValue(err);
+      const res = await GET(new Request("http://localhost/api/tv"));
+      return (await res.json()).error as string;
+    }
+
+    it("adds DNS hint when message contains 'fetch failed'", async () => {
+      const err = new Error("fetch failed");
+      const msg = await getErrorFor(err);
+      expect(msg).toContain("unreachable");
+    });
+
+    it("adds DNS hint when cause contains ENOTFOUND", async () => {
+      const err = Object.assign(new Error("getaddrinfo ENOTFOUND host"), {
+        cause: { code: "ENOTFOUND" },
+      });
+      const msg = await getErrorFor(err);
+      expect(msg).toContain("unreachable");
+    });
+
+    it("adds DNS hint when cause contains EAI_AGAIN", async () => {
+      const err = Object.assign(new Error("getaddrinfo EAI_AGAIN host"), {
+        cause: { message: "EAI_AGAIN" },
+      });
+      const msg = await getErrorFor(err);
+      expect(msg).toContain("unreachable");
+    });
+
+    it("adds connection refused hint when cause contains ECONNREFUSED", async () => {
+      const err = Object.assign(new Error("connect ECONNREFUSED"), {
+        cause: { code: "ECONNREFUSED" },
+      });
+      const msg = await getErrorFor(err);
+      expect(msg).toContain("refused the connection");
+    });
+
+    it("adds connection refused hint when cause contains ECONNRESET", async () => {
+      const err = Object.assign(new Error("read ECONNRESET"), {
+        cause: { message: "ECONNRESET" },
+      });
+      const msg = await getErrorFor(err);
+      expect(msg).toContain("refused the connection");
+    });
+
+    it("adds TLS hint when message contains 'tls'", async () => {
+      const err = new Error("tls handshake failed");
+      const msg = await getErrorFor(err);
+      expect(msg).toContain("TLS/SSL");
+    });
+
+    it("adds TLS hint when message contains 'SSL'", async () => {
+      const err = new Error("SSL certificate verify failed");
+      const msg = await getErrorFor(err);
+      expect(msg).toContain("TLS/SSL");
+    });
+
+    it("adds TLS hint when message contains 'packet length'", async () => {
+      const err = new Error("wrong packet length");
+      const msg = await getErrorFor(err);
+      expect(msg).toContain("TLS/SSL");
+    });
+
+    it("adds timeout hint when message contains 'timeout'", async () => {
+      const err = new Error("The operation timed out (timeout)");
+      const msg = await getErrorFor(err);
+      expect(msg).toContain("took too long");
+    });
+
+    it("adds timeout hint when message contains 'AbortError'", async () => {
+      const err = new Error("AbortError: signal timed out");
+      const msg = await getErrorFor(err);
+      expect(msg).toContain("took too long");
+    });
+
+    it("adds HTTP error hint when message contains 'returned 4'", async () => {
+      const err = new Error("EPG source returned 404");
+      const msg = await getErrorFor(err);
+      expect(msg).toContain("URL returned an error");
+    });
+
+    it("adds HTTP error hint when message contains 'returned 5'", async () => {
+      const err = new Error("EPG source returned 503");
+      const msg = await getErrorFor(err);
+      expect(msg).toContain("URL returned an error");
+    });
+
+    it("uses 'unknown error' and no hint for unrecognised errors", async () => {
+      const err = { message: undefined };
+      const msg = await getErrorFor(err);
+      expect(msg).toBe("Failed to fetch EPG: unknown error.");
+    });
+  });
 });
 
 describe("POST /api/tv/refresh", () => {
