@@ -264,6 +264,121 @@ describe("sync API route", () => {
     expect(complete!.removed).toBe(0);
   });
 
+  it("links to existing pathless row with year=NULL (year IS ? handles NULL)", async () => {
+    setSetting(db as unknown as ReturnType<typeof getDb>, 'library_path', '/movies');
+    // Filmweb-imported wishlist row with no year and no file_path
+    db.prepare(
+      "INSERT INTO movies (title, year, source, type, wishlist) VALUES (?, NULL, ?, ?, 1)",
+    ).run("Mystery Film", "filmweb", "movie");
+
+    vi.mocked(scanDirectoryGenerator).mockReturnValue(
+      (function* () {
+        yield {
+          filename: "Mystery.Film.mkv",
+          filePath: "/movies/Mystery.Film.mkv",
+          parsedTitle: "Mystery Film",
+          parsedYear: null,
+        };
+      })(),
+    );
+
+    const res = await POST();
+    const events = await readNDJSON(res);
+
+    const complete = events.find((e) => e.type === "complete");
+    expect(complete!.linked).toBe(1);
+    expect(complete!.added).toBe(0);
+    expect(searchTmdb).not.toHaveBeenCalled();
+
+    const movies = db.prepare("SELECT * FROM movies").all() as { file_path: string; source: string }[];
+    expect(movies).toHaveLength(1);
+    expect(movies[0].file_path).toBe("/movies/Mystery.Film.mkv");
+    expect(movies[0].source).toBe("filmweb");
+  });
+
+  it("links scanned file to existing pathless row by tmdb_id when filename uses an alt title", async () => {
+    setSetting(db as unknown as ReturnType<typeof getDb>, 'library_path', '/movies');
+    // Wishlist row stored under Polish title — matches by tmdb_id, not by filename title
+    insertMovie(db as unknown as ReturnType<typeof getDb>, {
+      title: "Adwokat",
+      year: 2013,
+      genre: null,
+      director: null,
+      rating: null,
+      poster_url: null,
+      source: "tmdb",
+      imdb_id: null,
+      tmdb_id: 109091,
+      type: "movie",
+    });
+
+    vi.mocked(scanDirectoryGenerator).mockReturnValue(
+      (function* () {
+        yield {
+          filename: "The.Counselor.2013.mkv",
+          filePath: "/movies/The.Counselor.2013.mkv",
+          parsedTitle: "The Counselor",
+          parsedYear: 2013,
+        };
+      })(),
+    );
+    vi.mocked(searchTmdb).mockResolvedValue([
+      { title: "The Counselor", year: 2013, genre: "Drama", rating: 5.3, poster_url: null, imdb_id: "tt2193215", tmdb_id: 109091 },
+    ]);
+
+    const res = await POST();
+    const events = await readNDJSON(res);
+
+    const complete = events.find((e) => e.type === "complete");
+    expect(complete!.linked).toBe(1);
+    expect(complete!.added).toBe(0);
+
+    const movies = db.prepare("SELECT * FROM movies").all() as { title: string; file_path: string }[];
+    expect(movies).toHaveLength(1);
+    expect(movies[0].title).toBe("Adwokat");
+    expect(movies[0].file_path).toBe("/movies/The.Counselor.2013.mkv");
+  });
+
+  it("links to existing pathless row by title+year when TMDb throws (no duplicate local row)", async () => {
+    setSetting(db as unknown as ReturnType<typeof getDb>, 'library_path', '/movies');
+    insertMovie(db as unknown as ReturnType<typeof getDb>, {
+      title: "Some Film",
+      year: 2000,
+      genre: null,
+      director: null,
+      rating: null,
+      poster_url: null,
+      source: "filmweb",
+      imdb_id: null,
+      tmdb_id: null,
+      type: "movie",
+    });
+
+    vi.mocked(scanDirectoryGenerator).mockReturnValue(
+      (function* () {
+        yield {
+          filename: "Some.Film.2000.mkv",
+          filePath: "/movies/Some.Film.2000.mkv",
+          parsedTitle: "Some Film",
+          parsedYear: 2000,
+        };
+      })(),
+    );
+    // searchTmdb is not consulted — fast path links first
+
+    const res = await POST();
+    const events = await readNDJSON(res);
+
+    const complete = events.find((e) => e.type === "complete");
+    expect(complete!.linked).toBe(1);
+    expect(complete!.added).toBe(0);
+
+    const movies = db.prepare("SELECT * FROM movies").all() as { source: string; file_path: string }[];
+    expect(movies).toHaveLength(1);
+    expect(movies[0].source).toBe("filmweb");
+    expect(movies[0].file_path).toBe("/movies/Some.Film.2000.mkv");
+  });
+
   it("emits scanning progress events during phase 1", async () => {
     setSetting(db as unknown as ReturnType<typeof getDb>, 'library_path', '/movies');
     vi.mocked(scanDirectoryGenerator).mockReturnValue(
