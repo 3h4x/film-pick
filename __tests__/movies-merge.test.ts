@@ -309,4 +309,24 @@ describe("POST /api/movies/merge", () => {
     expect(data.targetId).toBe(targetId);
     expect(data.message).toMatch(/merged/i);
   });
+
+  it("returns 500 when the DB transaction throws", async () => {
+    const sourceId = insertTestMovie(db, { title: "Source" });
+    const targetId = insertTestMovie(db, { title: "Target" });
+
+    vi.spyOn(db, "transaction").mockImplementationOnce(
+      // Cast needed: the stub omits Transaction-specific methods (deferred, etc.)
+      (() => {
+        return () => {
+          throw new Error("SQLITE_READONLY: attempt to write a readonly database");
+        };
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      }) as any,
+    );
+
+    const res = await POST(makeRequest({ sourceId, targetId }));
+    expect(res.status).toBe(500);
+    const data = await res.json();
+    expect(data.error).toMatch(/SQLITE_READONLY/);
+  });
 });

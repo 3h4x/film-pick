@@ -142,6 +142,21 @@ describe("movies/[id] PATCH handler", () => {
     expect(body.error).toMatch(/no valid fields/i);
   });
 
+  it("returns 500 with error message and code when DB update throws", async () => {
+    const dbError = Object.assign(new Error("SQLITE_CORRUPT: database disk image is malformed"), {
+      code: "SQLITE_CORRUPT",
+    });
+    vi.spyOn(db, "prepare").mockImplementationOnce(() => {
+      throw dbError;
+    });
+
+    const res = await PATCH(patchReq({ user_rating: 7 }), makeParams(movieId));
+    expect(res.status).toBe(500);
+    const body = await res.json();
+    expect(body.error).toBe("SQLITE_CORRUPT: database disk image is malformed");
+    expect(body.code).toBe("SQLITE_CORRUPT");
+  });
+
   it("returns 404 for a non-existent movie id", async () => {
     const res = await PATCH(patchReq({ user_rating: 5 }), makeParams(99999));
     expect(res.status).toBe(404);
@@ -287,6 +302,25 @@ describe("movies/[id] GET handler", () => {
     expect(res.status).toBe(200);
     const body = await res.json();
     expect(body.movie.title).toBe("Interstellar");
+    expect(body.metadata).toBeNull();
+  });
+
+  it("returns null metadata when video_metadata contains invalid JSON", async () => {
+    db.prepare("UPDATE movies SET video_metadata = ? WHERE id = ?").run(
+      "not-valid-json{",
+      movieId,
+    );
+
+    vi.mocked(getTmdbMovieDetails).mockResolvedValueOnce({
+      director: "Christopher Nolan",
+      writer: null,
+      actors: null,
+    });
+
+    const res = await GET(getReq(movieId), makeParams(movieId));
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    // JSON.parse fails silently; no file_path so ffprobe is not attempted
     expect(body.metadata).toBeNull();
   });
 
