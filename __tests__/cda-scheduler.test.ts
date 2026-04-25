@@ -104,6 +104,15 @@ describe("cda-scheduler", () => {
       vi.advanceTimersByTime(6 * 60 * 60 * 1000);
       expect(fetchAndStoreCdaMovies).not.toHaveBeenCalled();
     });
+
+    it("does not fire when no interval setting is stored", () => {
+      // No cda_refresh_interval_hours set — falls back to 0
+      rescheduleCdaJob(db);
+      vi.advanceTimersByTime(25 * 60 * 60 * 1000);
+
+      expect(fetchAndStoreCdaMovies).not.toHaveBeenCalled();
+    });
+
   });
 
   describe("initCdaScheduler", () => {
@@ -113,6 +122,34 @@ describe("cda-scheduler", () => {
       initCdaScheduler(db);
 
       expect(getSetting(db, "cda_refresh_status")).toBe("idle");
+    });
+
+    it("does not change status when status is idle", () => {
+      setSetting(db, "cda_refresh_status", "idle");
+
+      initCdaScheduler(db);
+
+      expect(getSetting(db, "cda_refresh_status")).toBe("idle");
+    });
+
+    it("does not change status when status is error", () => {
+      setSetting(db, "cda_refresh_status", "error");
+
+      initCdaScheduler(db);
+
+      expect(getSetting(db, "cda_refresh_status")).toBe("error");
+    });
+
+    it("calls rescheduleCdaJob — fires timer at configured interval", () => {
+      vi.useFakeTimers();
+      vi.mocked(fetchAndStoreCdaMovies).mockReturnValue(new Promise(() => {}));
+      setSetting(db, "cda_refresh_interval_hours", "24");
+
+      initCdaScheduler(db);
+      vi.advanceTimersByTime(24 * 60 * 60 * 1000);
+
+      expect(fetchAndStoreCdaMovies).toHaveBeenCalledOnce();
+      vi.useRealTimers();
     });
   });
 });
