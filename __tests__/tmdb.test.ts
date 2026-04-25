@@ -565,4 +565,34 @@ describe("fetchWithRetry — 429 rate-limit handling", () => {
     expect(credits.directors[0].name).toBe("A. Director");
     expect(mockFetch).toHaveBeenCalledTimes(2);
   });
+
+  it("searchTmdb retries on 429 and returns results on success", async () => {
+    mockFetch
+      .mockResolvedValueOnce({ ok: false, status: 429 })
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ results: [rawFilm] }),
+      });
+
+    const promise = searchTmdb("Retry Film");
+    await vi.advanceTimersByTimeAsync(1001);
+    const results = await promise;
+
+    expect(results).toHaveLength(1);
+    expect(results[0].title).toBe("Retry Film");
+    expect(mockFetch).toHaveBeenCalledTimes(2);
+  });
+
+  it("searchTmdb throws tmdb_api_error after exhausting all retries", async () => {
+    // All 4 attempts return 429; fetchWithRetry returns the final 429 response,
+    // then searchTmdb sees !res.ok and throws.
+    mockFetch.mockResolvedValue({ ok: false, status: 429, statusText: "Too Many Requests", text: async () => "" });
+
+    const promise = searchTmdb("Retry Film");
+    // Attach rejection handler BEFORE advancing timers so the rejection is not unhandled.
+    const assertion = expect(promise).rejects.toThrow("tmdb_api_error:429");
+    await vi.advanceTimersByTimeAsync(7001); // 1s + 2s + 4s
+    await assertion;
+    expect(mockFetch).toHaveBeenCalledTimes(4);
+  });
 });
