@@ -479,4 +479,40 @@ describe("recommendations GET handler", () => {
     const data = await res.json();
     expect(data[0].recommendations[0].title).toBe("Some Film");
   });
+
+  // ── Engine error resilience ───────────────────────────────────────────────
+
+  it("returns 200 with empty array when single engine throws", async () => {
+    mockGenreEngine.mockRejectedValue(new Error("TMDb network failure"));
+
+    const res = await GET(req({ engine: "genre" }));
+    expect(res.status).toBe(200);
+    const data = await res.json();
+    expect(data).toEqual([]);
+  });
+
+  it("skips failing engine and includes results from other engines in all-engines mode", async () => {
+    mockGenreEngine.mockRejectedValue(new Error("network failure"));
+    const rec = makeRec({ tmdb_id: 701, title: "Surprise Film" });
+    mockNoCacheEngine.mockResolvedValue([makeGroup({ type: "random", reason: "Surprise Me" }, [rec])]);
+
+    const res = await GET(req());
+    expect(res.status).toBe(200);
+    const data = await res.json();
+    const titles = data.flatMap((g: RecommendationGroup) => g.recommendations.map((r: TmdbSearchResult) => r.title));
+    expect(titles).toContain("Surprise Film");
+    expect(titles).not.toContain("Genre result");
+  });
+
+  it("skips failing db-backed engine and continues", async () => {
+    mockCdaEngine.mockRejectedValue(new Error("DB error"));
+    const rec = makeRec({ tmdb_id: 702, title: "Genre Film" });
+    mockGenreEngine.mockResolvedValue([makeGroup({ type: "genre", reason: "Genre picks" }, [rec])]);
+
+    const res = await GET(req());
+    expect(res.status).toBe(200);
+    const data = await res.json();
+    const titles = data.flatMap((g: RecommendationGroup) => g.recommendations.map((r: TmdbSearchResult) => r.title));
+    expect(titles).toContain("Genre Film");
+  });
 });
