@@ -10,3 +10,4 @@ next-env.d.ts
 tsconfig.tsbuildinfo
 .superpowers/
 docs/superpowers/
+.tamtam/
