@@ -2,6 +2,13 @@
 import { useState, useCallback, useMemo, useEffect } from "react";
 import type { Movie, SortOption } from "@/lib/types";
 import { PAGE_SIZE } from "@/lib/types";
+import {
+  filterMovies,
+  sortMovies,
+  extractGenres,
+  extractSources,
+  extractYears,
+} from "@/lib/utils";
 
 export function useLibrary(
   addToast: (message: string, variant?: "default" | "success") => void,
@@ -21,67 +28,19 @@ export function useLibrary(
     setVisibleCount(PAGE_SIZE);
   }, [sort, sortDir, genreFilter, sourceFilter, yearFilter, unratedOnly, searchQuery]);
 
-  const genres = useMemo(() => {
-    const all = new Set<string>();
-    movies.forEach((m) => {
-      if (m.genre) m.genre.split(", ").forEach((g) => all.add(g.trim()));
-    });
-    return Array.from(all).sort();
-  }, [movies]);
-
-  const sources = useMemo(() => {
-    const all = new Set<string>();
-    movies.forEach((m) => {
-      if (m.source) all.add(m.source);
-    });
-    return Array.from(all).sort();
-  }, [movies]);
-
-  const years = useMemo(() => {
-    const all = new Set<number>();
-    movies.forEach((m) => {
-      if (m.year) all.add(m.year);
-    });
-    return Array.from(all).sort((a, b) => b - a);
-  }, [movies]);
+  const genres = useMemo(() => extractGenres(movies), [movies]);
+  const sources = useMemo(() => extractSources(movies), [movies]);
+  const years = useMemo(() => extractYears(movies), [movies]);
 
   const sortedMovies = useMemo(() => {
-    let filtered = movies.filter(
-      (m) =>
-        m.source !== "recommendation" ||
-        (m.user_rating != null && (m.user_rating as number) > 0),
-    );
-    if (searchQuery) {
-      const q = searchQuery.toLowerCase();
-      filtered = filtered.filter(
-        (m) =>
-          m.title.toLowerCase().includes(q) ||
-          m.pl_title?.toLowerCase().includes(q),
-      );
-    }
-    if (genreFilter) filtered = filtered.filter((m) => m.genre?.includes(genreFilter));
-    if (sourceFilter) filtered = filtered.filter((m) => m.source === sourceFilter);
-    if (yearFilter) filtered = filtered.filter((m) => m.year?.toString() === yearFilter);
-    if (unratedOnly) filtered = filtered.filter((m) => !m.user_rating || m.user_rating === 0);
-    return [...filtered].sort((a, b) => {
-      const dir = sortDir === "desc" ? -1 : 1;
-      switch (sort) {
-        case "user_rating":
-          return dir * ((a.user_rating ?? -1) - (b.user_rating ?? -1));
-        case "rating":
-          return dir * ((a.rating ?? 0) - (b.rating ?? 0));
-        case "year":
-          return dir * ((a.year ?? 0) - (b.year ?? 0));
-        case "title":
-          return dir * a.title.localeCompare(b.title);
-        case "created_at":
-          return dir * a.created_at.localeCompare(b.created_at);
-        case "rated_at":
-          return dir * (a.rated_at ?? "").localeCompare(b.rated_at ?? "");
-        default:
-          return 0;
-      }
+    const filtered = filterMovies(movies, {
+      searchQuery,
+      genreFilter,
+      sourceFilter,
+      yearFilter,
+      unratedOnly,
     });
+    return sortMovies(filtered, sort, sortDir);
   }, [movies, sort, sortDir, genreFilter, sourceFilter, yearFilter, unratedOnly, searchQuery]);
 
   const visibleMovies = useMemo(

@@ -2,8 +2,12 @@
 import { useState, useCallback, useMemo, useEffect, useRef } from "react";
 import type { Movie, RecommendationGroup, AppTab } from "@/lib/types";
 import { REC_CATEGORIES } from "@/lib/types";
-import type { TmdbSearchResult } from "@/lib/tmdb";
 import type { MoodKey } from "@/lib/mood-presets";
+import type { TmdbSearchResult } from "@/lib/tmdb";
+import {
+  filterRatedRecommendations,
+  deduplicateRecommendations,
+} from "@/lib/utils";
 
 interface UseRecommendationsParams {
   movies: Movie[];
@@ -78,34 +82,17 @@ export function useRecommendations({
         )
         .map((m) => m.tmdb_id),
     );
-    const filterRated = (
-      groups: RecommendationGroup[],
-      skipFilter = false,
-    ) =>
-      groups
-        .map((g) => ({
-          ...g,
-          recommendations: skipFilter
-            ? g.recommendations
-            : g.recommendations.filter((r) => !ratedTmdbIds.has(r.tmdb_id)),
-        }))
-        .filter((g) => g.recommendations.length > 0);
-
     if (recCategory === "all") {
-      const seen = new Set<number>();
-      return filterRated(Object.values(recGroups).flat())
-        .map((g) => ({
-          ...g,
-          recommendations: g.recommendations.filter((r) => {
-            if (seen.has(r.tmdb_id)) return false;
-            seen.add(r.tmdb_id);
-            return true;
-          }),
-        }))
-        .filter((g) => g.recommendations.length > 0);
+      return deduplicateRecommendations(
+        filterRatedRecommendations(
+          Object.values(recGroups).flat(),
+          ratedTmdbIds,
+        ),
+      );
     }
-    return filterRated(
+    return filterRatedRecommendations(
       recGroups[recCategory] ?? [],
+      ratedTmdbIds,
       recCategory === "random",
     );
   }, [recGroups, recCategory, movies]);
