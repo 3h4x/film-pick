@@ -113,32 +113,37 @@ export async function GET(request: NextRequest) {
     key: string,
     def: (typeof engines)[string],
   ): Promise<RecommendationGroup[]> {
-    // DB-backed engines skip cache
-    if (def.dbBacked) {
+    try {
+      // DB-backed engines skip cache
+      if (def.dbBacked) {
+        const ctx = buildContext(movies, dismissedIds, config);
+        return addCdaUrls(filterExcluded(await def.engine(ctx)));
+      }
+
+      // noCache engines always fetch fresh (e.g. Surprise Me) — don't exclude rated movies
+      if (def.noCache) {
+        const ctx = buildContext(movies, dismissedIds, config);
+        return addCdaUrls(filterExcluded(await def.engine(ctx), { skipRated: true }));
+      }
+
+      if (refresh) clearCachedEngine(db, key);
+
+      const cached = getCachedEngine(db, key, movieCount);
+      if (cached) {
+        return addCdaUrls(
+          filterExcluded(enrichFromDb(cached as RecommendationGroup[], key)),
+        );
+      }
+
       const ctx = buildContext(movies, dismissedIds, config);
-      return addCdaUrls(filterExcluded(await def.engine(ctx)));
+      const groups = await def.engine(ctx);
+      setCachedEngine(db, key, groups, movieCount);
+      persistResults(groups);
+      return addCdaUrls(filterExcluded(groups));
+    } catch (err) {
+      console.error(`[Recommendations] engine "${key}" failed:`, err);
+      return [];
     }
-
-    // noCache engines always fetch fresh (e.g. Surprise Me) — don't exclude rated movies
-    if (def.noCache) {
-      const ctx = buildContext(movies, dismissedIds, config);
-      return addCdaUrls(filterExcluded(await def.engine(ctx), { skipRated: true }));
-    }
-
-    if (refresh) clearCachedEngine(db, key);
-
-    const cached = getCachedEngine(db, key, movieCount);
-    if (cached) {
-      return addCdaUrls(
-        filterExcluded(enrichFromDb(cached as RecommendationGroup[], key)),
-      );
-    }
-
-    const ctx = buildContext(movies, dismissedIds, config);
-    const groups = await def.engine(ctx);
-    setCachedEngine(db, key, groups, movieCount);
-    persistResults(groups);
-    return addCdaUrls(filterExcluded(groups));
   }
 
   function applyMaxPerGroup(
