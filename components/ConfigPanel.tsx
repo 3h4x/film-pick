@@ -2,6 +2,9 @@
 
 import { useState, useEffect } from "react";
 import { EPG_PRESETS } from "@/lib/epg-presets";
+import type { RecConfig } from "@/lib/types";
+
+export type { RecConfig };
 
 const ALL_GENRES = [
   "Action",
@@ -24,18 +27,6 @@ const ALL_GENRES = [
   "War",
   "Western",
 ];
-
-export interface RecConfig {
-  excluded_genres: string[];
-  min_year: number | null;
-  min_rating: number | null;
-  max_per_group: number;
-  movie_seed_min_rating?: number;
-  movie_seed_count?: number;
-  use_tmdb_similar?: boolean;
-  actor_min_appearances?: number;
-  director_min_films?: number;
-}
 
 const DEFAULTS: RecConfig = {
   excluded_genres: [],
