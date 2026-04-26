@@ -186,6 +186,8 @@ export default function Home() {
   // Rec state
   const [recCategory, setRecCategory] = useState("all");
   const [activeMood, setActiveMood] = useState<MoodKey | null>(null);
+  const [engineDropdownOpen, setEngineDropdownOpen] = useState(false);
+  const [moodDropdownOpen, setMoodDropdownOpen] = useState(false);
   const [moodGroups, setMoodGroups] = useState<RecommendationGroup[]>([]);
   const [moodLoading, setMoodLoading] = useState(false);
   const [moodError, setMoodError] = useState<string | null>(null);
@@ -1498,48 +1500,108 @@ export default function Home() {
               </div>
             ) : (
               <>
-                {/* Unified filter row: engines + mood chips + refresh */}
-                <div className="flex items-center gap-2">
-                  <div className="flex gap-1 overflow-x-auto min-w-0 bg-gray-800/40 p-1 rounded-xl">
-                    {REC_CATEGORIES.filter((cat) => cat.value === "all" || !disabledEngines.includes(cat.value)).map((cat) => (
-                      <button
-                        key={cat.value}
-                        onClick={() => { setRecCategory(cat.value); setActiveMood(null); }}
-                        className={`px-3 py-1.5 text-xs font-medium rounded-lg transition-all whitespace-nowrap flex items-center gap-1.5 ${
-                          !activeMood && recCategory === cat.value
-                            ? "bg-gray-700/80 text-white shadow-sm"
-                            : "text-gray-500 hover:text-gray-300 hover:bg-gray-700/30"
-                        }`}
-                      >
-                        {cat.label}
-                        {categoryCounts[cat.value] != null && (
-                          <span className={`text-xs tabular-nums ${!activeMood && recCategory === cat.value ? "text-gray-400" : "text-gray-600"}`}>
-                            {categoryCounts[cat.value]}
-                          </span>
-                        )}
-                      </button>
-                    ))}
-                    <div className="w-px self-stretch bg-gray-700/60 mx-0.5 flex-shrink-0" />
-                    {MOOD_KEYS.map((key) => {
-                      const preset = MOOD_PRESETS[key];
-                      const isActive = activeMood === key;
-                      return (
-                        <button
-                          key={key}
-                          onClick={() => setActiveMood(isActive ? null : key)}
-                          className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium whitespace-nowrap transition-all ${
-                            isActive
-                              ? "bg-indigo-600/80 text-white shadow-sm"
-                              : "text-gray-500 hover:text-gray-300 hover:bg-gray-700/30"
-                          }`}
-                        >
-                          <span>{preset.icon}</span>
-                          <span>{preset.label}</span>
-                        </button>
-                      );
-                    })}
+                {/* Filter row: engine dropdown + mood dropdown + refresh */}
+                {(engineDropdownOpen || moodDropdownOpen) && (
+                  <div className="fixed inset-0 z-40" onClick={() => { setEngineDropdownOpen(false); setMoodDropdownOpen(false); }} />
+                )}
+                <div className="flex items-center gap-2 relative z-50">
+                  {/* Engine dropdown */}
+                  <div className="relative">
+                    <button
+                      onClick={() => { setEngineDropdownOpen(!engineDropdownOpen); setMoodDropdownOpen(false); }}
+                      className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-all border ${
+                        !activeMood
+                          ? "bg-gray-700/80 border-gray-600 text-white"
+                          : "bg-gray-800/60 border-gray-700/50 text-gray-400 hover:text-gray-200 hover:border-gray-600"
+                      }`}
+                    >
+                      <span>{activeMood ? "Engine" : (REC_CATEGORIES.find(c => c.value === recCategory)?.label ?? "All")}</span>
+                      {!activeMood && categoryCounts[recCategory] != null && (
+                        <span className="tabular-nums text-gray-400">{categoryCounts[recCategory]}</span>
+                      )}
+                      <svg className="w-3 h-3 text-gray-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
+                      </svg>
+                    </button>
+                    {engineDropdownOpen && (
+                      <div className="absolute top-full left-0 mt-1 bg-gray-800 border border-gray-700 rounded-xl shadow-xl z-50 py-1 min-w-[180px]">
+                        {REC_CATEGORIES.filter((cat) => cat.value === "all" || !disabledEngines.includes(cat.value)).map((cat) => (
+                          <button
+                            key={cat.value}
+                            onClick={() => { setRecCategory(cat.value); setActiveMood(null); setEngineDropdownOpen(false); }}
+                            className={`w-full flex items-center justify-between px-3 py-1.5 text-xs font-medium transition-all ${
+                              !activeMood && recCategory === cat.value
+                                ? "text-white bg-gray-700/60"
+                                : "text-gray-400 hover:text-gray-200 hover:bg-gray-700/30"
+                            }`}
+                          >
+                            <span>{cat.label}</span>
+                            {categoryCounts[cat.value] != null && (
+                              <span className="tabular-nums text-gray-600 ml-3">{categoryCounts[cat.value]}</span>
+                            )}
+                          </button>
+                        ))}
+                      </div>
+                    )}
                   </div>
-                  <div className="flex items-center gap-2 flex-shrink-0">
+
+                  {/* Mood dropdown */}
+                  <div className="relative">
+                    <button
+                      onClick={() => { setMoodDropdownOpen(!moodDropdownOpen); setEngineDropdownOpen(false); }}
+                      className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-all border ${
+                        activeMood
+                          ? "bg-indigo-600/80 border-indigo-500/60 text-white"
+                          : "bg-gray-800/60 border-gray-700/50 text-gray-400 hover:text-gray-200 hover:border-gray-600"
+                      }`}
+                    >
+                      {activeMood ? (
+                        <>
+                          <span>{MOOD_PRESETS[activeMood].icon}</span>
+                          <span>{MOOD_PRESETS[activeMood].label}</span>
+                        </>
+                      ) : (
+                        <span>Mood</span>
+                      )}
+                      <svg className="w-3 h-3 text-gray-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
+                      </svg>
+                    </button>
+                    {moodDropdownOpen && (
+                      <div className="absolute top-full left-0 mt-1 bg-gray-800 border border-gray-700 rounded-xl shadow-xl z-50 py-1 min-w-[180px]">
+                        {activeMood && (
+                          <>
+                            <button
+                              onClick={() => { setActiveMood(null); setMoodDropdownOpen(false); }}
+                              className="w-full flex items-center px-3 py-1.5 text-xs font-medium text-gray-500 hover:text-gray-200 hover:bg-gray-700/30 transition-all"
+                            >
+                              Clear mood
+                            </button>
+                            <div className="h-px bg-gray-700/60 mx-2 my-1" />
+                          </>
+                        )}
+                        {MOOD_KEYS.map((key) => {
+                          const preset = MOOD_PRESETS[key];
+                          return (
+                            <button
+                              key={key}
+                              onClick={() => { setActiveMood(key); setMoodDropdownOpen(false); }}
+                              className={`w-full flex items-center gap-2 px-3 py-1.5 text-xs font-medium transition-all ${
+                                activeMood === key
+                                  ? "text-white bg-indigo-600/40"
+                                  : "text-gray-400 hover:text-gray-200 hover:bg-gray-700/30"
+                              }`}
+                            >
+                              <span>{preset.icon}</span>
+                              <span>{preset.label}</span>
+                            </button>
+                          );
+                        })}
+                      </div>
+                    )}
+                  </div>
+
+                  <div className="flex items-center gap-2 ml-auto">
                     {lastRecsRefresh && (
                       <span className="text-gray-600 text-xs hidden sm:inline">
                         refreshed {formatRefreshTime(lastRecsRefresh)}
@@ -1551,7 +1613,7 @@ export default function Home() {
                       title="Refresh recommendations"
                     >
                       <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                        <path strokeLinecap="round" strokeLinejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0f01-15.357-2m15.357 2H15" />
                       </svg>
                     </button>
                   </div>
