@@ -98,3 +98,122 @@ export function parseFilename(filename: string): {
 export function getErrorMessage(error: unknown): string {
   return error instanceof Error ? error.message : String(error);
 }
+
+import type { Movie, SortOption } from "@/lib/types";
+import type { RecommendationGroup } from "@/lib/types";
+import type { TmdbSearchResult } from "@/lib/tmdb";
+
+export interface MovieFilters {
+  searchQuery?: string;
+  genreFilter?: string;
+  sourceFilter?: string;
+  yearFilter?: string;
+  unratedOnly?: boolean;
+}
+
+export function filterMovies(movies: Movie[], filters: MovieFilters): Movie[] {
+  let filtered = movies.filter(
+    (m) =>
+      m.source !== "recommendation" ||
+      (m.user_rating != null && (m.user_rating as number) > 0),
+  );
+  const { searchQuery, genreFilter, sourceFilter, yearFilter, unratedOnly } =
+    filters;
+  if (searchQuery) {
+    const q = searchQuery.toLowerCase();
+    filtered = filtered.filter(
+      (m) =>
+        m.title.toLowerCase().includes(q) ||
+        m.pl_title?.toLowerCase().includes(q),
+    );
+  }
+  if (genreFilter)
+    filtered = filtered.filter((m) => m.genre?.includes(genreFilter));
+  if (sourceFilter) filtered = filtered.filter((m) => m.source === sourceFilter);
+  if (yearFilter)
+    filtered = filtered.filter((m) => m.year?.toString() === yearFilter);
+  if (unratedOnly)
+    filtered = filtered.filter((m) => !m.user_rating || m.user_rating === 0);
+  return filtered;
+}
+
+export function sortMovies(
+  movies: Movie[],
+  sort: SortOption,
+  sortDir: "asc" | "desc",
+): Movie[] {
+  const dir = sortDir === "desc" ? -1 : 1;
+  return [...movies].sort((a, b) => {
+    switch (sort) {
+      case "user_rating":
+        return dir * ((a.user_rating ?? -1) - (b.user_rating ?? -1));
+      case "rating":
+        return dir * ((a.rating ?? 0) - (b.rating ?? 0));
+      case "year":
+        return dir * ((a.year ?? 0) - (b.year ?? 0));
+      case "title":
+        return dir * a.title.localeCompare(b.title);
+      case "created_at":
+        return dir * a.created_at.localeCompare(b.created_at);
+      case "rated_at":
+        return dir * (a.rated_at ?? "").localeCompare(b.rated_at ?? "");
+      default:
+        return 0;
+    }
+  });
+}
+
+export function extractGenres(movies: Movie[]): string[] {
+  const all = new Set<string>();
+  movies.forEach((m) => {
+    if (m.genre) m.genre.split(", ").forEach((g) => all.add(g.trim()));
+  });
+  return Array.from(all).sort();
+}
+
+export function extractSources(movies: Movie[]): string[] {
+  const all = new Set<string>();
+  movies.forEach((m) => {
+    if (m.source) all.add(m.source);
+  });
+  return Array.from(all).sort();
+}
+
+export function extractYears(movies: Movie[]): number[] {
+  const all = new Set<number>();
+  movies.forEach((m) => {
+    if (m.year) all.add(m.year);
+  });
+  return Array.from(all).sort((a, b) => b - a);
+}
+
+export function filterRatedRecommendations(
+  groups: RecommendationGroup[],
+  ratedTmdbIds: Set<number | null | undefined>,
+  skipFilter = false,
+): RecommendationGroup[] {
+  return groups
+    .map((g) => ({
+      ...g,
+      recommendations: skipFilter
+        ? g.recommendations
+        : g.recommendations.filter((r) => !ratedTmdbIds.has(r.tmdb_id)),
+    }))
+    .filter((g) => g.recommendations.length > 0);
+}
+
+export function deduplicateRecommendations(
+  groups: RecommendationGroup[],
+): RecommendationGroup[] {
+  const seen = new Set<number>();
+  return groups
+    .map((g) => ({
+      ...g,
+      recommendations: g.recommendations.filter((r: TmdbSearchResult) => {
+        if (seen.has(r.tmdb_id)) return false;
+        seen.add(r.tmdb_id);
+        return true;
+      }),
+    }))
+    .filter((g) => g.recommendations.length > 0);
+}
