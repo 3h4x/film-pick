@@ -1,10 +1,11 @@
 /**
- * Import Filmweb ratings export into movies-organizer SQLite DB.
+ * One-time import of a Filmweb ratings export into the FilmPick SQLite DB.
+ * Run once after exporting your ratings from Filmweb. Not intended for
+ * repeated or scheduled use — Filmweb is not synced automatically.
  *
- * Usage: npx tsx scripts/import-filmweb.ts <path-to-json>
+ * Usage: npx tsx scripts/import-filmweb.ts <path-to-json> [--enrich]
  *
- * Imports all movies with Filmweb metadata. Optionally enriches with TMDb
- * poster/genre data (pass --enrich flag, requires TMDB_API_KEY env var).
+ * Optionally pass --enrich to fetch TMDb poster/genre data (requires TMDB_API_KEY).
  */
 
 import Database from "better-sqlite3";

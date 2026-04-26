@@ -6,7 +6,7 @@ Personal movie discovery engine with a Next.js web UI and SQLite database.
 
 - **Web app:** Next.js 16 (App Router), React 19, TypeScript, Tailwind CSS 4
 - **Database:** SQLite via `better-sqlite3`
-- **Data sources:** TMDb API, Filmweb (import)
+- **Data sources:** TMDb API, Filmweb (one-time import only — no scheduled sync)
 - **Testing:** Vitest
 - **Package manager:** pnpm (do not use npm)
 - **Secrets:** bioenv (Touch ID-protected Keychain)
@@ -113,7 +113,7 @@ eval "$(bioenv load)"                # Load into shell before running dev
 ### Scripts
 
 ```bash
-# Import Filmweb ratings export
+# One-time import of Filmweb ratings export (run once after exporting from Filmweb)
 pnpm dlx tsx scripts/import-filmweb.ts <path-to-json> [--enrich]
 
 # Enrich existing movies with TMDb posters (requires TMDB_API_KEY)
