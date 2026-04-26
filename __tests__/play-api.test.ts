@@ -4,9 +4,9 @@ import Database from "better-sqlite3";
 import path from "path";
 import { initDb, insertMovie } from "@/lib/db";
 
-const { mockAccess, mockExec } = vi.hoisted(() => ({
+const { mockAccess, mockExecFile } = vi.hoisted(() => ({
   mockAccess: vi.fn(),
-  mockExec: vi.fn(),
+  mockExecFile: vi.fn(),
 }));
 
 vi.mock("fs/promises", () => ({
@@ -15,7 +15,7 @@ vi.mock("fs/promises", () => ({
 }));
 
 vi.mock("child_process", () => ({
-  exec: mockExec,
+  execFile: mockExecFile,
 }));
 
 vi.mock("util", async (importOriginal) => {
@@ -23,7 +23,7 @@ vi.mock("util", async (importOriginal) => {
   return {
     ...actual,
     promisify: vi.fn((fn: unknown) => {
-      if (fn === mockExec) {
+      if (fn === mockExecFile) {
         return vi.fn().mockResolvedValue({ stdout: "", stderr: "" });
       }
       return actual.promisify(fn as never);

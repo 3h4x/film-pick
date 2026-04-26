@@ -1,12 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getDb, Movie } from "@/lib/db";
 import { getErrorMessage } from "@/lib/utils";
-import { exec } from "child_process";
+import { execFile } from "child_process";
 import { promisify } from "util";
 import fs from "fs/promises";
 import path from "path";
 
-const execAsync = promisify(exec);
+const execFileAsync = promisify(execFile);
 
 export async function POST(
   req: NextRequest,
@@ -54,18 +54,16 @@ export async function POST(
 
     if (action === "play") {
       console.log(`[Play] Opening files in VLC: ${allFiles.join(", ")}`);
-      // On MacOS: open -a VLC "file"
-      const args = allFiles.map((f) => `"${f}"`).join(" ");
       try {
-        await execAsync(`open -a VLC ${args}`);
+        await execFileAsync("open", ["-a", "VLC", ...allFiles]);
       } catch (e) {
         console.warn(`[Play] Failed to open in VLC, trying default player:`, e);
-        await execAsync(`open ${args}`);
+        await execFileAsync("open", allFiles);
       }
       return NextResponse.json({ ok: true, message: "Playing movie" });
     } else if (action === "folder") {
       console.log(`[Play] Opening folder: ${path.dirname(filePath)}`);
-      await execAsync(`open "${path.dirname(filePath)}"`);
+      await execFileAsync("open", [path.dirname(filePath)]);
       return NextResponse.json({ ok: true, message: "Opening folder" });
     }
 
