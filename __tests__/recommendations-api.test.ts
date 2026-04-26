@@ -3,7 +3,7 @@ import { NextRequest } from "next/server";
 import Database from "better-sqlite3";
 import fs from "fs";
 import path from "path";
-import { initDb, setCachedEngine, setSetting } from "@/lib/db";
+import { initDb, setCachedEngine, setSetting, saveRecommendedMovies, updateRecommendedMovie } from "@/lib/db";
 import type { RecommendationGroup } from "@/lib/engines";
 import type { TmdbSearchResult } from "@/lib/tmdb";
 
@@ -426,5 +426,57 @@ describe("recommendations GET handler", () => {
     expect(reasons).toContain("Genre picks");
     expect(reasons).toContain("Surprise Me");
     expect(mockNoCacheEngine).toHaveBeenCalledOnce();
+  });
+
+  // ── enrichFromDb: cached results get pl_title and cda_url from DB ────────
+
+  it("enriches cached recommendations with pl_title from recommended_movies", async () => {
+    const rec = makeRec({ tmdb_id: 555, title: "Arrival" });
+    const group = makeGroup({ type: "genre", reason: "Sci-Fi" }, [rec]);
+    setCachedEngine(db, "genre", [group], 0);
+    saveRecommendedMovies(db, "genre", "Sci-Fi", [rec]);
+    updateRecommendedMovie(db, 555, { pl_title: "Nowy Przybytek" });
+
+    const res = await GET(req({ engine: "genre" }));
+    const data = await res.json();
+    expect(data[0].recommendations[0].pl_title).toBe("Nowy Przybytek");
+    expect(mockGenreEngine).not.toHaveBeenCalled();
+  });
+
+  it("enriches cached recommendations with cda_url from recommended_movies", async () => {
+    const rec = makeRec({ tmdb_id: 556, title: "Interstellar" });
+    const group = makeGroup({ type: "genre", reason: "Sci-Fi" }, [rec]);
+    setCachedEngine(db, "genre", [group], 0);
+    saveRecommendedMovies(db, "genre", "Sci-Fi", [rec]);
+    updateRecommendedMovie(db, 556, { cda_url: "https://www.cda.pl/video/interstellar" });
+
+    const res = await GET(req({ engine: "genre" }));
+    const data = await res.json();
+    expect(data[0].recommendations[0].cda_url).toBe("https://www.cda.pl/video/interstellar");
+  });
+
+  it("leaves cached rec unchanged when it has no matching recommended_movies row", async () => {
+    const rec = makeRec({ tmdb_id: 557, title: "Unknown Film" });
+    const group = makeGroup({ type: "genre", reason: "Picks" }, [rec]);
+    setCachedEngine(db, "genre", [group], 0);
+    // No saveRecommendedMovies call — DB table empty for this tmdb_id
+
+    const res = await GET(req({ engine: "genre" }));
+    const data = await res.json();
+    expect(data[0].recommendations[0].pl_title).toBeUndefined();
+    expect(data[0].recommendations[0].cda_url).toBeUndefined();
+  });
+
+  // ── Malformed rec_config JSON falls back gracefully ───────────────────────
+
+  it("treats malformed rec_config JSON as no config (no filtering applied)", async () => {
+    setSetting(db, "rec_config", "not-valid-json{{{");
+    const rec = makeRec({ tmdb_id: 600, title: "Some Film" });
+    mockGenreEngine.mockResolvedValue([makeGroup({ type: "genre", reason: "Picks" }, [rec])]);
+
+    const res = await GET(req({ engine: "genre" }));
+    expect(res.status).toBe(200);
+    const data = await res.json();
+    expect(data[0].recommendations[0].title).toBe("Some Film");
   });
 });

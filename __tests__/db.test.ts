@@ -152,12 +152,29 @@ describe("recommendation cache", () => {
     expect(getCachedEngine(db, "director", 5)).toEqual([{ tmdb_id: 2 }]);
   });
 
+  it("also clears recommended_movies for a specific engine", () => {
+    const m = { tmdb_id: 1, title: "A", year: 2020, genre: "Drama", rating: 7.0, poster_url: null };
+    saveRecommendedMovies(db, "genre", "reason", [m]);
+    saveRecommendedMovies(db, "director", "reason2", [{ ...m, tmdb_id: 2 }]);
+    clearCachedEngine(db, "genre");
+    expect(getRecommendedMovies(db, "genre")).toHaveLength(0);
+    expect(getRecommendedMovies(db, "director")).toHaveLength(1);
+  });
+
   it("clears all caches when no engine specified", () => {
     setCachedEngine(db, "genre", [{ tmdb_id: 1 }], 5);
     setCachedEngine(db, "director", [{ tmdb_id: 2 }], 5);
     clearCachedEngine(db);
     expect(getCachedEngine(db, "genre", 5)).toBeNull();
     expect(getCachedEngine(db, "director", 5)).toBeNull();
+  });
+
+  it("also clears all recommended_movies when no engine specified", () => {
+    const m = { tmdb_id: 1, title: "A", year: 2020, genre: "Drama", rating: 7.0, poster_url: null };
+    saveRecommendedMovies(db, "genre", "reason", [m]);
+    saveRecommendedMovies(db, "director", "reason2", [{ ...m, tmdb_id: 2 }]);
+    clearCachedEngine(db);
+    expect(getRecommendedMovies(db)).toHaveLength(0);
   });
 
   it("returns null when cached data is malformed JSON", () => {
