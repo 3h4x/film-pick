@@ -1,7 +1,14 @@
-import { describe, it, expect } from "vitest";
-import { filterResults, enrichWithCda, buildContext } from "@/lib/engines";
+import { describe, it, expect, vi, beforeEach } from "vitest";
+
+vi.mock("@/lib/db", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("@/lib/db")>();
+  return { ...actual, getDb: vi.fn(), getRecommendedMovies: vi.fn() };
+});
+
+import { filterResults, enrichWithCda, buildContext, getCdaLookup } from "@/lib/engines";
 import type { TmdbSearchResult } from "@/lib/tmdb";
-import type { Movie } from "@/lib/db";
+import type { Movie, RecommendedMovie } from "@/lib/db";
+import { getDb, getRecommendedMovies } from "@/lib/db";
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -36,6 +43,14 @@ function makeMovie(overrides: Partial<Movie> & { id: number; title: string }): M
     ...overrides,
   } as Movie;
 }
+
+// ---------------------------------------------------------------------------
+// Shared setup
+// ---------------------------------------------------------------------------
+
+beforeEach(() => {
+  vi.resetAllMocks();
+});
 
 // ---------------------------------------------------------------------------
 // filterResults
@@ -328,5 +343,132 @@ describe("buildContext", () => {
     const ctx = buildContext([], new Set());
     expect(ctx.libraryTmdbIds.size).toBe(0);
     expect(ctx.libraryTitles.size).toBe(0);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// getCdaLookup
+// ---------------------------------------------------------------------------
+
+function makeCdaMovie(overrides: Partial<RecommendedMovie> & { tmdb_id: number; title: string }): RecommendedMovie {
+  return {
+    id: overrides.tmdb_id,
+    engine: "cda",
+    reason: "cda",
+    year: 2020,
+    genre: "Drama",
+    rating: 7.0,
+    poster_url: null,
+    pl_title: null,
+    cda_url: "https://cda.pl/video/default",
+    description: null,
+    created_at: "2026-01-01",
+    ...overrides,
+  };
+}
+
+describe("getCdaLookup", () => {
+  it("returns empty maps when there are no CDA movies", () => {
+    vi.mocked(getDb).mockReturnValue({} as ReturnType<typeof getDb>);
+    vi.mocked(getRecommendedMovies).mockReturnValue([]);
+
+    const lookup = getCdaLookup();
+
+    expect(lookup.byTmdbId.size).toBe(0);
+    expect(lookup.byTitle.size).toBe(0);
+  });
+
+  it("maps tmdb_id to cda_url", () => {
+    vi.mocked(getDb).mockReturnValue({} as ReturnType<typeof getDb>);
+    vi.mocked(getRecommendedMovies).mockReturnValue([
+      makeCdaMovie({ tmdb_id: 42, title: "Inception", cda_url: "https://cda.pl/video/abc" }),
+    ]);
+
+    const lookup = getCdaLookup();
+
+    expect(lookup.byTmdbId.get(42)).toBe("https://cda.pl/video/abc");
+  });
+
+  it("maps title (lowercased) to cda_url", () => {
+    vi.mocked(getDb).mockReturnValue({} as ReturnType<typeof getDb>);
+    vi.mocked(getRecommendedMovies).mockReturnValue([
+      makeCdaMovie({ tmdb_id: 10, title: "The Matrix", cda_url: "https://cda.pl/video/matrix" }),
+    ]);
+
+    const lookup = getCdaLookup();
+
+    expect(lookup.byTitle.get("the matrix")).toBe("https://cda.pl/video/matrix");
+    expect(lookup.byTitle.has("The Matrix")).toBe(false);
+  });
+
+  it("maps pl_title (lowercased) to cda_url when present", () => {
+    vi.mocked(getDb).mockReturnValue({} as ReturnType<typeof getDb>);
+    vi.mocked(getRecommendedMovies).mockReturnValue([
+      makeCdaMovie({ tmdb_id: 5, title: "Inception", pl_title: "Incepcja", cda_url: "https://cda.pl/video/inc" }),
+    ]);
+
+    const lookup = getCdaLookup();
+
+    expect(lookup.byTitle.get("incepcja")).toBe("https://cda.pl/video/inc");
+  });
+
+  it("maps both title and pl_title for the same movie", () => {
+    vi.mocked(getDb).mockReturnValue({} as ReturnType<typeof getDb>);
+    vi.mocked(getRecommendedMovies).mockReturnValue([
+      makeCdaMovie({ tmdb_id: 7, title: "The Dark Knight", pl_title: "Mroczny Rycerz", cda_url: "https://cda.pl/video/dk" }),
+    ]);
+
+    const lookup = getCdaLookup();
+
+    expect(lookup.byTitle.get("the dark knight")).toBe("https://cda.pl/video/dk");
+    expect(lookup.byTitle.get("mroczny rycerz")).toBe("https://cda.pl/video/dk");
+  });
+
+  it("skips movies that have no cda_url", () => {
+    vi.mocked(getDb).mockReturnValue({} as ReturnType<typeof getDb>);
+    vi.mocked(getRecommendedMovies).mockReturnValue([
+      makeCdaMovie({ tmdb_id: 99, title: "No Link", cda_url: null }),
+    ]);
+
+    const lookup = getCdaLookup();
+
+    expect(lookup.byTmdbId.size).toBe(0);
+    expect(lookup.byTitle.size).toBe(0);
+  });
+
+  it("skips tmdb_id entry when tmdb_id is null", () => {
+    vi.mocked(getDb).mockReturnValue({} as ReturnType<typeof getDb>);
+    const movie = makeCdaMovie({ tmdb_id: 1, title: "No Id Movie", cda_url: "https://cda.pl/video/noid" });
+    (movie as { tmdb_id: number | null }).tmdb_id = null;
+    vi.mocked(getRecommendedMovies).mockReturnValue([movie as RecommendedMovie]);
+
+    const lookup = getCdaLookup();
+
+    expect(lookup.byTmdbId.size).toBe(0);
+    expect(lookup.byTitle.get("no id movie")).toBe("https://cda.pl/video/noid");
+  });
+
+  it("builds lookup from multiple movies independently", () => {
+    vi.mocked(getDb).mockReturnValue({} as ReturnType<typeof getDb>);
+    vi.mocked(getRecommendedMovies).mockReturnValue([
+      makeCdaMovie({ tmdb_id: 1, title: "Film A", cda_url: "https://cda.pl/video/a" }),
+      makeCdaMovie({ tmdb_id: 2, title: "Film B", cda_url: "https://cda.pl/video/b" }),
+    ]);
+
+    const lookup = getCdaLookup();
+
+    expect(lookup.byTmdbId.get(1)).toBe("https://cda.pl/video/a");
+    expect(lookup.byTmdbId.get(2)).toBe("https://cda.pl/video/b");
+    expect(lookup.byTitle.get("film a")).toBe("https://cda.pl/video/a");
+    expect(lookup.byTitle.get("film b")).toBe("https://cda.pl/video/b");
+  });
+
+  it("calls getRecommendedMovies with engine='cda'", () => {
+    vi.mocked(getDb).mockReturnValue({} as ReturnType<typeof getDb>);
+    vi.mocked(getRecommendedMovies).mockReturnValue([]);
+
+    getCdaLookup();
+
+    expect(getRecommendedMovies).toHaveBeenCalledWith(expect.anything(), "cda");
   });
 });
