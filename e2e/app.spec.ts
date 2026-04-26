@@ -213,16 +213,19 @@ test.describe("discover / recommendations tab", () => {
   test("category filter tabs are visible", async ({ page }) => {
     await mockAPIs(page);
     await page.goto("/");
-    // Wait for movies to load first (needed for rec tabs to appear)
+    // Wait for movies to load first (needed for rec dropdowns to appear)
     await expect(page.getByPlaceholder("Search library...")).toBeVisible();
-    await expect(page.getByText("All")).toBeVisible();
-    await expect(page.getByText("By Genre")).toBeVisible();
+    // Engine dropdown trigger shows "All" (default category), Mood dropdown trigger shows "Mood"
+    await expect(page.getByRole("button", { name: /^All/ })).toBeVisible();
+    await expect(page.getByRole("button", { name: /^Mood/ })).toBeVisible();
   });
 
   test("switching category tab updates URL hash", async ({ page }) => {
     await mockAPIs(page);
     await page.goto("/");
     await expect(page.getByPlaceholder("Search library...")).toBeVisible();
+    // Open the engine dropdown, then pick "By Genre" from inside it
+    await page.getByRole("button", { name: /^All/ }).click();
     await page.getByRole("button", { name: "By Genre" }).click();
     await expect(page).toHaveURL(/#recommendations\/genre/);
   });
