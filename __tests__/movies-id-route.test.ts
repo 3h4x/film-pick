@@ -531,4 +531,65 @@ describe("movies/[id] GET handler", () => {
     const body = await res.json();
     expect(body.metadata).toMatchObject({ error: expect.stringContaining("ffprobe") });
   });
+
+  it("returns 200 with director=null when getTmdbMovieDetails throws during credits enrichment", async () => {
+    // movieId has tmdb_id=157336 and director=null → enrichment path runs
+    vi.mocked(getTmdbMovieDetails).mockRejectedValueOnce(new Error("TMDb API unreachable"));
+
+    const res = await GET(getReq(movieId), makeParams(movieId));
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    // Error is caught internally; movie is still returned
+    expect(body.movie).toBeDefined();
+    expect(body.movie.director).toBeNull();
+    // DB is unchanged
+    const row = db.prepare("SELECT director FROM movies WHERE id = ?").get(movieId) as { director: string | null };
+    expect(row.director).toBeNull();
+  });
+
+  it("runs credits enrichment after successful auto-link in the same request", async () => {
+    const unlinkId = insertMovie(db, {
+      title: "Parasite",
+      year: 2019,
+      genre: null,
+      director: null,
+      rating: null,
+      poster_url: null,
+      source: "manual",
+      imdb_id: null,
+      tmdb_id: null,
+      type: "movie",
+    });
+
+    // auto-link resolves the tmdb_id
+    vi.mocked(searchTmdb).mockResolvedValueOnce([
+      {
+        tmdb_id: 496243,
+        title: "Parasite",
+        year: 2019,
+        genre: "Thriller",
+        rating: 8.5,
+        poster_url: "/parasite.jpg",
+        imdb_id: "tt6751668",
+      },
+    ]);
+    vi.mocked(getMovieLocalized).mockResolvedValueOnce({ pl_title: "Pasożyt", description: "Dark comedy thriller." });
+    // after auto-link, credits enrichment runs for the newly acquired tmdb_id
+    vi.mocked(getTmdbMovieDetails).mockResolvedValueOnce({
+      director: "Bong Joon-ho",
+      writer: "Bong Joon-ho",
+      actors: "Song Kang-ho",
+    });
+
+    const res = await GET(getReq(unlinkId), makeParams(unlinkId));
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body.movie.tmdb_id).toBe(496243);
+    expect(body.movie.pl_title).toBe("Pasożyt");
+    expect(body.movie.director).toBe("Bong Joon-ho");
+    // Persisted to DB
+    const row = db.prepare("SELECT director, tmdb_id FROM movies WHERE id = ?").get(unlinkId) as { director: string; tmdb_id: number };
+    expect(row.director).toBe("Bong Joon-ho");
+    expect(row.tmdb_id).toBe(496243);
+  });
 });
