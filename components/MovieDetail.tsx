@@ -654,10 +654,10 @@ export default function MovieDetail({
       onClick={onClose}
     >
       <div
-        className="bg-gray-900 border border-gray-700/50 rounded-2xl p-8 w-full max-w-5xl max-h-[90vh] overflow-y-auto shadow-2xl relative"
+        className="bg-gray-900 border border-gray-700/50 rounded-2xl w-full max-w-5xl max-h-[90vh] shadow-2xl relative flex flex-col"
         onClick={(e) => e.stopPropagation()}
       >
-        <div className="absolute top-6 right-6 z-50 flex items-center gap-2">
+        <div className="shrink-0 flex items-center justify-end gap-2 px-4 sm:px-6 pt-3 pb-2">
           {filePath && (
             <div className="flex items-center gap-2 mr-2">
               <button
@@ -835,6 +835,7 @@ export default function MovieDetail({
           </div>
         )}
 
+        <div className="overflow-y-auto flex-1 px-4 sm:px-8 pb-6 pt-2">
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
           {/* Left Column: Poster, Credits & Technical Info */}
           <div className="lg:col-span-4 space-y-6">
@@ -1110,7 +1111,7 @@ export default function MovieDetail({
           <div className="lg:col-span-8 space-y-8">
             {/* Title & Actions */}
             <div className="space-y-1">
-              <h2 className="text-3xl font-black text-white tracking-tight">
+              <h2 className="text-2xl sm:text-3xl font-black text-white tracking-tight">
                 {movieTitle}
               </h2>
               {plTitle && plTitle !== movieTitle && (
@@ -1732,6 +1733,7 @@ export default function MovieDetail({
               )}
             </div>
           </div>
+        </div>
         </div>
       </div>
     </div>
