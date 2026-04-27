@@ -274,7 +274,7 @@ export default function ConfigPanel({
     <div className="max-w-2xl space-y-8">
 
       {/* Tab nav */}
-      <div className="flex gap-1 bg-gray-800/40 p-1 rounded-xl w-fit">
+      <div className="flex gap-1 bg-gray-800/40 p-1 rounded-xl overflow-x-auto">
         {CONFIG_TABS.map((tab) => (
           <button
             key={tab.value}
@@ -753,7 +753,7 @@ export default function ConfigPanel({
               </div>
 
               {/* Min Year + Min Rating side by side */}
-              <div className="grid grid-cols-2 gap-6">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-6">
                 <div>
                   <p className="text-xs text-gray-500 mb-2">Minimum year</p>
                   <div className="flex items-center gap-2 flex-wrap">
@@ -827,7 +827,7 @@ export default function ConfigPanel({
               <div className="rounded-lg bg-white/[0.03] border border-white/[0.06] p-4 space-y-4">
                 <p className="text-xs font-medium text-gray-400 uppercase tracking-wider">Similar Movies</p>
 
-                <div className="grid grid-cols-2 gap-6">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-6">
                   <div>
                     <p className="text-xs text-gray-500 mb-2">Seed min. rating</p>
                     <Hint>Only use movies you rated at least this highly as seeds.</Hint>
@@ -885,7 +885,7 @@ export default function ConfigPanel({
               <div className="rounded-lg bg-white/[0.03] border border-white/[0.06] p-4 space-y-4">
                 <p className="text-xs font-medium text-gray-400 uppercase tracking-wider">People</p>
 
-                <div className="grid grid-cols-2 gap-6">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-6">
                   <div>
                     <p className="text-xs text-gray-500 mb-2">Actor min. appearances</p>
                     <Hint>An actor must appear in this many of your rated movies to qualify.</Hint>

@@ -189,7 +189,7 @@ export default function AppNav({
         </div>
 
         {/* Row 2: Tabs */}
-        <div className="flex gap-0.5">
+        <div className="flex gap-0.5 overflow-x-auto">
           {tabs.map((tab) => {
             const active = activeTab === tab.key;
             return (
