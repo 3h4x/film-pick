@@ -684,4 +684,92 @@ describe("movies/[id] GET handler", () => {
     expect(row.director).toBe("Bong Joon-ho");
     expect(row.tmdb_id).toBe(496243);
   });
+
+  it("re-attempts TMDb linking for CDA movie with pseudo-ID (no genre) and succeeds", async () => {
+    // Movie added from CDA with a hash-based pseudo tmdb_id and no genre
+    const cdaId = insertMovie(db, {
+      title: "Popiełuszko",
+      year: 2023,
+      genre: null,
+      director: null,
+      rating: null,
+      poster_url: null,
+      source: "recommendation",
+      imdb_id: null,
+      tmdb_id: 1151563536,  // fake hashCode-based pseudo-ID
+      type: "movie",
+    });
+    db.prepare("UPDATE movies SET cda_url = ? WHERE id = ?").run(
+      "https://www.cda.pl/video/abc123/vfilm",
+      cdaId,
+    );
+
+    vi.mocked(searchTmdb).mockResolvedValueOnce([
+      {
+        tmdb_id: 987654,
+        title: "Popiełuszko",
+        year: 2023,
+        genre: "Drama, Biography",
+        rating: 7.2,
+        poster_url: "/pop.jpg",
+        imdb_id: "tt123456",
+      },
+    ]);
+    vi.mocked(getMovieLocalized).mockResolvedValueOnce({
+      pl_title: "Popiełuszko. Wolność jest w nas",
+      description: "Film biograficzny.",
+    });
+    vi.mocked(getTmdbMovieDetails).mockResolvedValueOnce({
+      director: "Rafał Wieczyński",
+      writer: null,
+      actors: "Jacek Belowski",
+    });
+
+    const res = await GET(getReq(cdaId), makeParams(cdaId));
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body.movie.tmdb_id).toBe(987654);
+    expect(body.movie.genre).toBe("Drama, Biography");
+    expect(body.movie.director).toBe("Rafał Wieczyński");
+    expect(body.movie.pl_title).toBe("Popiełuszko. Wolność jest w nas");
+
+    // Pseudo-ID replaced in DB
+    const row = db.prepare("SELECT tmdb_id, genre FROM movies WHERE id = ?").get(cdaId) as { tmdb_id: number; genre: string };
+    expect(row.tmdb_id).toBe(987654);
+    expect(row.genre).toBe("Drama, Biography");
+  });
+
+  it("skips credits/description enrichment when CDA pseudo-ID cannot be resolved", async () => {
+    // Movie with pseudo-ID, no genre → auto-link finds nothing → enrichments must be skipped
+    const cdaId = insertMovie(db, {
+      title: "Obscure Polish Film",
+      year: 2020,
+      genre: null,
+      director: null,
+      rating: null,
+      poster_url: null,
+      source: "recommendation",
+      imdb_id: null,
+      tmdb_id: 999888777,  // another pseudo-ID
+      type: "movie",
+    });
+    db.prepare("UPDATE movies SET cda_url = ? WHERE id = ?").run(
+      "https://www.cda.pl/video/xyz/vfilm",
+      cdaId,
+    );
+
+    // searchTmdb returns nothing — auto-link fails
+    vi.mocked(searchTmdb).mockResolvedValueOnce([]);
+
+    const res = await GET(getReq(cdaId), makeParams(cdaId));
+    expect(res.status).toBe(200);
+    // getTmdbMovieDetails and getMovieLocalized must NOT have been called (pseudo-ID still in place)
+    expect(vi.mocked(getTmdbMovieDetails)).not.toHaveBeenCalled();
+    expect(vi.mocked(getMovieLocalized)).not.toHaveBeenCalled();
+
+    // DB unchanged
+    const row = db.prepare("SELECT tmdb_id, genre FROM movies WHERE id = ?").get(cdaId) as { tmdb_id: number; genre: string | null };
+    expect(row.tmdb_id).toBe(999888777);
+    expect(row.genre).toBeNull();
+  });
 });
