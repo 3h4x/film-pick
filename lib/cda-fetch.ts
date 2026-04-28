@@ -242,7 +242,7 @@ export async function fetchAndStoreCdaMovies(db: Database.Database): Promise<voi
         movie.year,
         tmdb.genre,
         tmdb.rating,
-        movie.poster_url,
+        tmdb.poster_url ?? movie.poster_url,
         movie.title,
         movie.url,
         tmdb.description,
