@@ -31,6 +31,7 @@ export default function LibraryView({
     sourceFilter,
     yearFilter,
     unratedOnly,
+    hasFileOnly,
     searchQuery,
     setSearchQuery,
     genres,
@@ -46,6 +47,7 @@ export default function LibraryView({
     setSourceFilter,
     setYearFilter,
     setUnratedOnly,
+    setHasFileOnly,
     handleDeleteMovie,
     handleMoveToWatchlist,
   } = library;
@@ -140,6 +142,7 @@ export default function LibraryView({
         year={yearFilter}
         years={years}
         unratedOnly={unratedOnly}
+        hasFileOnly={hasFileOnly}
         searchQuery={searchQuery}
         onSortChange={setSortOption}
         onSortDirChange={toggleSortDir}
@@ -147,6 +150,7 @@ export default function LibraryView({
         onSourceChange={setSourceFilter}
         onYearChange={setYearFilter}
         onUnratedChange={setUnratedOnly}
+        onHasFileChange={setHasFileOnly}
         onSearchChange={setSearchQuery}
       />
       <div className="flex flex-wrap items-end justify-between gap-4 mb-4">

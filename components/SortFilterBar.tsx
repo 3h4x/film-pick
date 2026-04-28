@@ -18,6 +18,7 @@ interface SortFilterBarProps {
   year: string;
   years: number[];
   unratedOnly: boolean;
+  hasFileOnly: boolean;
   searchQuery: string;
   onSortChange: (sort: SortOption) => void;
   onSortDirChange: () => void;
@@ -25,6 +26,7 @@ interface SortFilterBarProps {
   onSourceChange: (source: string) => void;
   onYearChange: (year: string) => void;
   onUnratedChange: (unrated: boolean) => void;
+  onHasFileChange: (hasFile: boolean) => void;
   onSearchChange: (query: string) => void;
 }
 
@@ -47,6 +49,7 @@ export default function SortFilterBar({
   year,
   years,
   unratedOnly,
+  hasFileOnly,
   searchQuery,
   onSortChange,
   onSortDirChange,
@@ -54,6 +57,7 @@ export default function SortFilterBar({
   onSourceChange,
   onYearChange,
   onUnratedChange,
+  onHasFileChange,
   onSearchChange,
 }: SortFilterBarProps) {
   return (
@@ -143,6 +147,18 @@ export default function SortFilterBar({
             }`}
           >
             {unratedOnly ? "★ Showing Unrated" : "☆ Show Unrated"}
+          </button>
+
+          {/* Has file toggle */}
+          <button
+            onClick={() => onHasFileChange(!hasFileOnly)}
+            className={`px-3 py-2 text-xs font-medium rounded-xl border transition-all ${
+              hasFileOnly
+                ? "bg-indigo-500/20 text-indigo-400 border-indigo-500/30"
+                : "bg-gray-800/60 text-gray-400 border-gray-700/50 hover:text-gray-300"
+            }`}
+          >
+            {hasFileOnly ? "Has File (on)" : "Has File"}
           </button>
         </div>
       </div>

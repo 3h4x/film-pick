@@ -131,6 +131,25 @@ describe("filterMovies", () => {
     expect(result.map((m) => m.id)).toEqual([1, 2]);
   });
 
+  it("filters hasFileOnly — keeps movies with a file_path, excludes null/undefined", () => {
+    const movies = [
+      makeMovie({ id: 1, file_path: "/movies/inception.mkv" }),
+      makeMovie({ id: 2, file_path: null }),
+      makeMovie({ id: 3, file_path: undefined }),
+    ];
+    const result = filterMovies(movies, { hasFileOnly: true });
+    expect(result.map((m) => m.id)).toEqual([1]);
+  });
+
+  it("hasFileOnly does not filter when false", () => {
+    const movies = [
+      makeMovie({ id: 1, file_path: "/movies/inception.mkv" }),
+      makeMovie({ id: 2, file_path: null }),
+    ];
+    const result = filterMovies(movies, { hasFileOnly: false });
+    expect(result.map((m) => m.id)).toEqual([1, 2]);
+  });
+
   it("applies multiple filters simultaneously", () => {
     const movies = [
       makeMovie({ id: 1, genre: "Drama", year: 2010, user_rating: null }),

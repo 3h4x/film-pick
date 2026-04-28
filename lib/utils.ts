@@ -109,6 +109,7 @@ export interface MovieFilters {
   sourceFilter?: string;
   yearFilter?: string;
   unratedOnly?: boolean;
+  hasFileOnly?: boolean;
 }
 
 export function filterMovies(movies: Movie[], filters: MovieFilters): Movie[] {
@@ -117,7 +118,7 @@ export function filterMovies(movies: Movie[], filters: MovieFilters): Movie[] {
       m.source !== "recommendation" ||
       (m.user_rating != null && (m.user_rating as number) > 0),
   );
-  const { searchQuery, genreFilter, sourceFilter, yearFilter, unratedOnly } =
+  const { searchQuery, genreFilter, sourceFilter, yearFilter, unratedOnly, hasFileOnly } =
     filters;
   if (searchQuery) {
     const q = searchQuery.toLowerCase();
@@ -134,6 +135,8 @@ export function filterMovies(movies: Movie[], filters: MovieFilters): Movie[] {
     filtered = filtered.filter((m) => m.year?.toString() === yearFilter);
   if (unratedOnly)
     filtered = filtered.filter((m) => !m.user_rating || m.user_rating === 0);
+  if (hasFileOnly)
+    filtered = filtered.filter((m) => !!m.file_path);
   return filtered;
 }
 
