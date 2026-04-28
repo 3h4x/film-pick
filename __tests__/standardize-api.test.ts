@@ -229,7 +229,7 @@ describe("movies/[id]/standardize POST handler", () => {
 
     const row = db
       .prepare("SELECT file_path, title, year FROM movies WHERE id = ?")
-      .get(movieId) as any;
+      .get(movieId) as { file_path: string; title: string; year: number };
     expect(row.file_path).toBe(expectedNewPath);
     expect(row.title).toBe("Inception");
     expect(row.year).toBe(2010);
@@ -341,7 +341,7 @@ describe("movies/[id]/standardize POST handler", () => {
 
     const row = db
       .prepare("SELECT file_path FROM movies WHERE id = ?")
-      .get(movieId) as any;
+      .get(movieId) as { file_path: string };
     expect(row.file_path).toBe(expectedNewPath);
   });
 
@@ -388,7 +388,7 @@ describe("movies/[id]/standardize POST handler", () => {
     // Main movie should have been moved
     const row = db
       .prepare("SELECT file_path, title FROM movies WHERE id = ?")
-      .get(movieId) as any;
+      .get(movieId) as { file_path: string; title: string };
     expect(row.file_path).toBe(expectedNewPath);
     expect(row.title).toBe("Inception");
   });
@@ -443,7 +443,7 @@ describe("movies/[id]/standardize POST handler", () => {
     // Main movie gets updated path
     const row = db
       .prepare("SELECT file_path FROM movies WHERE id = ?")
-      .get(movieId) as any;
+      .get(movieId) as { file_path: string };
     expect(row.file_path).toBe(expectedNewPath);
   });
 
@@ -553,7 +553,7 @@ describe("movies/[id]/standardize POST handler", () => {
 
     const row = db
       .prepare("SELECT extra_files FROM movies WHERE id = ?")
-      .get(movieId) as any;
+      .get(movieId) as { extra_files: string };
     const extra = JSON.parse(row.extra_files);
     expect(extra).toContain(expectedSiblingPath);
   });
@@ -604,7 +604,7 @@ describe("movies/[id]/standardize POST handler", () => {
     // Movie gets merged metadata and new path
     const row = db
       .prepare("SELECT file_path, director, rating FROM movies WHERE id = ?")
-      .get(movieId) as any;
+      .get(movieId) as { file_path: string; director: string; rating: number };
     expect(row.file_path).toBe(expectedNewPath);
     expect(row.director).toBe("Christopher Nolan");
     expect(row.rating).toBe(9.0); // max of 8.0 and 9.0
@@ -653,7 +653,7 @@ describe("movies/[id]/standardize POST handler", () => {
     // conflictId survives with merged rating (max of 7.0 and 9.0)
     const survivor = db
       .prepare("SELECT rating FROM movies WHERE id = ?")
-      .get(conflictId) as any;
+      .get(conflictId) as { rating: number };
     expect(survivor).toBeDefined();
     expect(survivor.rating).toBe(9.0);
   });
@@ -702,7 +702,7 @@ describe("movies/[id]/standardize POST handler", () => {
     // movieId updated with new path and merged metadata (director from conflict)
     const row = db
       .prepare("SELECT file_path, director FROM movies WHERE id = ?")
-      .get(movieId) as any;
+      .get(movieId) as { file_path: string; director: string };
     expect(row.file_path).toBe(newPath);
     expect(row.director).toBe("Christopher Nolan");
   });
