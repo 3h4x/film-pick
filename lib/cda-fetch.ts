@@ -1,4 +1,5 @@
 import type Database from "better-sqlite3";
+import { searchTmdbPl } from "@/lib/tmdb";
 
 const CDA_BASE = "https://www.cda.pl";
 const USER_AGENT =
@@ -181,83 +182,6 @@ async function scrapeCategory(category: string): Promise<CdaMovie[]> {
   return movies;
 }
 
-const TMDB_BASE = "https://api.themoviedb.org/3";
-const TMDB_GENRE_MAP: Record<number, string> = {
-  28: "Action",
-  12: "Adventure",
-  16: "Animation",
-  35: "Comedy",
-  80: "Crime",
-  99: "Documentary",
-  18: "Drama",
-  10751: "Family",
-  14: "Fantasy",
-  36: "History",
-  27: "Horror",
-  10402: "Music",
-  9648: "Mystery",
-  10749: "Romance",
-  878: "Sci-Fi",
-  10770: "TV Movie",
-  53: "Thriller",
-  10752: "War",
-  37: "Western",
-};
-
-interface TmdbEnrichment {
-  tmdb_id: number;
-  genre: string;
-  rating: number;
-  description: string | null;
-  tmdb_poster: string | null;
-}
-
-async function enrichFromTmdb(
-  title: string,
-  year: number | null,
-): Promise<TmdbEnrichment | null> {
-  const apiKey = process.env.TMDB_API_KEY;
-  if (!apiKey) return null;
-
-  async function searchWithYear(y: number | null) {
-    let url = `${TMDB_BASE}/search/movie?query=${encodeURIComponent(title)}&language=pl-PL&page=1`;
-    if (y) url += `&year=${y}`;
-    const res = await fetch(url, {
-      headers: { Authorization: `Bearer ${apiKey}` },
-    });
-    if (!res.ok) return null;
-    return await res.json();
-  }
-
-  let data = await searchWithYear(year);
-
-  if ((!data || !data.results?.length) && year) {
-    data = await searchWithYear(year + 1);
-    if (!data || !data.results?.length) {
-      data = await searchWithYear(year - 1);
-    }
-  }
-
-  if (!data || !data.results?.length) {
-    data = await searchWithYear(null);
-  }
-
-  const match = data?.results?.[0];
-  if (!match) return null;
-
-  return {
-    tmdb_id: match.id,
-    genre: (match.genre_ids || [])
-      .map((id: number) => TMDB_GENRE_MAP[id] || "Unknown")
-      .join(", "),
-    rating: Math.round(match.vote_average * 10) / 10,
-    description: match.overview || null,
-    tmdb_poster: match.poster_path
-      ? `https://image.tmdb.org/t/p/w300${match.poster_path}`
-      : null,
-  };
-}
-
 export async function fetchAndStoreCdaMovies(db: Database.Database): Promise<void> {
   console.log("[cda] Fetching CDA Premium...");
   const premiumMovies = await scrapePremium();
@@ -308,7 +232,7 @@ export async function fetchAndStoreCdaMovies(db: Database.Database): Promise<voi
 
   for (let i = 0; i < movies.length; i++) {
     const movie = movies[i];
-    const tmdb = await enrichFromTmdb(movie.title, movie.year);
+    const tmdb = await searchTmdbPl(movie.title, movie.year);
 
     if (tmdb) {
       insertStmt.run(
