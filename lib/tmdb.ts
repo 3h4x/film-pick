@@ -387,7 +387,7 @@ export async function discoverByMood(
 export async function searchTmdbPl(
   title: string,
   year: number | null,
-): Promise<{ tmdb_id: number; genre: string; rating: number; description: string | null } | null> {
+): Promise<{ tmdb_id: number; genre: string; rating: number; description: string | null; poster_url: string | null } | null> {
   let apiKey: string;
   try {
     apiKey = getApiKey();
@@ -400,6 +400,7 @@ export async function searchTmdbPl(
     genre_ids: number[];
     vote_average: number;
     overview: string | null;
+    poster_path: string | null;
   }
 
   async function searchWithYear(y: number | null) {
@@ -426,6 +427,9 @@ export async function searchTmdbPl(
     genre: (match.genre_ids || []).map((id) => TMDB_GENRE_MAP[id] || "Unknown").join(", "),
     rating: Math.round(match.vote_average * 10) / 10,
     description: match.overview || null,
+    poster_url: match.poster_path
+      ? `https://image.tmdb.org/t/p/w300${match.poster_path}`
+      : null,
   };
 }
 
