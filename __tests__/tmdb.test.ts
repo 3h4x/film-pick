@@ -311,8 +311,37 @@ describe("getMovieLocalized", () => {
       ok: true,
       json: async () => ({}),
     });
+    mockFetch.mockResolvedValueOnce({
+      ok: true,
+      json: async () => ({}),
+    });
     const result = await getMovieLocalized(1);
     expect(result).toEqual({ pl_title: null, description: null });
+  });
+
+  it("falls back to English description when Polish overview is missing", async () => {
+    mockFetch.mockResolvedValueOnce({
+      ok: true,
+      json: async () => ({ title: "Incepcja" }),
+    });
+    mockFetch.mockResolvedValueOnce({
+      ok: true,
+      json: async () => ({ overview: "A thief who steals corporate secrets." }),
+    });
+    const result = await getMovieLocalized(27205);
+    expect(result.pl_title).toBe("Incepcja");
+    expect(result.description).toBe("A thief who steals corporate secrets.");
+    expect(mockFetch).toHaveBeenCalledTimes(2);
+    expect(mockFetch).toHaveBeenNthCalledWith(
+      1,
+      expect.stringContaining("language=pl-PL"),
+      expect.any(Object),
+    );
+    expect(mockFetch).toHaveBeenNthCalledWith(
+      2,
+      expect.stringContaining("language=en-US"),
+      expect.any(Object),
+    );
   });
 });
 

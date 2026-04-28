@@ -192,14 +192,29 @@ export async function searchTmdb(
 export async function getMovieLocalized(
   tmdbId: number,
 ): Promise<{ pl_title: string | null; description: string | null }> {
-  const url = `${TMDB_BASE}/movie/${tmdbId}?language=pl-PL`;
   const apiKey = getApiKey();
-  const res = await fetchWithRetry(url, apiKey);
-  if (!res.ok) return { pl_title: null, description: null };
-  const data = (await res.json()) as { title?: string; overview?: string };
+  const plRes = await fetchWithRetry(
+    `${TMDB_BASE}/movie/${tmdbId}?language=pl-PL`,
+    apiKey,
+  );
+  if (!plRes.ok) return { pl_title: null, description: null };
+  const plData = (await plRes.json()) as { title?: string; overview?: string };
+
+  let description = plData.overview || null;
+  if (!description) {
+    const enRes = await fetchWithRetry(
+      `${TMDB_BASE}/movie/${tmdbId}?language=en-US`,
+      apiKey,
+    );
+    if (enRes.ok) {
+      const enData = (await enRes.json()) as { overview?: string };
+      description = enData.overview || null;
+    }
+  }
+
   return {
-    pl_title: data.title || null,
-    description: data.overview || null,
+    pl_title: plData.title || null,
+    description,
   };
 }
 
