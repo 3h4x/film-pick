@@ -229,6 +229,33 @@ export async function GET(
     }
   }
 
+  // Enrich description and pl_title from TMDb if missing (covers CDA recs that already have tmdb_id)
+  if (movie.tmdb_id && (!movie.description || !movie.pl_title)) {
+    try {
+      const localized = await getMovieLocalized(movie.tmdb_id);
+      const sets: string[] = [];
+      const vals: (string | null)[] = [];
+      if (localized.pl_title && !movie.pl_title) {
+        sets.push("pl_title = ?");
+        vals.push(localized.pl_title);
+        movie.pl_title = localized.pl_title;
+      }
+      if (localized.description && !movie.description) {
+        sets.push("description = ?");
+        vals.push(localized.description);
+        movie.description = localized.description;
+      }
+      if (sets.length > 0) {
+        db.prepare(`UPDATE movies SET ${sets.join(", ")} WHERE id = ?`).run(
+          ...vals,
+          parseInt(id, 10),
+        );
+      }
+    } catch (error) {
+      console.error("[Localized] Error fetching TMDb localized data:", error);
+    }
+  }
+
   return Response.json(
     JSON.parse(
       JSON.stringify({ movie, metadata }, (_k, v) =>

@@ -547,6 +547,98 @@ describe("movies/[id] GET handler", () => {
     expect(row.director).toBeNull();
   });
 
+  it("enriches pl_title and description when movie has tmdb_id but both are missing", async () => {
+    // movieId has tmdb_id=157336, no director (credits enrichment runs first), no pl_title/description
+    vi.mocked(getTmdbMovieDetails).mockResolvedValueOnce({
+      director: "Christopher Nolan",
+      writer: null,
+      actors: null,
+    });
+    vi.mocked(getMovieLocalized).mockResolvedValueOnce({
+      pl_title: "Interstellar",
+      description: "Podróż przez czerw.",
+    });
+
+    const res = await GET(getReq(movieId), makeParams(movieId));
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body.movie.pl_title).toBe("Interstellar");
+    expect(body.movie.description).toBe("Podróż przez czerw.");
+
+    const row = db
+      .prepare("SELECT pl_title, description FROM movies WHERE id = ?")
+      .get(movieId) as { pl_title: string; description: string };
+    expect(row.pl_title).toBe("Interstellar");
+    expect(row.description).toBe("Podróż przez czerw.");
+  });
+
+  it("enriches only pl_title when description is already present", async () => {
+    db.prepare("UPDATE movies SET description = ? WHERE id = ?").run(
+      "Existing description",
+      movieId,
+    );
+
+    vi.mocked(getTmdbMovieDetails).mockResolvedValueOnce({
+      director: "Christopher Nolan",
+      writer: null,
+      actors: null,
+    });
+    vi.mocked(getMovieLocalized).mockResolvedValueOnce({
+      pl_title: "Interstellar (PL)",
+      description: "Should not overwrite existing",
+    });
+
+    const res = await GET(getReq(movieId), makeParams(movieId));
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body.movie.pl_title).toBe("Interstellar (PL)");
+    // description was already set — should not be overwritten
+    expect(body.movie.description).toBe("Existing description");
+
+    const row = db
+      .prepare("SELECT pl_title, description FROM movies WHERE id = ?")
+      .get(movieId) as { pl_title: string; description: string };
+    expect(row.pl_title).toBe("Interstellar (PL)");
+    expect(row.description).toBe("Existing description");
+  });
+
+  it("skips localized enrichment entirely when both pl_title and description are already set", async () => {
+    db.prepare("UPDATE movies SET pl_title = ?, description = ? WHERE id = ?").run(
+      "Interstellar (PL)",
+      "Już opisany.",
+      movieId,
+    );
+
+    vi.mocked(getTmdbMovieDetails).mockResolvedValueOnce({
+      director: "Christopher Nolan",
+      writer: null,
+      actors: null,
+    });
+
+    const res = await GET(getReq(movieId), makeParams(movieId));
+    expect(res.status).toBe(200);
+    // getMovieLocalized should not have been called (only the auto-link mock was set, not this path)
+    // Default mock returns null/null but we verify no extra call happened beyond credits
+    expect(vi.mocked(getMovieLocalized)).not.toHaveBeenCalled();
+  });
+
+  it("returns 200 when getMovieLocalized throws during description/pl_title enrichment", async () => {
+    vi.mocked(getTmdbMovieDetails).mockResolvedValueOnce({
+      director: "Christopher Nolan",
+      writer: null,
+      actors: null,
+    });
+    vi.mocked(getMovieLocalized).mockRejectedValueOnce(new Error("localization unavailable"));
+
+    const res = await GET(getReq(movieId), makeParams(movieId));
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    // Movie is returned despite error; localized fields remain null
+    expect(body.movie).toBeDefined();
+    expect(body.movie.pl_title).toBeNull();
+    expect(body.movie.description).toBeNull();
+  });
+
   it("runs credits enrichment after successful auto-link in the same request", async () => {
     const unlinkId = insertMovie(db, {
       title: "Parasite",
