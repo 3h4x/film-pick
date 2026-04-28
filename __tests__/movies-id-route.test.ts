@@ -357,7 +357,7 @@ describe("movies/[id] GET handler", () => {
     expect(body.movie.actors).toBe("Matthew McConaughey, Anne Hathaway");
 
     // Verify the credits were persisted to the DB
-    const row = db.prepare("SELECT director, writer, actors FROM movies WHERE id = ?").get(movieId) as any;
+    const row = db.prepare("SELECT director, writer, actors FROM movies WHERE id = ?").get(movieId) as { director: string; writer: string | null; actors: string };
     expect(row.director).toBe("Christopher Nolan");
     expect(row.actors).toBe("Matthew McConaughey, Anne Hathaway");
   });
@@ -411,7 +411,7 @@ describe("movies/[id] GET handler", () => {
     expect(body.movie.source).toBe("tmdb");
 
     // Verify persisted to DB
-    const row = db.prepare("SELECT tmdb_id, pl_title, source FROM movies WHERE id = ?").get(unlinkId) as any;
+    const row = db.prepare("SELECT tmdb_id, pl_title, source FROM movies WHERE id = ?").get(unlinkId) as { tmdb_id: number; pl_title: string; source: string };
     expect(row.tmdb_id).toBe(438631);
     expect(row.source).toBe("tmdb");
   });
