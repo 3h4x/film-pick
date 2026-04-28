@@ -53,9 +53,9 @@ export default function LibraryView({
   if (initialLoad) {
     return (
       <div className="animate-pulse space-y-6">
-        <div className="h-10 w-80 bg-gray-800/40 rounded-xl" />
+        <div className="h-10 w-full max-w-xs bg-gray-800/40 rounded-xl" />
         <div className="flex gap-3">
-          <div className="h-9 w-96 bg-gray-800/30 rounded-xl" />
+          <div className="h-9 w-full max-w-sm bg-gray-800/30 rounded-xl" />
           <div className="h-9 w-28 bg-gray-800/30 rounded-xl" />
         </div>
         <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-5">

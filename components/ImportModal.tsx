@@ -126,7 +126,7 @@ export default function ImportModal({
   }
 
   return (
-    <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-start justify-center z-50 pt-[10vh]">
+    <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-start justify-center z-50 pt-[10vh] px-4">
       <div className="bg-gray-900 border border-gray-700/50 rounded-2xl p-6 w-full max-w-lg shadow-2xl shadow-black/50">
         <div className="flex justify-between items-center mb-5">
           <h2 className="text-white text-lg font-semibold">
@@ -134,7 +134,7 @@ export default function ImportModal({
           </h2>
           <button
             onClick={onClose}
-            className="text-gray-500 hover:text-white transition-colors w-8 h-8 rounded-lg hover:bg-gray-800 flex items-center justify-center"
+            className="text-gray-500 hover:text-white transition-colors w-10 h-10 rounded-lg hover:bg-gray-800 flex items-center justify-center"
           >
             ✕
           </button>

@@ -61,14 +61,14 @@ export default function MovieCard({
         </div>
 
         {/* Watchlist/Delete buttons */}
-        <div className="absolute top-2 right-2 flex gap-1.5 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
+        <div className="absolute top-2 right-2 flex gap-1.5 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity duration-200">
           {onAddToWatchlist && (
             <button
               onClick={(e) => {
                 e.stopPropagation();
                 onAddToWatchlist();
               }}
-              className="bg-indigo-500/80 backdrop-blur-sm text-white rounded-lg w-7 h-7 text-xs font-bold hover:bg-indigo-400 flex items-center justify-center shadow-lg"
+              className="bg-indigo-500/80 backdrop-blur-sm text-white rounded-lg w-9 h-9 text-xs font-bold hover:bg-indigo-400 flex items-center justify-center shadow-lg"
               title="Add to Watchlist"
             >
               +
@@ -80,7 +80,7 @@ export default function MovieCard({
                 e.stopPropagation();
                 onDelete();
               }}
-              className="bg-red-500/80 backdrop-blur-sm text-white rounded-lg w-7 h-7 text-xs font-bold hover:bg-red-400 flex items-center justify-center shadow-lg"
+              className="bg-red-500/80 backdrop-blur-sm text-white rounded-lg w-9 h-9 text-xs font-bold hover:bg-red-400 flex items-center justify-center shadow-lg"
               title="Remove"
             >
               ✕
