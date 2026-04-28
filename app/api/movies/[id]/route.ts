@@ -136,8 +136,11 @@ export async function GET(
     }
   }
 
-  // Automatic TMDb linking if tmdb_id is missing
-  if (!movie.tmdb_id) {
+  // Automatic TMDb linking if tmdb_id is missing, OR if this is a CDA movie with a pseudo-ID
+  // (cda-fetch stores a hashCode-based fake tmdb_id when searchTmdbPl finds no match;
+  //  these entries have no genre — use that as the sentinel)
+  const needsAutoLink = !movie.tmdb_id || (!movie.genre && movie.cda_url);
+  if (needsAutoLink) {
     const cleanedTitle = cleanTitle(movie.title);
     try {
       const results = await searchTmdb(cleanedTitle, movie.year);
@@ -207,8 +210,12 @@ export async function GET(
     }
   }
 
+  // If the auto-link attempt above didn't resolve a pseudo-ID (cda_url set, genre still null),
+  // skip further TMDb calls — the ID is still fake and would 404.
+  const unresolvedPseudoId = needsAutoLink && movie.cda_url && !movie.genre;
+
   // Enrich with credits from TMDb (always overwrite — TMDb is authoritative)
-  if (movie.tmdb_id && (!movie.director || !movie.writer || !movie.actors)) {
+  if (movie.tmdb_id && !unresolvedPseudoId && (!movie.director || !movie.writer || !movie.actors)) {
     try {
       const credits = await getTmdbMovieDetails(movie.tmdb_id);
       if (credits.director || credits.writer || credits.actors) {
@@ -230,7 +237,7 @@ export async function GET(
   }
 
   // Enrich description and pl_title from TMDb if missing (covers CDA recs that already have tmdb_id)
-  if (movie.tmdb_id && (!movie.description || !movie.pl_title)) {
+  if (movie.tmdb_id && !unresolvedPseudoId && (!movie.description || !movie.pl_title)) {
     try {
       const localized = await getMovieLocalized(movie.tmdb_id);
       const sets: string[] = [];
