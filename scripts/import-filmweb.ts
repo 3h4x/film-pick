@@ -153,17 +153,27 @@ async function main() {
     VALUES (@title, @year, @genre, @director, @rating, @poster_url, @source, @imdb_id, @tmdb_id, @type, @filmweb_id, @filmweb_url, @user_rating, @pl_title, @rated_at)
   `);
 
-  const existsStmt = db.prepare("SELECT 1 FROM movies WHERE filmweb_id = ?");
+  const updateFilmwebStmt = db.prepare(`
+    UPDATE movies SET filmweb_id = @filmweb_id, filmweb_url = @filmweb_url,
+      user_rating = @user_rating, pl_title = @pl_title, rated_at = @rated_at,
+      source = CASE WHEN source IS NULL THEN 'filmweb' ELSE source END
+    WHERE id = @id
+  `);
+
+  const existsByFilmwebStmt = db.prepare("SELECT id FROM movies WHERE filmweb_id = ?");
+  const existsByTmdbStmt = db.prepare("SELECT id FROM movies WHERE tmdb_id = ?");
+  const existsByTitleYearStmt = db.prepare("SELECT id FROM movies WHERE LOWER(title) = LOWER(?) AND year IS ?");
 
   let added = 0;
+  let merged = 0;
   let skipped = 0;
   let enriched = 0;
 
   for (let i = 0; i < data.length; i++) {
     const entry = data[i];
 
-    // Skip if already imported
-    if (existsStmt.get(entry.movie_id)) {
+    // Skip if already imported by filmweb_id
+    if (existsByFilmwebStmt.get(entry.movie_id)) {
       skipped++;
       continue;
     }
@@ -187,6 +197,24 @@ async function main() {
         // Rate limit: ~40 req/s allowed, be conservative
         if (i % 40 === 39) await new Promise((r) => setTimeout(r, 1000));
       } catch {}
+    }
+
+    // Check for existing movie by tmdb_id or title+year to avoid duplicates
+    const existingRow =
+      (tmdbId ? (existsByTmdbStmt.get(tmdbId) as { id: number } | undefined) : undefined) ??
+      (existsByTitleYearStmt.get(entry.original_title, entry.year) as { id: number } | undefined);
+
+    if (existingRow) {
+      updateFilmwebStmt.run({
+        id: existingRow.id,
+        filmweb_id: entry.movie_id,
+        filmweb_url: entry.url,
+        user_rating: entry.user_rating,
+        pl_title: entry.pl_title,
+        rated_at: entry.date,
+      });
+      merged++;
+      continue;
     }
 
     insertStmt.run({
@@ -217,7 +245,7 @@ async function main() {
 
   db.close();
   console.log(
-    `\nDone! Added: ${added}, Skipped: ${skipped}${enrich ? `, Enriched: ${enriched}` : ""}`,
+    `\nDone! Added: ${added}, Merged: ${merged}, Skipped: ${skipped}${enrich ? `, Enriched: ${enriched}` : ""}`,
   );
 }
 

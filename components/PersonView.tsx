@@ -2,24 +2,7 @@
 
 import { useState, useEffect, useMemo } from "react";
 import MovieCard from "./MovieCard";
-
-interface Movie {
-  id: number;
-  title: string;
-  year: number | null;
-  genre: string | null;
-  director: string | null;
-  writer: string | null;
-  actors: string | null;
-  rating: number | null;
-  user_rating: number | null;
-  poster_url: string | null;
-  source: string | null;
-  type: string;
-  cda_url?: string | null;
-  rated_at: string | null;
-  created_at: string;
-}
+import type { Movie } from "@/lib/types";
 
 interface PersonRating {
   name: string;
@@ -59,24 +42,44 @@ export default function PersonView({
   const nameLower = name.toLowerCase();
 
   const personMovies = useMemo(() => {
-    return movies
-      .filter((m) => {
-        const inDirector = m.director
-          ?.split(",")
-          .some((d) => d.trim().toLowerCase() === nameLower);
-        const inWriter = m.writer
-          ?.split(",")
-          .some((w) => w.trim().toLowerCase() === nameLower);
-        const inActors = m.actors
-          ?.split(",")
-          .some((a) => a.trim().toLowerCase() === nameLower);
-        return inDirector || inWriter || inActors;
-      })
-      .sort(
-        (a, b) =>
-          (b.user_rating ?? 0) - (a.user_rating ?? 0) ||
-          (b.year ?? 0) - (a.year ?? 0),
-      );
+    const matched = movies.filter((m) => {
+      const inDirector = m.director
+        ?.split(",")
+        .some((d) => d.trim().toLowerCase() === nameLower);
+      const inWriter = m.writer
+        ?.split(",")
+        .some((w) => w.trim().toLowerCase() === nameLower);
+      const inActors = m.actors
+        ?.split(",")
+        .some((a) => a.trim().toLowerCase() === nameLower);
+      return inDirector || inWriter || inActors;
+    });
+
+    // Deduplicate by tmdb_id — keep the entry with a user_rating, or the first one
+    const seenTmdbIds = new Map<number, Movie>();
+    const deduped: Movie[] = [];
+    for (const m of matched) {
+      if (m.tmdb_id) {
+        const existing = seenTmdbIds.get(m.tmdb_id);
+        if (!existing) {
+          seenTmdbIds.set(m.tmdb_id, m);
+          deduped.push(m);
+        } else if (m.user_rating != null && existing.user_rating == null) {
+          // Replace with the rated version
+          const idx = deduped.indexOf(existing);
+          deduped[idx] = m;
+          seenTmdbIds.set(m.tmdb_id, m);
+        }
+      } else {
+        deduped.push(m);
+      }
+    }
+
+    return deduped.sort(
+      (a, b) =>
+        (b.user_rating ?? 0) - (a.user_rating ?? 0) ||
+        (b.year ?? 0) - (a.year ?? 0),
+    );
   }, [movies, nameLower]);
 
   const roles = useMemo(() => {
