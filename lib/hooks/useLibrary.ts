@@ -21,12 +21,13 @@ export function useLibrary(
   const [sourceFilter, setSourceFilter] = useState("");
   const [yearFilter, setYearFilter] = useState("");
   const [unratedOnly, setUnratedOnly] = useState(false);
+  const [hasFileOnly, setHasFileOnly] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [visibleCount, setVisibleCount] = useState(PAGE_SIZE);
 
   useEffect(() => {
     setVisibleCount(PAGE_SIZE);
-  }, [sort, sortDir, genreFilter, sourceFilter, yearFilter, unratedOnly, searchQuery]);
+  }, [sort, sortDir, genreFilter, sourceFilter, yearFilter, unratedOnly, hasFileOnly, searchQuery]);
 
   const genres = useMemo(() => extractGenres(movies), [movies]);
   const sources = useMemo(() => extractSources(movies), [movies]);
@@ -39,9 +40,10 @@ export function useLibrary(
       sourceFilter,
       yearFilter,
       unratedOnly,
+      hasFileOnly,
     });
     return sortMovies(filtered, sort, sortDir);
-  }, [movies, sort, sortDir, genreFilter, sourceFilter, yearFilter, unratedOnly, searchQuery]);
+  }, [movies, sort, sortDir, genreFilter, sourceFilter, yearFilter, unratedOnly, hasFileOnly, searchQuery]);
 
   const visibleMovies = useMemo(
     () => sortedMovies.slice(0, visibleCount),
@@ -126,6 +128,8 @@ export function useLibrary(
     setYearFilter,
     unratedOnly,
     setUnratedOnly,
+    hasFileOnly,
+    setHasFileOnly,
     searchQuery,
     setSearchQuery,
     visibleCount,
