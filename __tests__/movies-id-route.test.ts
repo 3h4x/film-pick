@@ -142,6 +142,49 @@ describe("movies/[id] PATCH handler", () => {
     expect(body.error).toMatch(/no valid fields/i);
   });
 
+  it("returns 400 when user_rating is below 1", async () => {
+    const res = await PATCH(patchReq({ user_rating: 0 }), makeParams(movieId));
+    expect(res.status).toBe(400);
+    const body = await res.json();
+    expect(body.error).toMatch(/user_rating/i);
+  });
+
+  it("returns 400 when user_rating is above 10", async () => {
+    const res = await PATCH(patchReq({ user_rating: 11 }), makeParams(movieId));
+    expect(res.status).toBe(400);
+    const body = await res.json();
+    expect(body.error).toMatch(/user_rating/i);
+  });
+
+  it("returns 400 when user_rating is a non-numeric string", async () => {
+    const res = await PATCH(patchReq({ user_rating: "great" }), makeParams(movieId));
+    expect(res.status).toBe(400);
+    const body = await res.json();
+    expect(body.error).toMatch(/user_rating/i);
+  });
+
+  it("accepts user_rating of null (clearing the rating)", async () => {
+    await PATCH(patchReq({ user_rating: 7 }), makeParams(movieId));
+    const res = await PATCH(patchReq({ user_rating: null }), makeParams(movieId));
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body.user_rating).toBeNull();
+  });
+
+  it("returns 400 when wishlist is not 0 or 1", async () => {
+    const res = await PATCH(patchReq({ wishlist: 2 }), makeParams(movieId));
+    expect(res.status).toBe(400);
+    const body = await res.json();
+    expect(body.error).toMatch(/wishlist/i);
+  });
+
+  it("returns 400 when wishlist is a string", async () => {
+    const res = await PATCH(patchReq({ wishlist: "yes" }), makeParams(movieId));
+    expect(res.status).toBe(400);
+    const body = await res.json();
+    expect(body.error).toMatch(/wishlist/i);
+  });
+
   it("returns 500 with error message and code when DB update throws", async () => {
     const dbError = Object.assign(new Error("SQLITE_CORRUPT: database disk image is malformed"), {
       code: "SQLITE_CORRUPT",
