@@ -167,31 +167,63 @@ export async function GET(
           // Get localized info
           const localized = await getMovieLocalized(bestMatch.tmdb_id);
 
-          db.prepare(
-            `
-            UPDATE movies SET
-              tmdb_id = ?,
-              title = ?,
-              year = ?,
-              genre = ?,
-              rating = ?,
-              poster_url = ?,
-              pl_title = ?,
-              description = ?,
-              source = 'tmdb'
-            WHERE id = ?
-          `,
-          ).run(
-            bestMatch.tmdb_id,
-            bestMatch.title,
-            bestMatch.year || movie.year,
-            bestMatch.genre,
-            bestMatch.rating,
-            bestMatch.poster_url,
-            localized.pl_title,
-            localized.description,
-            parseInt(id, 10),
-          );
+          try {
+            db.prepare(
+              `
+              UPDATE movies SET
+                tmdb_id = ?,
+                title = ?,
+                year = ?,
+                genre = ?,
+                rating = ?,
+                poster_url = ?,
+                pl_title = ?,
+                description = ?,
+                source = 'tmdb'
+              WHERE id = ?
+            `,
+            ).run(
+              bestMatch.tmdb_id,
+              bestMatch.title,
+              bestMatch.year || movie.year,
+              bestMatch.genre,
+              bestMatch.rating,
+              bestMatch.poster_url,
+              localized.pl_title,
+              localized.description,
+              parseInt(id, 10),
+            );
+          } catch (updateError) {
+            // Another movie with the same (title, year) exists — keep original title/year, update everything else
+            if ((updateError as { code?: string }).code === "SQLITE_CONSTRAINT_UNIQUE") {
+              console.warn(
+                `[Auto-Link] Title/year conflict for "${bestMatch.title}" (${bestMatch.year}), updating other fields only`,
+              );
+              db.prepare(
+                `
+                UPDATE movies SET
+                  tmdb_id = ?,
+                  genre = ?,
+                  rating = ?,
+                  poster_url = ?,
+                  pl_title = ?,
+                  description = ?,
+                  source = 'tmdb'
+                WHERE id = ?
+              `,
+              ).run(
+                bestMatch.tmdb_id,
+                bestMatch.genre,
+                bestMatch.rating,
+                bestMatch.poster_url,
+                localized.pl_title,
+                localized.description,
+                parseInt(id, 10),
+              );
+            } else {
+              throw updateError;
+            }
+          }
 
           // Update local object for response
           movie.tmdb_id = bestMatch.tmdb_id;

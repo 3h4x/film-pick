@@ -199,9 +199,8 @@ export default function MovieDetail({
           }
         }
         if (data.movie) {
-          if (data.movie.pl_title && !plTitle) setPlTitle(data.movie.pl_title);
-          if (data.movie.description && !description)
-            setDescription(data.movie.description);
+          if (data.movie.pl_title) setPlTitle(data.movie.pl_title);
+          if (data.movie.description) setDescription(data.movie.description);
           if (data.movie.director) setDirector(data.movie.director);
           if (data.movie.writer) setWriter(data.movie.writer);
           if (data.movie.actors) setActors(data.movie.actors);
