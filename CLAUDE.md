@@ -40,12 +40,20 @@ pnpm backup              # Backup SQLite DB
 │       ├── recommendations/route.ts  — Generate recommendations
 │       ├── recommendations/dismiss/route.ts — Dismiss recommendation
 │       ├── recommendations/count/route.ts — Recommendation count
+│       ├── recommendations/mood/route.ts — Mood-based recommendations
 │       ├── person-ratings/route.ts   — Director/actor/writer ratings
 │       ├── pl-title/route.ts         — Polish title lookup
 │       ├── import/route.ts           — Import from filesystem directory
 │       ├── import-filmweb/route.ts   — Import Filmweb ratings
 │       ├── sync/route.ts             — Re-scan library path, add/remove
-│       └── settings/route.ts         — GET/PUT app settings
+│       ├── settings/route.ts         — GET/PUT app settings
+│       ├── backup/route.ts           — Trigger manual DB backup
+│       ├── cda-refresh/route.ts      — Refresh CDA availability cache
+│       └── tv/
+│           ├── route.ts              — Fetch TV guide (EPG)
+│           ├── refresh/route.ts      — Trigger EPG refresh
+│           ├── enrich/route.ts       — Enrich TV show entries from TMDb
+│           └── blacklist/route.ts    — Manage EPG channel blacklist
 ├── components/
 │   ├── TabNav.tsx                    — Pill-style tab navigation
 │   ├── MovieCard.tsx                 — Poster card (user rating + global rating badges)
@@ -58,13 +66,33 @@ pnpm backup              # Backup SQLite DB
 │   ├── RecommendationRow.tsx         — Grouped recommendation row
 │   ├── RecommendationSkeleton.tsx    — Loading skeleton
 │   ├── SortFilterBar.tsx             — Sort (6 options) + genre filter
-│   └── Toast.tsx                     — Toast notifications
+│   ├── TvTab.tsx                     — TV guide tab
+│   ├── Toast.tsx                     — Toast notifications
+│   └── views/                        — Full tab-level view components
+│       ├── LibraryView.tsx           — Library grid view
+│       ├── RecommendationsView.tsx   — Recommendations view
+│       ├── WishlistView.tsx          — Wishlist view
+│       ├── SearchView.tsx            — Search view
+│       └── ConfigView.tsx            — Settings/config view
 ├── lib/
 │   ├── db.ts                         — SQLite schema, CRUD, settings, migrations
 │   ├── tmdb.ts                       — TMDb API client
 │   ├── cda.ts                        — CDA Premium streaming links
+│   ├── cda-fetch.ts                  — CDA availability fetch + cache
+│   ├── cda-scheduler.ts              — Scheduled CDA refresh job
+│   ├── epg-fetch.ts                  — EPG/TV guide fetch + in-memory cache
+│   ├── epg-scheduler.ts              — Scheduled EPG refresh job
+│   ├── epg-presets.ts                — Built-in EPG source presets
+│   ├── mood-presets.ts               — Mood recommendation presets
+│   ├── backup.ts                     — Programmatic DB backup (used by backup API)
+│   ├── types.ts                      — Shared TypeScript types (Movie, RecType, AppTab, etc.)
 │   ├── utils.ts                      — Shared utilities
 │   ├── scanner.ts                    — Filesystem video scanner + filename parser
+│   ├── hooks/                        — React hooks
+│   │   ├── useLibrary.ts             — Library fetch + filtering state
+│   │   ├── useRecommendations.ts     — Recommendations fetch + state
+│   │   ├── useSearch.ts              — TMDb search state
+│   │   └── useSettings.ts            — App settings fetch/update
 │   └── engines/                      — Recommendation engines
 │       ├── index.ts                  — Engine registry
 │       ├── director.ts               — By director
@@ -74,6 +102,8 @@ pnpm backup              # Backup SQLite DB
 │       ├── hidden-gem.ts             — Hidden gems
 │       ├── star-studded.ts           — Star-studded blockbusters
 │       ├── random.ts                 — Surprise me
+│       ├── watchlist.ts              — From watchlist
+│       ├── mood.ts                   — Mood-based recommendations
 │       └── cda.ts                    — CDA Premium available
 ├── scripts/
 │   ├── backup-db.sh                  — SQLite backup with tiered retention
@@ -95,10 +125,16 @@ pnpm backup              # Backup SQLite DB
 - **Sync:** Re-scan saved library path, add new files, remove deleted ones
 - **Recommendations tab:** TMDb-based suggestions grouped by reason
 - **Search:** TMDb search to manually add movies
+- **Wishlist:** Flag movies with `wishlist=1`; dedicated tab; watchlist recommendation engine picks from it
+- **TV guide (EPG):** Fetches and caches an M3U/EPG feed; configurable via settings; scheduled refresh; channel blacklist
+- **Mood recommendations:** Predefined mood presets map to TMDb genre/keyword queries
+- **CDA integration:** `cda.ts` resolves streaming URLs; `cda-scheduler.ts` refreshes availability cache on a schedule
 
 ### Database Schema
 
-Movies table includes: title, year, genre, director, rating, poster_url, source, imdb_id, tmdb_id, type, file_path, filmweb_id, filmweb_url, user_rating, pl_title, rated_at
+**movies**: id, title, year, genre, director, writer, actors, rating, user_rating, poster_url, source, imdb_id, tmdb_id, type (`movie`|`tv`), file_path, extra_files (JSON), video_metadata (JSON), filmweb_id, filmweb_url, cda_url, pl_title, rated_at, created_at, wishlist (0|1)
+
+**Other tables**: settings (key/value), dismissed_recommendations, recommendation_cache, recommended_movies, _migrations (migration guard)
 
 ### Environment
 
@@ -199,6 +235,10 @@ TMDB_API_KEY=<your_key> docker run -p 4000:4000 -v $(pwd)/data:/app/data -e TMDB
 6. **Async/await only.** No raw `.then()` chains.
 7. **ESLint + lint-staged run automatically** on `git commit` (ESLint `--fix` + type-check + full test suite). Do not skip hooks with `--no-verify`.
 8. **Pre-push hook runs `pnpm lint && pnpm test`.** Ensure both pass before pushing.
+9. **File naming:** React components and view files use PascalCase (`MovieCard.tsx`). Library modules and hooks use kebab-case (`cda-fetch.ts`, `useLibrary.ts`).
+10. **API error responses** always use `Response.json({ error: "..." }, { status: N })`. Use 400 for bad input, 404 for missing resources, 500 for unexpected failures. Never throw unhandled errors from route handlers — catch and return a 500.
+11. **Shared TypeScript types** belong in `lib/types.ts`. Do not define `Movie`, `RecType`, `AppTab`, or similar cross-cutting types in individual modules.
+12. **React hooks** for data fetching and complex state belong in `lib/hooks/`. Route handlers and components must not duplicate fetch logic that already exists in a hook.
 
 ## Testing Rules
 
@@ -217,6 +257,8 @@ TMDB_API_KEY=<your_key> docker run -p 4000:4000 -v $(pwd)/data:/app/data -e TMDB
 3. Shared utility logic belongs in `lib/utils.ts`; domain-specific modules get their own file under `lib/`.
 4. New recommendation engines go under `lib/engines/` and must be registered in `lib/engines/index.ts`.
 5. Database schema changes require a migration block inside `initDb()` in `lib/db.ts` (additive `ALTER TABLE` or new table — never destructive).
+6. New tab-level views belong in `components/views/` as `<Name>View.tsx`. Smaller reusable UI pieces belong directly in `components/`.
+7. Scheduler modules (`cda-scheduler.ts`, `epg-scheduler.ts`) follow the same pattern: export `reschedule*Job(db)` and `run*Now(db)`; manage a single `activeTimer`; read interval from settings; start from `app/layout.tsx` or the relevant route on first use.
 
 ## Dependency & Supply-Chain Security
 
@@ -224,6 +266,7 @@ TMDB_API_KEY=<your_key> docker run -p 4000:4000 -v $(pwd)/data:/app/data -e TMDB
 2. **Run `pnpm audit` after any dependency change** and resolve high/critical findings before committing.
 3. **Only `better-sqlite3`, `esbuild`, and `sharp` are allowed to run install scripts** (`pnpm.onlyBuiltDependencies` in `package.json`). Do not add packages with `postinstall`/`prepare` scripts without explicit user approval.
 4. **Never add a new dependency without explicit user approval.** Justify every new dep in the commit message.
+5. **Verify new packages before adding:** check npm download counts, publish date, and maintainer history to guard against typosquatting. Flag anything suspicious before installing.
 
 ## Scope & Safety Rules
 
