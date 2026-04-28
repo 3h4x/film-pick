@@ -37,8 +37,8 @@ describe("database", () => {
   it("creates movies table with correct columns", () => {
     initDb(db);
 
-    const info = db.pragma("table_info(movies)");
-    const columns = (info as any[]).map((c: any) => c.name);
+    const info = db.pragma("table_info(movies)") as { name: string }[];
+    const columns = info.map((c) => c.name);
     expect(columns).toContain("id");
     expect(columns).toContain("title");
     expect(columns).toContain("year");
@@ -55,8 +55,8 @@ describe("database", () => {
   it("creates recommendation_cache table with correct columns", () => {
     initDb(db);
 
-    const info = db.pragma("table_info(recommendation_cache)");
-    const columns = (info as any[]).map((c: any) => c.name);
+    const info = db.pragma("table_info(recommendation_cache)") as { name: string }[];
+    const columns = info.map((c) => c.name);
     expect(columns).toContain("engine");
     expect(columns).toContain("data");
     expect(columns).toContain("movie_count");
@@ -265,7 +265,7 @@ describe("insertMovie deduplication", () => {
     expect(id2).toBe(id1);
 
     // Primary file_path must NOT have been overwritten
-    const row = db.prepare("SELECT file_path, extra_files FROM movies WHERE id = ?").get(id1) as any;
+    const row = db.prepare("SELECT file_path, extra_files FROM movies WHERE id = ?").get(id1) as { file_path: string; extra_files: string };
     expect(row.file_path).toBe("/movies/gits-original.mkv");
 
     // Second path goes to extra_files
@@ -286,7 +286,7 @@ describe("insertMovie deduplication", () => {
     insertMovie(db, { ...base, file_path: "/movies/gits-copy.mkv" });
     insertMovie(db, { ...base, file_path: "/movies/gits-copy.mkv" });
 
-    const row = db.prepare("SELECT extra_files FROM movies WHERE id = ?").get(id) as any;
+    const row = db.prepare("SELECT extra_files FROM movies WHERE id = ?").get(id) as { extra_files: string };
     const extras = JSON.parse(row.extra_files);
     expect(extras.filter((p: string) => p === "/movies/gits-copy.mkv")).toHaveLength(1);
   });
@@ -295,7 +295,7 @@ describe("insertMovie deduplication", () => {
     const id = insertMovie(db, { ...base, file_path: null });
     insertMovie(db, { ...base, file_path: "/movies/gits.mkv" });
 
-    const row = db.prepare("SELECT file_path FROM movies WHERE id = ?").get(id) as any;
+    const row = db.prepare("SELECT file_path FROM movies WHERE id = ?").get(id) as { file_path: string };
     expect(row.file_path).toBe("/movies/gits.mkv");
   });
 
@@ -306,7 +306,7 @@ describe("insertMovie deduplication", () => {
 
     expect(id2).toBe(id1);
 
-    const row = db.prepare("SELECT file_path, extra_files FROM movies WHERE id = ?").get(id1) as any;
+    const row = db.prepare("SELECT file_path, extra_files FROM movies WHERE id = ?").get(id1) as { file_path: string; extra_files: string };
     expect(row.file_path).toBe("/movies/gits-a.mkv");
     const extras = JSON.parse(row.extra_files);
     expect(extras).toContain("/movies/gits-b.mkv");
@@ -316,7 +316,7 @@ describe("insertMovie deduplication", () => {
     const id = insertMovie(db, { ...base, genre: null, rating: null, poster_url: null });
     insertMovie(db, { ...base, genre: "Animation, Action", rating: 8.5, poster_url: "/poster.jpg" });
 
-    const row = db.prepare("SELECT genre, rating, poster_url FROM movies WHERE id = ?").get(id) as any;
+    const row = db.prepare("SELECT genre, rating, poster_url FROM movies WHERE id = ?").get(id) as { genre: string; rating: number; poster_url: string };
     expect(row.genre).toBe("Animation, Action");
     expect(row.rating).toBe(8.5);
     expect(row.poster_url).toBe("/poster.jpg");
@@ -326,7 +326,7 @@ describe("insertMovie deduplication", () => {
     const id = insertMovie(db, { ...base, genre: "Animation", rating: 7.0 });
     insertMovie(db, { ...base, genre: "Action", rating: 9.0 });
 
-    const row = db.prepare("SELECT genre, rating FROM movies WHERE id = ?").get(id) as any;
+    const row = db.prepare("SELECT genre, rating FROM movies WHERE id = ?").get(id) as { genre: string; rating: number };
     expect(row.genre).toBe("Animation");
     expect(row.rating).toBe(7.0);
   });
@@ -338,7 +338,7 @@ describe("insertMovie deduplication", () => {
     // Now insertMovie with tmdb_id and genre — should enrich the existing pathless entry
     insertMovie(db, { ...base, tmdb_id: 9323, genre: "Animation", poster_url: "/p.jpg", file_path: null });
 
-    const row = db.prepare("SELECT tmdb_id, genre, poster_url FROM movies WHERE id = ?").get(id) as any;
+    const row = db.prepare("SELECT tmdb_id, genre, poster_url FROM movies WHERE id = ?").get(id) as { tmdb_id: number; genre: string; poster_url: string };
     expect(row.tmdb_id).toBe(9323);
     expect(row.genre).toBe("Animation");
     expect(row.poster_url).toBe("/p.jpg");

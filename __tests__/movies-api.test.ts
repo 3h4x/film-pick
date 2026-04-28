@@ -3,6 +3,7 @@ import Database from "better-sqlite3";
 import fs from "fs";
 import path from "path";
 import { initDb, insertMovie, getMovies, deleteMovie } from "@/lib/db";
+import type { Movie } from "@/lib/types";
 
 const TEST_DB = path.join(__dirname, "test-api.db");
 
@@ -104,7 +105,7 @@ describe("movies API logic", () => {
     );
     const updated = db
       .prepare("SELECT * FROM movies WHERE id = ?")
-      .get(id) as any;
+      .get(id) as Movie;
 
     expect(updated.rating).toBe(9.0);
     expect(updated.genre).toBe("Sci-Fi, Thriller");
