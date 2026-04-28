@@ -80,6 +80,7 @@ export default function MovieDetail({
     movie.file_path || null,
   );
   const [movieTitle, setMovieTitle] = useState<string>(movie.title);
+  const [posterUrl, setPosterUrl] = useState<string | null>(movie.poster_url || null);
   const [isStandardizing, setIsStandardizing] = useState(false);
   const [isRemoving, setIsRemoving] = useState(false);
   const [isMerging, setIsMerging] = useState(false);
@@ -119,6 +120,7 @@ export default function MovieDetail({
   // Sync state if movie prop changes
   useEffect(() => {
     setMovieTitle(movie.title);
+    setPosterUrl(movie.poster_url || null);
     setFilePath(movie.file_path || null);
     setPlTitle(movie.pl_title || null);
     setDescription(movie.description || null);
@@ -204,6 +206,7 @@ export default function MovieDetail({
           if (data.movie.director) setDirector(data.movie.director);
           if (data.movie.writer) setWriter(data.movie.writer);
           if (data.movie.actors) setActors(data.movie.actors);
+          if (data.movie.poster_url) setPosterUrl(data.movie.poster_url);
         }
       })
       .catch(console.error)
@@ -839,10 +842,10 @@ export default function MovieDetail({
           {/* Left Column: Poster, Credits & Technical Info */}
           <div className="lg:col-span-4 space-y-6">
             <div className="flex-shrink-0 relative group">
-              {movie.poster_url ? (
+              {posterUrl ? (
                 <div className="relative aspect-[2/3]">
                   <img
-                    src={movie.poster_url}
+                    src={posterUrl}
                     alt={movie.title}
                     className="w-full h-full object-cover rounded-2xl shadow-2xl border border-gray-700/30"
                     onError={(e) => {
@@ -1378,7 +1381,7 @@ export default function MovieDetail({
                     key={`${movie.id}-${activePart}`}
                     controls
                     className="w-full h-full"
-                    poster={movie.poster_url || undefined}
+                    poster={posterUrl || undefined}
                     autoPlay
                   >
                     <source
