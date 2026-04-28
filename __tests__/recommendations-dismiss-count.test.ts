@@ -8,6 +8,7 @@ import {
   getDismissedIds,
   setCachedEngine,
   saveRecommendedMovies,
+  insertMovie,
 } from "@/lib/db";
 import type { RecommendationGroup } from "@/lib/engines";
 
@@ -196,5 +197,36 @@ describe("recommendations/count GET", () => {
     const res = await countGET();
     const data = await res.json();
     expect(data.total).toBe(5);
+  });
+
+  it("recommendation-sourced movies do not affect the cache key (count uses library-only)", async () => {
+    // Cache set for an empty library (movieCount = 0)
+    const group: RecommendationGroup = {
+      type: "genre",
+      reason: "Genre picks",
+      recommendations: [
+        { tmdb_id: 70, title: "Rec A", year: 2020, genre: "Drama", rating: 7, poster_url: null, imdb_id: null },
+      ],
+    };
+    setCachedEngine(db, "genre", [group], 0);
+
+    // Insert a recommendation-sourced movie — must NOT shift the count key
+    insertMovie(db, {
+      title: "Rec A",
+      year: 2020,
+      genre: "Drama",
+      director: null,
+      rating: 7,
+      poster_url: null,
+      source: "recommendation",
+      imdb_id: null,
+      tmdb_id: 70,
+      type: "movie",
+    });
+
+    // Cache should still be valid (library count = 0 = cache key 0)
+    const res = await countGET();
+    const data = await res.json();
+    expect(data.total).toBe(1);
   });
 });

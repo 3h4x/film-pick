@@ -9,9 +9,11 @@ import { engines, type RecommendationGroup } from "@/lib/engines";
 export async function GET() {
   const db = getDb();
   const dismissedIds = getDismissedIds(db);
-  const movieCount = db.prepare("SELECT COUNT(*) as c FROM movies").get() as {
-    c: number;
-  };
+  // Match the movieCount used in recommendations/route.ts (library only, not
+  // recommendation-sourced rows) so the cache key is consistent across routes.
+  const movieCount = db
+    .prepare("SELECT COUNT(*) as c FROM movies WHERE source != 'recommendation'")
+    .get() as { c: number };
   let total = 0;
 
   for (const [key, def] of Object.entries(engines)) {
