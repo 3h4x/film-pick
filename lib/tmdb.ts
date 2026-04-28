@@ -437,14 +437,23 @@ export async function searchTmdbPl(
   const match = results?.[0];
   if (!match) return null;
 
+  // Polish-language search may return poster_path: null even when an English poster exists.
+  // Fall back to the language-neutral movie details endpoint to get the primary poster.
+  let posterPath = match.poster_path;
+  if (!posterPath) {
+    const detailRes = await fetchWithRetry(`${TMDB_BASE}/movie/${match.id}`, apiKey);
+    if (detailRes.ok) {
+      const detail = (await detailRes.json()) as { poster_path?: string | null };
+      posterPath = detail.poster_path || null;
+    }
+  }
+
   return {
     tmdb_id: match.id,
     genre: (match.genre_ids || []).map((id) => TMDB_GENRE_MAP[id] || "Unknown").join(", "),
     rating: Math.round(match.vote_average * 10) / 10,
     description: match.overview || null,
-    poster_url: match.poster_path
-      ? `https://image.tmdb.org/t/p/w300${match.poster_path}`
-      : null,
+    poster_url: posterPath ? `https://image.tmdb.org/t/p/w500${posterPath}` : null,
   };
 }
 
