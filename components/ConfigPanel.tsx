@@ -279,7 +279,7 @@ export default function ConfigPanel({
           <button
             key={tab.value}
             onClick={() => setActiveTab(tab.value)}
-            className={`px-4 py-2 text-sm font-medium rounded-lg transition-all ${
+            className={`px-4 py-2 text-sm font-medium rounded-lg transition-all whitespace-nowrap shrink-0 ${
               activeTab === tab.value
                 ? "bg-gray-700/80 text-white shadow-sm"
                 : "text-gray-500 hover:text-gray-300 hover:bg-gray-700/30"
@@ -298,26 +298,26 @@ export default function ConfigPanel({
           <section>
             <SubHeader>Library Path</SubHeader>
             <Hint>Directory to scan for video files. Used for import and sync.</Hint>
-            <div className="flex items-center gap-2">
+            <div className="flex flex-wrap items-center gap-2">
               <input
                 type="text"
                 value={pathDraft}
                 onChange={(e) => setPathDraft(e.target.value)}
                 onKeyDown={(e) => e.key === "Enter" && handleSavePath()}
                 placeholder="/Volumes/video/Movies"
-                className="flex-1 bg-gray-800/60 border border-gray-700/30 rounded-lg px-3 py-2 text-white text-sm font-mono focus:outline-none focus:border-indigo-500/50 placeholder-gray-600"
+                className="flex-1 min-w-0 bg-gray-800/60 border border-gray-700/30 rounded-lg px-3 py-2 text-white text-sm font-mono focus:outline-none focus:border-indigo-500/50 placeholder-gray-600"
               />
               <button
                 onClick={handleSavePath}
                 disabled={pathSaving || !pathDraft.trim() || pathDraft.trim() === libraryPath}
-                className="px-4 py-2 text-sm rounded-lg bg-indigo-600 text-white hover:bg-indigo-500 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+                className="px-4 py-2 text-sm rounded-lg bg-indigo-600 text-white hover:bg-indigo-500 disabled:opacity-40 disabled:cursor-not-allowed transition-colors shrink-0"
               >
                 {pathSaving ? "Saving..." : pathSaved ? "Saved" : "Save"}
               </button>
               {libraryPath && (
                 <button
                   onClick={onSync}
-                  className="px-4 py-2 text-sm rounded-lg bg-gray-700 text-gray-300 hover:bg-gray-600 hover:text-white transition-colors"
+                  className="px-4 py-2 text-sm rounded-lg bg-gray-700 text-gray-300 hover:bg-gray-600 hover:text-white transition-colors shrink-0"
                 >
                   Sync Now
                 </button>
@@ -945,7 +945,7 @@ export default function ConfigPanel({
           </section>
 
           {/* Actions */}
-          <div className="flex items-center gap-3 pt-2">
+          <div className="flex flex-wrap items-center gap-3 pt-2">
             <button
               onClick={handleSave}
               disabled={!dirty}

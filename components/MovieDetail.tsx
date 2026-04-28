@@ -1165,7 +1165,7 @@ export default function MovieDetail({
                                 onClick={() => handleRate(i + 1)}
                                 disabled={isRating}
                                 title={`Rate ${i + 1}/10`}
-                                className={`w-7 h-7 rounded-md text-[11px] font-black transition-all border ${
+                                className={`w-9 h-9 rounded-md text-[11px] font-black transition-all border ${
                                   isRating
                                     ? "opacity-50 cursor-not-allowed"
                                     : "hover:scale-110 active:scale-95"
@@ -1188,7 +1188,7 @@ export default function MovieDetail({
                                   onClick={() => handleRate(rating)}
                                   disabled={isRating}
                                   title={`Rate ${rating}/10`}
-                                  className={`w-7 h-7 rounded-md text-[11px] font-black transition-all border ${
+                                  className={`w-9 h-9 rounded-md text-[11px] font-black transition-all border ${
                                     isRating
                                       ? "opacity-50 cursor-not-allowed"
                                       : "hover:scale-110 active:scale-95"

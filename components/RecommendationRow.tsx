@@ -50,7 +50,7 @@ export default function RecommendationRow({
           <button
             onClick={onMoveUp}
             disabled={isFirst}
-            className={`p-0.5 rounded transition-colors ${isFirst ? "text-gray-700 cursor-default" : "text-gray-500 hover:text-white hover:bg-gray-800/60"}`}
+            className={`p-1.5 rounded transition-colors ${isFirst ? "text-gray-700 cursor-default" : "text-gray-500 hover:text-white hover:bg-gray-800/60"}`}
             title="Move up"
           >
             <svg
@@ -70,7 +70,7 @@ export default function RecommendationRow({
           <button
             onClick={onMoveDown}
             disabled={isLast}
-            className={`p-0.5 rounded transition-colors ${isLast ? "text-gray-700 cursor-default" : "text-gray-500 hover:text-white hover:bg-gray-800/60"}`}
+            className={`p-1.5 rounded transition-colors ${isLast ? "text-gray-700 cursor-default" : "text-gray-500 hover:text-white hover:bg-gray-800/60"}`}
             title="Move down"
           >
             <svg
@@ -109,39 +109,39 @@ export default function RecommendationRow({
               cdaUrl={r.cda_url}
               onClick={() => onClickMovie(r)}
             />
-            {/* Action buttons — appear on hover */}
-            <div className="absolute bottom-14 right-1 flex flex-col gap-1 opacity-0 group-hover/rec:opacity-100 transition-all duration-200">
+            {/* Action buttons — hover on desktop, always visible on mobile */}
+            <div className="absolute bottom-14 right-1 flex flex-col gap-1 sm:opacity-0 sm:group-hover/rec:opacity-100 transition-all duration-200">
               <button
                 onClick={() => onAction(r.tmdb_id, "liked", r)}
-                className="bg-green-600/90 backdrop-blur-sm text-white rounded-lg w-7 h-7 text-sm flex items-center justify-center hover:bg-green-500 transition-colors"
+                className="bg-green-600/90 backdrop-blur-sm text-white rounded-lg w-9 h-9 text-sm flex items-center justify-center hover:bg-green-500 transition-colors"
                 title="Watched &amp; liked"
               >
                 👍
               </button>
               <button
                 onClick={() => onAction(r.tmdb_id, "watched", r)}
-                className="bg-gray-600/90 backdrop-blur-sm text-white rounded-lg w-7 h-7 text-sm flex items-center justify-center hover:bg-gray-500 transition-colors"
+                className="bg-gray-600/90 backdrop-blur-sm text-white rounded-lg w-9 h-9 text-sm flex items-center justify-center hover:bg-gray-500 transition-colors"
                 title="Watched"
               >
                 👁
               </button>
               <button
                 onClick={() => onAction(r.tmdb_id, "wishlist", r)}
-                className="bg-blue-600/90 backdrop-blur-sm text-white rounded-lg w-7 h-7 text-sm flex items-center justify-center hover:bg-blue-500 transition-colors"
+                className="bg-blue-600/90 backdrop-blur-sm text-white rounded-lg w-9 h-9 text-sm flex items-center justify-center hover:bg-blue-500 transition-colors"
                 title="Add to watchlist"
               >
                 🔖
               </button>
               <button
                 onClick={() => onAction(r.tmdb_id, "disliked", r)}
-                className="bg-orange-600/90 backdrop-blur-sm text-white rounded-lg w-7 h-7 text-sm flex items-center justify-center hover:bg-orange-500 transition-colors"
+                className="bg-orange-600/90 backdrop-blur-sm text-white rounded-lg w-9 h-9 text-sm flex items-center justify-center hover:bg-orange-500 transition-colors"
                 title="Watched &amp; disliked"
               >
                 👎
               </button>
               <button
                 onClick={() => onAction(r.tmdb_id, "dismiss", r)}
-                className="bg-red-600/90 backdrop-blur-sm text-white rounded-lg w-7 h-7 text-sm flex items-center justify-center hover:bg-red-500 transition-colors"
+                className="bg-red-600/90 backdrop-blur-sm text-white rounded-lg w-9 h-9 text-sm flex items-center justify-center hover:bg-red-500 transition-colors"
                 title="Don't show again"
               >
                 ✕
