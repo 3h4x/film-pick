@@ -338,6 +338,15 @@ export async function PATCH(
       { status: 400 },
     );
   }
+  if ("year" in body && body.year !== null) {
+    const y = Number(body.year);
+    if (!Number.isInteger(y) || y < 1888 || y > 2200) {
+      return Response.json(
+        { error: "year must be an integer between 1888 and 2200" },
+        { status: 400 },
+      );
+    }
+  }
 
   const allowed = [
     "user_rating",

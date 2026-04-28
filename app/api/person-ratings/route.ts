@@ -115,7 +115,14 @@ export async function GET(request: NextRequest) {
   }
 
   // Top-rated people
-  const limit = parseInt(request.nextUrl.searchParams.get("limit") || "20", 10);
+  const limitRaw = parseInt(request.nextUrl.searchParams.get("limit") || "20", 10);
+  if (!Number.isFinite(limitRaw) || limitRaw < 1) {
+    return Response.json(
+      { error: "limit must be a positive integer" },
+      { status: 400 },
+    );
+  }
+  const limit = Math.min(limitRaw, 200);
   const role = request.nextUrl.searchParams.get("role") as
     | "director"
     | "writer"

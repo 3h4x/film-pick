@@ -207,6 +207,48 @@ describe("movies/[id] PATCH handler", () => {
     expect(body.error).toMatch(/not found/i);
   });
 
+  it("returns 400 when year is a non-numeric string", async () => {
+    const res = await PATCH(patchReq({ year: "nineteen-eighty-four" }), makeParams(movieId));
+    expect(res.status).toBe(400);
+    const body = await res.json();
+    expect(body.error).toMatch(/year/i);
+  });
+
+  it("returns 400 when year is below 1888", async () => {
+    const res = await PATCH(patchReq({ year: 1800 }), makeParams(movieId));
+    expect(res.status).toBe(400);
+    const body = await res.json();
+    expect(body.error).toMatch(/year/i);
+  });
+
+  it("returns 400 when year is above 2200", async () => {
+    const res = await PATCH(patchReq({ year: 3000 }), makeParams(movieId));
+    expect(res.status).toBe(400);
+    const body = await res.json();
+    expect(body.error).toMatch(/year/i);
+  });
+
+  it("returns 400 when year is a float", async () => {
+    const res = await PATCH(patchReq({ year: 2010.5 }), makeParams(movieId));
+    expect(res.status).toBe(400);
+    const body = await res.json();
+    expect(body.error).toMatch(/year/i);
+  });
+
+  it("accepts a valid year update", async () => {
+    const res = await PATCH(patchReq({ year: 1994 }), makeParams(movieId));
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body.year).toBe(1994);
+  });
+
+  it("accepts year=null to clear the year", async () => {
+    const res = await PATCH(patchReq({ year: null }), makeParams(movieId));
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body.year).toBeNull();
+  });
+
   it("ignores non-allowlisted fields in a mixed request", async () => {
     const res = await PATCH(
       patchReq({ user_rating: 6, malicious_field: "DROP TABLE movies" }),

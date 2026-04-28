@@ -281,4 +281,37 @@ describe("GET /api/person-ratings", () => {
     const body = await res.json();
     expect(body.some((p: { name: string }) => p.name === "Christopher Nolan")).toBe(true);
   });
+
+  it("returns 400 when limit is NaN (non-numeric string)", async () => {
+    const { GET } = await import("@/app/api/person-ratings/route");
+    const res = await GET(req("limit=abc"));
+    expect(res.status).toBe(400);
+    const body = await res.json();
+    expect(body.error).toMatch(/limit/i);
+  });
+
+  it("returns 400 when limit is 0", async () => {
+    const { GET } = await import("@/app/api/person-ratings/route");
+    const res = await GET(req("limit=0"));
+    expect(res.status).toBe(400);
+    const body = await res.json();
+    expect(body.error).toMatch(/limit/i);
+  });
+
+  it("returns 400 when limit is negative", async () => {
+    const { GET } = await import("@/app/api/person-ratings/route");
+    const res = await GET(req("limit=-5"));
+    expect(res.status).toBe(400);
+    const body = await res.json();
+    expect(body.error).toMatch(/limit/i);
+  });
+
+  it("clamps limit to 200 when an excessively large value is passed", async () => {
+    const { GET } = await import("@/app/api/person-ratings/route");
+    const res = await GET(req("limit=99999"));
+    expect(res.status).toBe(200);
+    // With only 3 people with movie_count >= 2, the clamped limit doesn't trim results
+    const body = await res.json();
+    expect(Array.isArray(body)).toBe(true);
+  });
 });
