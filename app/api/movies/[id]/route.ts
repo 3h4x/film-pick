@@ -322,6 +322,23 @@ export async function PATCH(
   const db = getDb();
   const body = await request.json();
 
+  // Validate fields at the system boundary before touching the DB
+  if ("user_rating" in body && body.user_rating !== null) {
+    const r = Number(body.user_rating);
+    if (!Number.isFinite(r) || r < 1 || r > 10) {
+      return Response.json(
+        { error: "user_rating must be null or a number between 1 and 10" },
+        { status: 400 },
+      );
+    }
+  }
+  if ("wishlist" in body && body.wishlist !== 0 && body.wishlist !== 1) {
+    return Response.json(
+      { error: "wishlist must be 0 or 1" },
+      { status: 400 },
+    );
+  }
+
   const allowed = [
     "user_rating",
     "rated_at",
