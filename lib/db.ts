@@ -434,15 +434,25 @@ export function getRecommendedMovies(
   db: Database.Database,
   engine?: string,
 ): RecommendedMovie[] {
+  // Prefer a TMDb poster from the movies table over whatever was stored at scrape time
+  // (CDA thumbnails look bad; auto-link updates movies.poster_url to TMDb quality).
+  const cols = `
+    rm.id, rm.tmdb_id, rm.engine, rm.reason, rm.title, rm.year, rm.genre, rm.rating,
+    COALESCE(
+      (SELECT m.poster_url FROM movies m
+       WHERE m.tmdb_id = rm.tmdb_id AND m.poster_url LIKE 'https://image.tmdb.org%'
+       LIMIT 1),
+      rm.poster_url
+    ) AS poster_url,
+    rm.pl_title, rm.cda_url, rm.description, rm.created_at
+  `;
   if (engine) {
     return db
-      .prepare(
-        "SELECT * FROM recommended_movies WHERE engine = ? ORDER BY rating DESC",
-      )
+      .prepare(`SELECT ${cols} FROM recommended_movies rm WHERE rm.engine = ? ORDER BY rm.rating DESC`)
       .all(engine) as RecommendedMovie[];
   }
   return db
-    .prepare("SELECT * FROM recommended_movies ORDER BY engine, rating DESC")
+    .prepare(`SELECT ${cols} FROM recommended_movies rm ORDER BY rm.engine, rm.rating DESC`)
     .all() as RecommendedMovie[];
 }
 
