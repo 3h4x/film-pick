@@ -4,6 +4,7 @@ import Database from "better-sqlite3";
 import fs from "fs";
 import path from "path";
 import { initDb, getMovies } from "@/lib/db";
+import type { Movie } from "@/lib/types";
 
 vi.mock("@/lib/db", async (importOriginal) => {
   const actual = await importOriginal<typeof import("@/lib/db")>();
@@ -127,7 +128,7 @@ describe("POST /api/movies", () => {
     const body = await res.json();
     expect(body.id).toBeGreaterThan(0);
 
-    const row = db.prepare("SELECT * FROM movies WHERE id = ?").get(body.id) as any;
+    const row = db.prepare("SELECT * FROM movies WHERE id = ?").get(body.id) as Movie;
     expect(row.title).toBe("Inception");
     expect(row.year).toBe(2010);
     expect(row.tmdb_id).toBe(27205);
@@ -137,7 +138,7 @@ describe("POST /api/movies", () => {
     const res = await POST(postReq({ title: "Inception" }));
     expect(res.status).toBe(201);
     const body = await res.json();
-    const row = db.prepare("SELECT type FROM movies WHERE id = ?").get(body.id) as any;
+    const row = db.prepare("SELECT type FROM movies WHERE id = ?").get(body.id) as { type: string };
     expect(row.type).toBe("movie");
   });
 
@@ -145,7 +146,7 @@ describe("POST /api/movies", () => {
     const res = await POST(postReq({ title: "Inception", user_rating: 9 }));
     expect(res.status).toBe(201);
     const { id } = await res.json();
-    const row = db.prepare("SELECT user_rating FROM movies WHERE id = ?").get(id) as any;
+    const row = db.prepare("SELECT user_rating FROM movies WHERE id = ?").get(id) as { user_rating: number };
     expect(row.user_rating).toBe(9);
   });
 
@@ -153,7 +154,7 @@ describe("POST /api/movies", () => {
     const res = await POST(postReq({ title: "Inception", wishlist: 1 }));
     expect(res.status).toBe(201);
     const { id } = await res.json();
-    const row = db.prepare("SELECT wishlist FROM movies WHERE id = ?").get(id) as any;
+    const row = db.prepare("SELECT wishlist FROM movies WHERE id = ?").get(id) as { wishlist: number };
     expect(row.wishlist).toBe(1);
   });
 
@@ -163,7 +164,7 @@ describe("POST /api/movies", () => {
     );
     expect(res.status).toBe(201);
     const { id } = await res.json();
-    const row = db.prepare("SELECT cda_url FROM movies WHERE id = ?").get(id) as any;
+    const row = db.prepare("SELECT cda_url FROM movies WHERE id = ?").get(id) as { cda_url: string };
     expect(row.cda_url).toBe("https://www.cda.pl/video/test");
   });
 
@@ -171,7 +172,7 @@ describe("POST /api/movies", () => {
     const res = await POST(postReq({ title: "Inception" }));
     expect(res.status).toBe(201);
     const { id } = await res.json();
-    const row = db.prepare("SELECT user_rating FROM movies WHERE id = ?").get(id) as any;
+    const row = db.prepare("SELECT user_rating FROM movies WHERE id = ?").get(id) as { user_rating: number | null };
     expect(row.user_rating).toBeNull();
   });
 
@@ -179,7 +180,7 @@ describe("POST /api/movies", () => {
     const res = await POST(postReq({ title: "Breaking Bad", type: "series", tmdb_id: 1396 }));
     expect(res.status).toBe(201);
     const { id } = await res.json();
-    const row = db.prepare("SELECT type FROM movies WHERE id = ?").get(id) as any;
+    const row = db.prepare("SELECT type FROM movies WHERE id = ?").get(id) as { type: string };
     expect(row.type).toBe("series");
   });
 });
