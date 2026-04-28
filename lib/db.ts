@@ -334,19 +334,16 @@ export function insertMovie(db: Database.Database, movie: MovieInput): number {
   return Number(result.lastInsertRowid);
 }
 
+const ORDER_BY_USER_RATING =
+  "ORDER BY CASE WHEN user_rating IS NOT NULL AND user_rating < 5 THEN 1 ELSE 0 END, user_rating DESC, created_at DESC";
+
 export function getMovies(db: Database.Database, type?: string): Movie[] {
-  // Check if user_rating column exists (added via filmweb import migration)
-  const cols = db.pragma("table_info(movies)") as { name: string }[];
-  const hasUserRating = cols.some((c) => c.name === "user_rating");
-  const orderBy = hasUserRating
-    ? "ORDER BY CASE WHEN user_rating IS NOT NULL AND user_rating < 5 THEN 1 ELSE 0 END, user_rating DESC, created_at DESC"
-    : "ORDER BY created_at DESC";
   if (type) {
     return db
-      .prepare(`SELECT * FROM movies WHERE type = ? ${orderBy}`)
+      .prepare(`SELECT * FROM movies WHERE type = ? ${ORDER_BY_USER_RATING}`)
       .all(type) as Movie[];
   }
-  return db.prepare(`SELECT * FROM movies ${orderBy}`).all() as Movie[];
+  return db.prepare(`SELECT * FROM movies ${ORDER_BY_USER_RATING}`).all() as Movie[];
 }
 
 export function deleteMovie(db: Database.Database, id: number): void {
