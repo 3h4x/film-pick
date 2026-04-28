@@ -1,4 +1,13 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
+
+// Prevent tmdb.ts from opening the real production DB when resolving the API key
+// via getDbApiKey(). All tests in this file set process.env.TMDB_API_KEY so the
+// env-var path is always taken; the DB path is never needed.
+vi.mock("@/lib/db", () => ({
+  getDb: vi.fn(() => { throw new Error("no db in tmdb tests"); }),
+  getSetting: vi.fn(() => null),
+}));
+
 import {
   searchTmdb,
   getTmdbRecommendations,
@@ -8,6 +17,7 @@ import {
   getPolishTitle,
   getTmdbMovieDetails,
   getMovieCredits,
+  searchTmdbPl,
 } from "@/lib/tmdb";
 
 const mockFetch = vi.fn();
@@ -594,5 +604,105 @@ describe("fetchWithRetry — 429 rate-limit handling", () => {
     await vi.advanceTimersByTimeAsync(7001); // 1s + 2s + 4s
     await assertion;
     expect(mockFetch).toHaveBeenCalledTimes(4);
+  });
+});
+
+// ── searchTmdbPl ─────────────────────────────────────────────────────────────
+
+describe("searchTmdbPl", () => {
+  beforeEach(() => {
+    vi.resetAllMocks();
+    process.env.TMDB_API_KEY = "test-key";
+  });
+
+  afterEach(() => {
+    delete process.env.TMDB_API_KEY;
+  });
+
+  function plResult(overrides: { id?: number; genre_ids?: number[]; vote_average?: number; overview?: string | null } = {}) {
+    return {
+      results: [
+        {
+          id: overrides.id ?? 42,
+          genre_ids: overrides.genre_ids ?? [18, 53],
+          vote_average: overrides.vote_average ?? 7.8,
+          overview: overrides.overview ?? "Opis po polsku.",
+        },
+      ],
+    };
+  }
+
+  it("returns tmdb_id, genre, rating, description on a successful match", async () => {
+    mockFetch.mockResolvedValue({ ok: true, json: async () => plResult() });
+
+    const result = await searchTmdbPl("Incepcja", 2010);
+
+    expect(result).not.toBeNull();
+    expect(result!.tmdb_id).toBe(42);
+    expect(result!.genre).toContain("Drama");
+    expect(result!.genre).toContain("Thriller");
+    expect(result!.rating).toBe(7.8);
+    expect(result!.description).toBe("Opis po polsku.");
+  });
+
+  it("searches with language=pl-PL", async () => {
+    mockFetch.mockResolvedValue({ ok: true, json: async () => plResult() });
+    await searchTmdbPl("Film", null);
+    const url = String(mockFetch.mock.calls[0][0]);
+    expect(url).toContain("language=pl-PL");
+  });
+
+  it("appends year to the query when provided", async () => {
+    mockFetch.mockResolvedValue({ ok: true, json: async () => plResult() });
+    await searchTmdbPl("Film", 2015);
+    const url = String(mockFetch.mock.calls[0][0]);
+    expect(url).toContain("year=2015");
+  });
+
+  it("returns null when no results are found", async () => {
+    mockFetch.mockResolvedValue({ ok: true, json: async () => ({ results: [] }) });
+    const result = await searchTmdbPl("Unknown Film", null);
+    expect(result).toBeNull();
+  });
+
+  it("returns null when TMDB_API_KEY is not set", async () => {
+    delete process.env.TMDB_API_KEY;
+    const result = await searchTmdbPl("Film", null);
+    expect(result).toBeNull();
+    expect(mockFetch).not.toHaveBeenCalled();
+  });
+
+  it("returns null on non-ok response", async () => {
+    mockFetch.mockResolvedValue({ ok: false, status: 500 });
+    const result = await searchTmdbPl("Film", null);
+    expect(result).toBeNull();
+  });
+
+  it("falls back to year+1 when exact year returns no results", async () => {
+    mockFetch
+      .mockResolvedValueOnce({ ok: true, json: async () => ({ results: [] }) })
+      .mockResolvedValue({ ok: true, json: async () => plResult({ id: 99 }) });
+    const result = await searchTmdbPl("Film", 2010);
+    expect(result!.tmdb_id).toBe(99);
+    const secondUrl = String(mockFetch.mock.calls[1][0]);
+    expect(secondUrl).toContain("year=2011");
+  });
+
+  it("falls back to no-year query when year, year+1, and year-1 all miss", async () => {
+    mockFetch
+      .mockResolvedValueOnce({ ok: true, json: async () => ({ results: [] }) })
+      .mockResolvedValueOnce({ ok: true, json: async () => ({ results: [] }) })
+      .mockResolvedValueOnce({ ok: true, json: async () => ({ results: [] }) })
+      .mockResolvedValue({ ok: true, json: async () => plResult({ id: 77 }) });
+    const result = await searchTmdbPl("Film", 2010);
+    expect(result!.tmdb_id).toBe(77);
+    const fourthUrl = String(mockFetch.mock.calls[3][0]);
+    expect(fourthUrl).not.toContain("year=");
+  });
+
+  it("maps description to null when overview is empty string", async () => {
+    mockFetch.mockResolvedValue({ ok: true, json: async () => plResult({ overview: "" }) });
+    const result = await searchTmdbPl("Film", null);
+    expect(result!.description).toBeNull();
   });
 });

@@ -382,6 +382,53 @@ export async function discoverByMood(
   return shuffle(await fetchDiscoverPages(urls, apiKey));
 }
 
+// Searches TMDb in Polish and returns data needed for CDA enrichment.
+// Returns null if no API key is configured or no match is found.
+export async function searchTmdbPl(
+  title: string,
+  year: number | null,
+): Promise<{ tmdb_id: number; genre: string; rating: number; description: string | null } | null> {
+  let apiKey: string;
+  try {
+    apiKey = getApiKey();
+  } catch {
+    return null;
+  }
+
+  interface PlRawResult {
+    id: number;
+    genre_ids: number[];
+    vote_average: number;
+    overview: string | null;
+  }
+
+  async function searchWithYear(y: number | null) {
+    let url = `${TMDB_BASE}/search/movie?query=${encodeURIComponent(title)}&language=pl-PL&page=1`;
+    if (y) url += `&year=${y}`;
+    const res = await fetchWithRetry(url, apiKey);
+    if (!res.ok) return null;
+    const data = (await res.json()) as { results?: PlRawResult[] };
+    return data.results ?? null;
+  }
+
+  let results = await searchWithYear(year);
+  if ((!results || !results.length) && year) {
+    results = await searchWithYear(year + 1);
+    if (!results || !results.length) results = await searchWithYear(year - 1);
+  }
+  if (!results || !results.length) results = await searchWithYear(null);
+
+  const match = results?.[0];
+  if (!match) return null;
+
+  return {
+    tmdb_id: match.id,
+    genre: (match.genre_ids || []).map((id) => TMDB_GENRE_MAP[id] || "Unknown").join(", "),
+    rating: Math.round(match.vote_average * 10) / 10,
+    description: match.overview || null,
+  };
+}
+
 export async function getMovieCredits(
   tmdbId: number,
 ): Promise<{ directors: TmdbCredit[]; cast: TmdbCredit[] }> {
