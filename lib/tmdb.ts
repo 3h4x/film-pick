@@ -46,6 +46,36 @@ interface TmdbRawCastMember {
   character: string;
 }
 
+// ── In-memory TTL cache ──────────────────────────────────────────────────────
+// Caches per-movie lookups so that rapid repeated opens of the same detail view
+// do not re-hit the TMDb API.  Only successful (ok) responses are cached.
+// Error responses are not stored so transient failures don't poison the cache.
+
+interface CacheEntry<T> {
+  data: T;
+  expiry: number;
+}
+
+const CACHE_TTL_MS = 3_600_000; // 1 hour
+
+type LocalizedResult = { pl_title: string | null; description: string | null };
+type DetailsResult = { director: string | null; writer: string | null; actors: string | null };
+
+const localizedCache = new Map<number, CacheEntry<LocalizedResult>>();
+const detailsCache = new Map<number, CacheEntry<DetailsResult>>();
+
+function cacheHit<T>(entry: CacheEntry<T> | undefined): entry is CacheEntry<T> {
+  return entry !== undefined && Date.now() < entry.expiry;
+}
+
+/** Clears all in-memory TMDb caches.  Intended for tests only. */
+export function clearTmdbCache(): void {
+  localizedCache.clear();
+  detailsCache.clear();
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+
 function getApiKey(): string {
   const key = process.env.TMDB_API_KEY || getDbApiKey();
   if (!key) throw new Error("TMDB_API_KEY not set — configure in Config tab or run: eval \"$(bioenv load)\"");
@@ -192,6 +222,9 @@ export async function searchTmdb(
 export async function getMovieLocalized(
   tmdbId: number,
 ): Promise<{ pl_title: string | null; description: string | null }> {
+  const cached = localizedCache.get(tmdbId);
+  if (cacheHit(cached)) return cached.data;
+
   const apiKey = getApiKey();
   const plRes = await fetchWithRetry(
     `${TMDB_BASE}/movie/${tmdbId}?language=pl-PL`,
@@ -212,10 +245,9 @@ export async function getMovieLocalized(
     }
   }
 
-  return {
-    pl_title: plData.title || null,
-    description,
-  };
+  const result: LocalizedResult = { pl_title: plData.title || null, description };
+  localizedCache.set(tmdbId, { data: result, expiry: Date.now() + CACHE_TTL_MS });
+  return result;
 }
 
 // Keep backward compat
@@ -231,6 +263,9 @@ export async function getTmdbMovieDetails(
   writer: string | null;
   actors: string | null;
 }> {
+  const cached = detailsCache.get(tmdbId);
+  if (cacheHit(cached)) return cached.data;
+
   const url = `${TMDB_BASE}/movie/${tmdbId}?append_to_response=credits`;
   const apiKey = getApiKey();
   const res = await fetchWithRetry(url, apiKey);
@@ -256,7 +291,9 @@ export async function getTmdbMovieDetails(
       .map((c) => c.name)
       .join(", ") || null;
 
-  return { director, writer, actors };
+  const result: DetailsResult = { director, writer, actors };
+  detailsCache.set(tmdbId, { data: result, expiry: Date.now() + CACHE_TTL_MS });
+  return result;
 }
 
 export async function getTmdbRecommendations(

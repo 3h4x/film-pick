@@ -18,6 +18,7 @@ import {
   getTmdbMovieDetails,
   getMovieCredits,
   searchTmdbPl,
+  clearTmdbCache,
 } from "@/lib/tmdb";
 
 const mockFetch = vi.fn();
@@ -26,6 +27,7 @@ global.fetch = mockFetch;
 describe("tmdb client", () => {
   beforeEach(() => {
     vi.resetAllMocks();
+    clearTmdbCache();
     process.env.TMDB_API_KEY = "test-key";
   });
 
@@ -282,6 +284,7 @@ describe("genreNameToId", () => {
 describe("getMovieLocalized", () => {
   beforeEach(() => {
     vi.resetAllMocks();
+    clearTmdbCache();
     process.env.TMDB_API_KEY = "test-key";
   });
 
@@ -345,9 +348,162 @@ describe("getMovieLocalized", () => {
   });
 });
 
+describe("getMovieLocalized — caching", () => {
+  beforeEach(() => {
+    vi.resetAllMocks();
+    clearTmdbCache();
+    process.env.TMDB_API_KEY = "test-key";
+  });
+
+  it("returns cached result on second call without re-fetching", async () => {
+    mockFetch.mockResolvedValueOnce({
+      ok: true,
+      json: async () => ({ title: "Incepcja", overview: "Film o snach." }),
+    });
+
+    const first = await getMovieLocalized(27205);
+    const second = await getMovieLocalized(27205);
+
+    expect(first).toEqual(second);
+    expect(mockFetch).toHaveBeenCalledTimes(1);
+  });
+
+  it("does not cache failed API responses", async () => {
+    mockFetch
+      .mockResolvedValueOnce({ ok: false, status: 500 })
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ title: "Incepcja", overview: "Opis." }),
+      });
+
+    const first = await getMovieLocalized(27205);
+    expect(first).toEqual({ pl_title: null, description: null });
+
+    const second = await getMovieLocalized(27205);
+    expect(second.pl_title).toBe("Incepcja");
+    expect(mockFetch).toHaveBeenCalledTimes(2);
+  });
+
+  it("re-fetches after the TTL expires", async () => {
+    vi.useFakeTimers();
+    try {
+      mockFetch
+        .mockResolvedValueOnce({
+          ok: true,
+          json: async () => ({ title: "Incepcja", overview: "Opis." }),
+        })
+        .mockResolvedValueOnce({
+          ok: true,
+          json: async () => ({ title: "Nowy tytuł", overview: "Nowy opis." }),
+        });
+
+      await getMovieLocalized(27205);
+      vi.advanceTimersByTime(3_600_001); // past 1-hour TTL
+      const result = await getMovieLocalized(27205);
+
+      expect(result.pl_title).toBe("Nowy tytuł");
+      expect(mockFetch).toHaveBeenCalledTimes(2);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("caches independently per tmdbId", async () => {
+    mockFetch
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ title: "Film A", overview: "Opis A." }),
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ title: "Film B", overview: "Opis B." }),
+      });
+
+    const a = await getMovieLocalized(1);
+    const b = await getMovieLocalized(2);
+
+    expect(a.pl_title).toBe("Film A");
+    expect(b.pl_title).toBe("Film B");
+    expect(mockFetch).toHaveBeenCalledTimes(2);
+
+    // Both should now be cached
+    await getMovieLocalized(1);
+    await getMovieLocalized(2);
+    expect(mockFetch).toHaveBeenCalledTimes(2);
+  });
+});
+
+describe("getTmdbMovieDetails — caching", () => {
+  beforeEach(() => {
+    vi.resetAllMocks();
+    clearTmdbCache();
+    process.env.TMDB_API_KEY = "test-key";
+  });
+
+  const okCredits = {
+    ok: true,
+    json: async () => ({
+      credits: {
+        crew: [{ job: "Director", name: "Christopher Nolan" }],
+        cast: [],
+      },
+    }),
+  };
+
+  it("returns cached result on second call without re-fetching", async () => {
+    mockFetch.mockResolvedValueOnce(okCredits);
+
+    const first = await getTmdbMovieDetails(27205);
+    const second = await getTmdbMovieDetails(27205);
+
+    expect(first).toEqual(second);
+    expect(mockFetch).toHaveBeenCalledTimes(1);
+  });
+
+  it("does not cache failed API responses", async () => {
+    mockFetch
+      .mockResolvedValueOnce({ ok: false, status: 503 })
+      .mockResolvedValueOnce(okCredits);
+
+    const first = await getTmdbMovieDetails(27205);
+    expect(first).toEqual({ director: null, writer: null, actors: null });
+
+    const second = await getTmdbMovieDetails(27205);
+    expect(second.director).toBe("Christopher Nolan");
+    expect(mockFetch).toHaveBeenCalledTimes(2);
+  });
+
+  it("re-fetches after the TTL expires", async () => {
+    vi.useFakeTimers();
+    try {
+      mockFetch
+        .mockResolvedValueOnce(okCredits)
+        .mockResolvedValueOnce({
+          ok: true,
+          json: async () => ({
+            credits: {
+              crew: [{ job: "Director", name: "Denis Villeneuve" }],
+              cast: [],
+            },
+          }),
+        });
+
+      await getTmdbMovieDetails(27205);
+      vi.advanceTimersByTime(3_600_001);
+      const result = await getTmdbMovieDetails(27205);
+
+      expect(result.director).toBe("Denis Villeneuve");
+      expect(mockFetch).toHaveBeenCalledTimes(2);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+});
+
 describe("getPolishTitle", () => {
   beforeEach(() => {
     vi.resetAllMocks();
+    clearTmdbCache();
     process.env.TMDB_API_KEY = "test-key";
   });
 
@@ -368,6 +524,7 @@ describe("getPolishTitle", () => {
 describe("getTmdbMovieDetails", () => {
   beforeEach(() => {
     vi.resetAllMocks();
+    clearTmdbCache();
     process.env.TMDB_API_KEY = "test-key";
   });
 
@@ -430,6 +587,7 @@ describe("getTmdbMovieDetails", () => {
 describe("getMovieCredits", () => {
   beforeEach(() => {
     vi.resetAllMocks();
+    clearTmdbCache();
     process.env.TMDB_API_KEY = "test-key";
   });
 
@@ -494,6 +652,7 @@ const rawFilm = {
 describe("fetchWithRetry — 429 rate-limit handling", () => {
   beforeEach(() => {
     vi.resetAllMocks();
+    clearTmdbCache();
     vi.useFakeTimers();
     process.env.TMDB_API_KEY = "test-key";
   });
@@ -641,6 +800,7 @@ describe("fetchWithRetry — 429 rate-limit handling", () => {
 describe("searchTmdbPl", () => {
   beforeEach(() => {
     vi.resetAllMocks();
+    clearTmdbCache();
     process.env.TMDB_API_KEY = "test-key";
   });
 
