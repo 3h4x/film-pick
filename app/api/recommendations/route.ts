@@ -7,6 +7,7 @@ import {
   setCachedEngine,
   clearCachedEngine,
   saveRecommendedMovies,
+  pruneRecommendedMovies,
   getRecommendedMovies,
   getSetting,
   insertMovie,
@@ -84,6 +85,17 @@ export async function GET(request: NextRequest) {
   }
 
   function persistResults(groups: RecommendationGroup[]): void {
+    // Remove stale entries per engine before inserting — preserves enrichment
+    // data (pl_title, cda_url) on movies still in the new results.
+    const keepByEngine = new Map<string, number[]>();
+    for (const group of groups) {
+      const ids = keepByEngine.get(group.type) ?? [];
+      for (const r of group.recommendations) ids.push(r.tmdb_id);
+      keepByEngine.set(group.type, ids);
+    }
+    for (const [engine, keepIds] of keepByEngine) {
+      pruneRecommendedMovies(db, engine, keepIds);
+    }
     for (const group of groups) {
       saveRecommendedMovies(
         db,
