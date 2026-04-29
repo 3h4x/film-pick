@@ -45,6 +45,63 @@ describe("POST /api/movies", () => {
     expect(body.error).toBeDefined();
   });
 
+  it("returns 400 when year is below 1888", async () => {
+    const res = await POST(postReq({ title: "Old Film", year: 1887 }));
+    expect(res.status).toBe(400);
+    const body = await res.json();
+    expect(body.error).toMatch(/year/);
+  });
+
+  it("returns 400 when year is above 2200", async () => {
+    const res = await POST(postReq({ title: "Future Film", year: 2201 }));
+    expect(res.status).toBe(400);
+    const body = await res.json();
+    expect(body.error).toMatch(/year/);
+  });
+
+  it("returns 400 when year is not an integer", async () => {
+    const res = await POST(postReq({ title: "Bad Year", year: 2010.5 }));
+    expect(res.status).toBe(400);
+    const body = await res.json();
+    expect(body.error).toMatch(/year/);
+  });
+
+  it("accepts year=null without error", async () => {
+    const res = await POST(postReq({ title: "No Year", year: null }));
+    expect(res.status).toBe(201);
+  });
+
+  it("returns 400 when user_rating is out of range", async () => {
+    const res = await POST(postReq({ title: "Test", user_rating: 11 }));
+    expect(res.status).toBe(400);
+    const body = await res.json();
+    expect(body.error).toMatch(/user_rating/);
+  });
+
+  it("returns 400 when user_rating is zero", async () => {
+    const res = await POST(postReq({ title: "Test", user_rating: 0 }));
+    expect(res.status).toBe(400);
+    const body = await res.json();
+    expect(body.error).toMatch(/user_rating/);
+  });
+
+  it("accepts user_rating=null without error", async () => {
+    const res = await POST(postReq({ title: "Test", user_rating: null }));
+    expect(res.status).toBe(201);
+  });
+
+  it("returns 400 when wishlist is not 0 or 1", async () => {
+    const res = await POST(postReq({ title: "Test", wishlist: 2 }));
+    expect(res.status).toBe(400);
+    const body = await res.json();
+    expect(body.error).toMatch(/wishlist/);
+  });
+
+  it("accepts wishlist=0 without error", async () => {
+    const res = await POST(postReq({ title: "Test", wishlist: 0 }));
+    expect(res.status).toBe(201);
+  });
+
   it("returns 201 with id on success", async () => {
     const res = await POST(postReq({ title: "Interstellar" }));
     expect(res.status).toBe(201);

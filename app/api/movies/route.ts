@@ -16,6 +16,33 @@ export async function POST(request: NextRequest) {
     return Response.json({ error: "Title is required" }, { status: 400 });
   }
 
+  if ("year" in body && body.year !== null) {
+    const y = Number(body.year);
+    if (!Number.isInteger(y) || y < 1888 || y > 2200) {
+      return Response.json(
+        { error: "year must be an integer between 1888 and 2200" },
+        { status: 400 },
+      );
+    }
+  }
+  if ("user_rating" in body && body.user_rating !== null) {
+    const r = Number(body.user_rating);
+    if (!Number.isFinite(r) || r < 1 || r > 10) {
+      return Response.json(
+        { error: "user_rating must be null or a number between 1 and 10" },
+        { status: 400 },
+      );
+    }
+  }
+  if ("wishlist" in body && body.wishlist !== null && body.wishlist !== undefined) {
+    if (body.wishlist !== 0 && body.wishlist !== 1) {
+      return Response.json(
+        { error: "wishlist must be 0 or 1" },
+        { status: 400 },
+      );
+    }
+  }
+
   const movieInput: MovieInput = {
     title: body.title,
     year: body.year ?? null,
