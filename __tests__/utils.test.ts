@@ -1,5 +1,15 @@
 import { describe, it, expect } from "vitest";
-import { cleanTitle, parseFilename, getErrorMessage } from "@/lib/utils";
+import { cleanTitle, parseFilename, getErrorMessage, filterRatedRecommendations, deduplicateRecommendations } from "@/lib/utils";
+import type { RecommendationGroup, RecType } from "@/lib/types";
+import type { TmdbSearchResult } from "@/lib/tmdb";
+
+function makeRec(tmdb_id: number, title = `Film ${tmdb_id}`): TmdbSearchResult {
+  return { tmdb_id, title, year: 2020, genre: "Drama", rating: 7.0, poster_url: null, imdb_id: null };
+}
+
+function makeGroup(type: RecType, recs: TmdbSearchResult[]): RecommendationGroup {
+  return { type, reason: `${type} picks`, recommendations: recs };
+}
 
 describe("cleanTitle", () => {
   it("removes file extension", () => {
@@ -217,5 +227,93 @@ describe("getErrorMessage", () => {
 
   it("converts an object to its string representation", () => {
     expect(getErrorMessage({ code: 1 })).toBe("[object Object]");
+  });
+});
+
+describe("filterRatedRecommendations", () => {
+  it("filters out rated movies from recommendations", () => {
+    const groups = [makeGroup("genre", [makeRec(1), makeRec(2)])];
+    const rated = new Set<number | null | undefined>([1]);
+    const result = filterRatedRecommendations(groups, rated);
+    expect(result[0].recommendations).toHaveLength(1);
+    expect(result[0].recommendations[0].tmdb_id).toBe(2);
+  });
+
+  it("removes entire group when all recommendations are rated", () => {
+    const groups = [makeGroup("genre", [makeRec(1)])];
+    const rated = new Set<number | null | undefined>([1]);
+    expect(filterRatedRecommendations(groups, rated)).toHaveLength(0);
+  });
+
+  it("returns all recommendations unchanged when skipFilter=true", () => {
+    const groups = [makeGroup("genre", [makeRec(1), makeRec(2)])];
+    const rated = new Set<number | null | undefined>([1, 2]);
+    const result = filterRatedRecommendations(groups, rated, true);
+    expect(result[0].recommendations).toHaveLength(2);
+  });
+
+  it("returns groups unchanged when rated set is empty", () => {
+    const groups = [makeGroup("genre", [makeRec(1), makeRec(2)])];
+    const result = filterRatedRecommendations(groups, new Set());
+    expect(result[0].recommendations).toHaveLength(2);
+  });
+
+  it("returns empty array when input groups is empty", () => {
+    expect(filterRatedRecommendations([], new Set([1]))).toEqual([]);
+  });
+
+  it("filters rated movies across multiple groups independently", () => {
+    const groups = [
+      makeGroup("genre", [makeRec(1), makeRec(2)]),
+      makeGroup("director", [makeRec(3), makeRec(4)]),
+    ];
+    const rated = new Set<number | null | undefined>([1, 3]);
+    const result = filterRatedRecommendations(groups, rated);
+    expect(result).toHaveLength(2);
+    expect(result[0].recommendations.map((r) => r.tmdb_id)).toEqual([2]);
+    expect(result[1].recommendations.map((r) => r.tmdb_id)).toEqual([4]);
+  });
+});
+
+describe("deduplicateRecommendations", () => {
+  it("removes duplicate tmdb_ids across groups", () => {
+    const groups = [
+      makeGroup("genre", [makeRec(1), makeRec(2)]),
+      makeGroup("director", [makeRec(2), makeRec(3)]),
+    ];
+    const result = deduplicateRecommendations(groups);
+    const allIds = result.flatMap((g) => g.recommendations.map((r) => r.tmdb_id));
+    expect(allIds).toEqual([1, 2, 3]);
+  });
+
+  it("removes entire group when all its recommendations are already seen", () => {
+    const groups = [
+      makeGroup("genre", [makeRec(1)]),
+      makeGroup("director", [makeRec(1)]),
+    ];
+    const result = deduplicateRecommendations(groups);
+    expect(result).toHaveLength(1);
+    expect(result[0].type).toBe("genre");
+  });
+
+  it("deduplicates within a single group", () => {
+    const groups = [makeGroup("genre", [makeRec(1), makeRec(1)])];
+    const result = deduplicateRecommendations(groups);
+    expect(result[0].recommendations).toHaveLength(1);
+  });
+
+  it("returns empty array when groups is empty", () => {
+    expect(deduplicateRecommendations([])).toEqual([]);
+  });
+
+  it("leaves groups with no duplicates unchanged", () => {
+    const groups = [
+      makeGroup("genre", [makeRec(1), makeRec(2)]),
+      makeGroup("director", [makeRec(3)]),
+    ];
+    const result = deduplicateRecommendations(groups);
+    expect(result).toHaveLength(2);
+    expect(result[0].recommendations).toHaveLength(2);
+    expect(result[1].recommendations).toHaveLength(1);
   });
 });
