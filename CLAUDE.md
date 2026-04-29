@@ -44,7 +44,6 @@ pnpm backup              # Backup SQLite DB
 │       ├── person-ratings/route.ts   — Director/actor/writer ratings
 │       ├── pl-title/route.ts         — Polish title lookup
 │       ├── import/route.ts           — Import from filesystem directory
-│       ├── import-filmweb/route.ts   — Import Filmweb ratings
 │       ├── sync/route.ts             — Re-scan library path, add/remove
 │       ├── settings/route.ts         — GET/PUT app settings
 │       ├── backup/route.ts           — Trigger manual DB backup
@@ -129,12 +128,16 @@ pnpm backup              # Backup SQLite DB
 - **TV guide (EPG):** Fetches and caches an M3U/EPG feed; configurable via settings; scheduled refresh; channel blacklist
 - **Mood recommendations:** Predefined mood presets map to TMDb genre/keyword queries
 - **CDA integration:** `cda.ts` resolves streaming URLs; `cda-scheduler.ts` refreshes availability cache on a schedule
+- **URL hash deep-link:** `#movie-<id>` in the URL opens the movie detail modal directly on page load
+- **hasFileOnly filter:** Library can be filtered to show only movies with a local file path (`hasFileOnly=1`)
+- **Lazy enrichment:** `GET /api/movies/[id]/full` lazily fetches and stores `pl_title` and `description` from TMDb on first access
+- **TMDb TTL cache:** `lib/tmdb.ts` keeps an in-memory TTL cache for `getMovieLocalized` and `getTmdbMovieDetails` to reduce redundant API calls
 
 ### Database Schema
 
-**movies**: id, title, year, genre, director, writer, actors, rating, user_rating, poster_url, source, imdb_id, tmdb_id, type (`movie`|`tv`), file_path, extra_files (JSON), video_metadata (JSON), filmweb_id, filmweb_url, cda_url, pl_title, rated_at, created_at, wishlist (0|1)
+**movies**: id, title, year, genre, director, writer, actors, rating, user_rating, poster_url, source, imdb_id, tmdb_id, type (`movie`|`tv`), file_path, extra_files (JSON), video_metadata (JSON), filmweb_id, filmweb_url, cda_url, pl_title, description, rated_at, created_at, wishlist (0|1)
 
-**Other tables**: settings (key/value), dismissed_recommendations, recommendation_cache, recommended_movies, _migrations (migration guard)
+**Other tables**: settings (key/value), dismissed_recommendations (tmdb_id), recommendation_cache (engine, data, movie_count), recommended_movies (tmdb_id, engine, reason, title, year, genre, rating, poster_url, pl_title, cda_url, description), _migrations (migration guard)
 
 ### Environment
 
