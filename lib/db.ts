@@ -430,6 +430,21 @@ export function saveRecommendedMovies(
   }
 }
 
+export function pruneRecommendedMovies(
+  db: Database.Database,
+  engine: string,
+  keepTmdbIds: number[],
+): void {
+  if (keepTmdbIds.length === 0) {
+    db.prepare("DELETE FROM recommended_movies WHERE engine = ?").run(engine);
+    return;
+  }
+  const placeholders = keepTmdbIds.map(() => "?").join(", ");
+  db.prepare(
+    `DELETE FROM recommended_movies WHERE engine = ? AND tmdb_id NOT IN (${placeholders})`,
+  ).run(engine, ...keepTmdbIds);
+}
+
 export function getRecommendedMovies(
   db: Database.Database,
   engine?: string,

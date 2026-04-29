@@ -504,6 +504,51 @@ describe("recommendations GET handler", () => {
     expect(titles).not.toContain("Genre result");
   });
 
+  // ── Stale recommended_movies pruning on cache miss ───────────────────────
+
+  it("removes stale recommended_movies entries when engine runs fresh", async () => {
+    // Pre-populate recommended_movies with a stale entry for engine "genre"
+    db.prepare(
+      "INSERT INTO recommended_movies (tmdb_id, engine, reason, title, year, genre, rating) VALUES (?, 'genre', 'Old', 'Stale Film', 2010, 'Drama', 7.0)",
+    ).run(9999);
+
+    const fresh = makeGroup(
+      { type: "genre", reason: "Fresh Genre" },
+      [makeRec({ tmdb_id: 8001, title: "New Film" })],
+    );
+    mockGenreEngine.mockResolvedValue([fresh]);
+
+    await GET(req({ engine: "genre" }));
+
+    const remaining = db
+      .prepare("SELECT tmdb_id FROM recommended_movies WHERE engine = 'genre'")
+      .all() as { tmdb_id: number }[];
+    const ids = remaining.map((r) => r.tmdb_id);
+    expect(ids).not.toContain(9999);
+    expect(ids).toContain(8001);
+  });
+
+  it("preserves enrichment data on recommended_movies entries still in the new results", async () => {
+    // Pre-populate with an entry that has enrichment data
+    db.prepare(
+      "INSERT INTO recommended_movies (tmdb_id, engine, reason, title, year, genre, rating, pl_title, cda_url) VALUES (?, 'genre', 'Picks', 'Arrival', 2016, 'Sci-Fi', 8.0, 'Przybycie', 'https://www.cda.pl/video/arrival')",
+    ).run(329865);
+
+    const fresh = makeGroup(
+      { type: "genre", reason: "Updated Picks" },
+      [makeRec({ tmdb_id: 329865, title: "Arrival" })],
+    );
+    mockGenreEngine.mockResolvedValue([fresh]);
+
+    await GET(req({ engine: "genre" }));
+
+    const row = db
+      .prepare("SELECT pl_title, cda_url FROM recommended_movies WHERE tmdb_id = 329865")
+      .get() as { pl_title: string; cda_url: string };
+    expect(row.pl_title).toBe("Przybycie");
+    expect(row.cda_url).toBe("https://www.cda.pl/video/arrival");
+  });
+
   it("skips failing db-backed engine and continues", async () => {
     mockCdaEngine.mockRejectedValue(new Error("DB error"));
     const rec = makeRec({ tmdb_id: 702, title: "Genre Film" });

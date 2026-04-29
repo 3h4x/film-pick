@@ -13,6 +13,7 @@ import {
   dismissRecommendation,
   getDismissedIds,
   saveRecommendedMovies,
+  pruneRecommendedMovies,
   getRecommendedMovies,
   updateRecommendedMovie,
   getSetting,
@@ -446,6 +447,51 @@ describe("recommended movies", () => {
     expect(movies[0].pl_title).toBeNull();
     expect(movies[0].cda_url).toBeNull();
     expect(movies[0].description).toBeNull();
+  });
+
+  it("pruneRecommendedMovies removes entries NOT in keepTmdbIds", () => {
+    const stale = { ...sampleMovie, tmdb_id: 1, title: "Stale Film" };
+    const keep = { ...sampleMovie, tmdb_id: 2, title: "Keep Film" };
+    saveRecommendedMovies(db, "genre", "Picks", [stale, keep]);
+    pruneRecommendedMovies(db, "genre", [2]);
+    const movies = getRecommendedMovies(db, "genre");
+    expect(movies).toHaveLength(1);
+    expect(movies[0].tmdb_id).toBe(2);
+  });
+
+  it("pruneRecommendedMovies with empty keepTmdbIds removes all entries for that engine", () => {
+    saveRecommendedMovies(db, "genre", "Picks", [sampleMovie]);
+    pruneRecommendedMovies(db, "genre", []);
+    expect(getRecommendedMovies(db, "genre")).toHaveLength(0);
+  });
+
+  it("pruneRecommendedMovies does not touch other engines", () => {
+    saveRecommendedMovies(db, "genre", "Picks", [sampleMovie]);
+    saveRecommendedMovies(db, "director", "Director Picks", [sampleMovie]);
+    pruneRecommendedMovies(db, "genre", []);
+    expect(getRecommendedMovies(db, "genre")).toHaveLength(0);
+    expect(getRecommendedMovies(db, "director")).toHaveLength(1);
+  });
+
+  it("pruneRecommendedMovies preserves enrichment data on kept entries", () => {
+    saveRecommendedMovies(db, "genre", "Picks", [sampleMovie]);
+    updateRecommendedMovie(db, sampleMovie.tmdb_id, {
+      pl_title: "Przybycie",
+      cda_url: "https://www.cda.pl/video/arrival",
+    });
+    const stale = { ...sampleMovie, tmdb_id: 999, title: "Stale Film" };
+    saveRecommendedMovies(db, "genre", "Picks", [stale]);
+    pruneRecommendedMovies(db, "genre", [sampleMovie.tmdb_id]);
+    const movies = getRecommendedMovies(db, "genre");
+    expect(movies).toHaveLength(1);
+    expect(movies[0].pl_title).toBe("Przybycie");
+    expect(movies[0].cda_url).toBe("https://www.cda.pl/video/arrival");
+  });
+
+  it("pruneRecommendedMovies is a no-op when all entries are in keepTmdbIds", () => {
+    saveRecommendedMovies(db, "genre", "Picks", [sampleMovie]);
+    pruneRecommendedMovies(db, "genre", [sampleMovie.tmdb_id]);
+    expect(getRecommendedMovies(db, "genre")).toHaveLength(1);
   });
 });
 
