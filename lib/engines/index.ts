@@ -11,6 +11,14 @@ import { getDb, getRecommendedMovies } from "../db";
 import { cdaEngine } from "./cda";
 import { watchlistEngine } from "./watchlist";
 
+// Normalize a title for set-membership comparison: lowercase, collapse all whitespace
+// including zero-width variants TMDb sometimes embeds (U+200B zero-width space through
+// U+200D zero-width joiner, plus U+FEFF BOM/ZWNBSP). \s already covers regular whitespace
+// and U+00A0 non-breaking space.
+export function normalizeTitle(s: string): string {
+  return s.toLowerCase().replace(/[\s\u200b-\u200d\ufeff]+/g, " ").trim();
+}
+
 export interface RecommendationGroup {
   reason: string;
   type: string;
@@ -105,7 +113,10 @@ export function buildContext(
     libraryTmdbIds: new Set(
       library.map((m) => m.tmdb_id).filter(Boolean) as number[],
     ),
-    libraryTitles: new Set(library.map((m) => m.title.toLowerCase())),
+    libraryTitles: new Set([
+      ...library.map((m) => normalizeTitle(m.title)),
+      ...library.flatMap((m) => (m.pl_title ? [normalizeTitle(m.pl_title)] : [])),
+    ]),
     config,
   };
 }
@@ -122,7 +133,7 @@ export function filterResults(
 
   return results.filter((r) => {
     if (ctx.libraryTmdbIds.has(r.tmdb_id)) return false;
-    if (ctx.libraryTitles.has(r.title.toLowerCase())) return false;
+    if (ctx.libraryTitles.has(normalizeTitle(r.title))) return false;
     if (ctx.dismissedIds.has(r.tmdb_id)) return false;
     if (seen.has(r.tmdb_id)) return false;
     if (cfg?.min_year && r.year && r.year < cfg.min_year) return false;

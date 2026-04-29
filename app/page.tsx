@@ -235,7 +235,17 @@ export default function Home() {
 
       {selectedMovie && (
         <MovieDetail movie={selectedMovie} onClose={() => setSelectedMovie(null)}
-          onUpdate={(updated) => { setMovies((prev) => prev.map((m) => (m.id === updated.id ? updated : m))); setSelectedMovie(updated); }}
+          onUpdate={(updated) => {
+            setMovies((prev) => {
+              // If auto-link merged the previously-selected duplicate into `updated`, drop the old row
+              const filtered = selectedMovie && selectedMovie.id !== updated.id
+                ? prev.filter((m) => m.id !== selectedMovie.id)
+                : prev;
+              const exists = filtered.some((m) => m.id === updated.id);
+              return exists ? filtered.map((m) => (m.id === updated.id ? updated : m)) : [updated, ...filtered];
+            });
+            setSelectedMovie(updated);
+          }}
           allMovies={movies}
           onPersonClick={(name) => { setSelectedMovie(null); setPersonFilter(name); setActiveTab("person"); }}
           onSearchTMDb={(query, targetId) => { setSearchQuery(query); search.setSearchTargetId(targetId || null); setSearchOpen(true); }}

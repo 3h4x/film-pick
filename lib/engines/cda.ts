@@ -1,5 +1,5 @@
 import { getDb, getRecommendedMovies, getDismissedIds } from "../db";
-import type { EngineContext, RecommendationGroup } from "./index";
+import { normalizeTitle, type EngineContext, type RecommendationGroup } from "./index";
 import type { TmdbSearchResult } from "../tmdb";
 
 export async function cdaEngine(
@@ -33,8 +33,8 @@ export async function cdaEngine(
   for (const m of cdaMovies) {
     if (dismissedIds.has(m.tmdb_id)) continue;
     if (ctx.libraryTmdbIds.has(m.tmdb_id)) continue;
-    if (libraryTitles.has(m.title.toLowerCase())) continue;
-    if (m.pl_title && libraryTitles.has(m.pl_title.toLowerCase())) continue;
+    if (libraryTitles.has(normalizeTitle(m.title))) continue;
+    if (m.pl_title && libraryTitles.has(normalizeTitle(m.pl_title))) continue;
 
     const genres = m.genre
       ? m.genre

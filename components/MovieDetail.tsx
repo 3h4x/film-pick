@@ -201,6 +201,12 @@ export default function MovieDetail({
           }
         }
         if (data.movie) {
+          // Auto-link may have detected this row was a duplicate of another canonical movie
+          // and merged us into it. Tell the parent so it can swap the selected movie.
+          if (data.movie.id !== movie.id && onUpdate) {
+            onUpdate(data.movie);
+            return;
+          }
           if (data.movie.pl_title) setPlTitle(data.movie.pl_title);
           if (data.movie.description) setDescription(data.movie.description);
           if (data.movie.director) setDirector(data.movie.director);

@@ -53,6 +53,10 @@ export async function GET(
     return Response.json({ error: "Movie not found" }, { status: 404 });
   }
 
+  // Tracks which DB row subsequent enrichment writes should target. Starts as the URL param,
+  // but flips to the canonical row id if the dedup branch below merges this row away.
+  let rowId = parseInt(id, 10);
+
   let metadata: VideoMetadata | { error: string } | null = null;
   if (movie.video_metadata) {
     try {
@@ -125,11 +129,14 @@ export async function GET(
         (metadata as VideoMetadata).extra_files = extraMetadata;
       }
 
-      // Save to DB
+      // Save to DB. Also refresh the in-memory snapshot so the dedup branch below sees the
+      // freshly-computed value and can merge it onto the canonical row before deleting this one.
+      const metadataJson = JSON.stringify(metadata);
       db.prepare("UPDATE movies SET video_metadata = ? WHERE id = ?").run(
-        JSON.stringify(metadata),
+        metadataJson,
         parseInt(id, 10),
       );
+      movie.video_metadata = metadataJson;
     } catch (error) {
       console.error("[Metadata] Error fetching ffprobe data:", error);
       metadata = { error: "Failed to read video metadata (ffprobe)" };
@@ -167,7 +174,85 @@ export async function GET(
           // Get localized info
           const localized = await getMovieLocalized(bestMatch.tmdb_id);
 
-          try {
+          // Dedup: if another row in `movies` already has this real tmdb_id, the current row is
+          // a Polish-titled CDA shadow of the same canonical movie. Merge cda_url onto canonical
+          // and delete this row, then return canonical data instead of creating a stale duplicate.
+          // Note: `movies.tmdb_id` has no UNIQUE constraint (only an index on (title, year)),
+          // so the previous SQLITE_CONSTRAINT_UNIQUE catch was unreachable in practice. This
+          // explicit dedup replaces it.
+          const canonical = db
+            .prepare("SELECT * FROM movies WHERE tmdb_id = ? AND id != ?")
+            .get(bestMatch.tmdb_id, parseInt(id, 10)) as Movie | undefined;
+
+          if (canonical) {
+            console.log(
+              `[Auto-Link] Duplicate detected: row ${id} → canonical ${canonical.id}, merging`,
+            );
+            // Preserve every field where canonical is empty but the duplicate has a value, so we
+            // don't lose user data (file_path, wishlist, filmweb linkage, etc.) on DELETE.
+            const dup = movie;
+            const mergeFields: (keyof Movie)[] = [
+              "cda_url",
+              "file_path",
+              "extra_files",
+              "video_metadata",
+              "filmweb_id",
+              "filmweb_url",
+              "description",
+              "pl_title",
+              "type",
+            ];
+            const updates: string[] = [];
+            const values: unknown[] = [];
+            for (const f of mergeFields) {
+              if (dup[f] != null && canonical[f] == null) {
+                updates.push(`${f} = ?`);
+                values.push(dup[f]);
+                (canonical as unknown as Record<string, unknown>)[f] = dup[f];
+              }
+            }
+            if (dup.wishlist && !canonical.wishlist) {
+              updates.push("wishlist = 1");
+              canonical.wishlist = 1;
+            }
+            if (dup.user_rating != null && canonical.user_rating == null) {
+              updates.push("user_rating = ?", "rated_at = ?");
+              values.push(dup.user_rating, dup.rated_at);
+              canonical.user_rating = dup.user_rating;
+              canonical.rated_at = dup.rated_at;
+            }
+            if (updates.length > 0) {
+              values.push(canonical.id);
+              db.prepare(
+                `UPDATE movies SET ${updates.join(", ")} WHERE id = ?`,
+              ).run(...values);
+            }
+            db.prepare("DELETE FROM movies WHERE id = ?").run(parseInt(id, 10));
+
+            if (canonical.cda_url && bestMatch.poster_url) {
+              db.prepare(
+                "UPDATE recommended_movies SET poster_url = ? WHERE cda_url = ?",
+              ).run(bestMatch.poster_url, canonical.cda_url);
+            }
+
+            // Switch the response to the canonical row. Canonical's title/year/genre/rating/
+            // poster_url are the authoritative values; keep them rather than overwriting with
+            // bestMatch (the non-dedup branch overwrites because there's no canonical to defer to).
+            Object.assign(movie, canonical);
+            // Subsequent enrichment must write to canonical, not the row we just deleted.
+            rowId = canonical.id;
+
+            // Object.assign just swapped video_metadata to canonical's value (potentially a
+            // different file's ffprobe blob). Re-parse so the response's `metadata` field
+            // matches the file we're now describing.
+            if (movie.video_metadata) {
+              try {
+                metadata = JSON.parse(movie.video_metadata);
+              } catch (e) {
+                console.error("[Metadata] Error parsing canonical metadata:", e);
+              }
+            }
+          } else {
             db.prepare(
               `
               UPDATE movies SET
@@ -191,50 +276,27 @@ export async function GET(
               bestMatch.poster_url,
               localized.pl_title,
               localized.description,
-              parseInt(id, 10),
+              rowId,
             );
-          } catch (updateError) {
-            // Another movie with the same (title, year) exists — keep original title/year, update everything else
-            if ((updateError as { code?: string }).code === "SQLITE_CONSTRAINT_UNIQUE") {
-              console.warn(
-                `[Auto-Link] Title/year conflict for "${bestMatch.title}" (${bestMatch.year}), updating other fields only`,
-              );
+
+            // Update local object for response
+            movie.tmdb_id = bestMatch.tmdb_id;
+            movie.title = bestMatch.title;
+            movie.year = bestMatch.year || movie.year;
+            movie.genre = bestMatch.genre;
+            movie.rating = bestMatch.rating;
+            movie.poster_url = bestMatch.poster_url;
+            movie.pl_title = localized.pl_title;
+            movie.description = localized.description;
+            movie.source = "tmdb";
+
+            // Keep recommended_movies in sync so Discover cards show the TMDb poster too
+            if (movie.cda_url && bestMatch.poster_url) {
               db.prepare(
-                `
-                UPDATE movies SET
-                  tmdb_id = ?,
-                  genre = ?,
-                  rating = ?,
-                  poster_url = ?,
-                  pl_title = ?,
-                  description = ?,
-                  source = 'tmdb'
-                WHERE id = ?
-              `,
-              ).run(
-                bestMatch.tmdb_id,
-                bestMatch.genre,
-                bestMatch.rating,
-                bestMatch.poster_url,
-                localized.pl_title,
-                localized.description,
-                parseInt(id, 10),
-              );
-            } else {
-              throw updateError;
+                "UPDATE recommended_movies SET poster_url = ? WHERE cda_url = ?",
+              ).run(bestMatch.poster_url, movie.cda_url);
             }
           }
-
-          // Update local object for response
-          movie.tmdb_id = bestMatch.tmdb_id;
-          movie.title = bestMatch.title;
-          movie.year = bestMatch.year || movie.year;
-          movie.genre = bestMatch.genre;
-          movie.rating = bestMatch.rating;
-          movie.poster_url = bestMatch.poster_url;
-          movie.pl_title = localized.pl_title;
-          movie.description = localized.description;
-          movie.source = "tmdb";
         }
       }
     } catch (error) {
@@ -257,7 +319,7 @@ export async function GET(
           credits.director,
           credits.writer,
           credits.actors,
-          parseInt(id, 10),
+          rowId,
         );
         movie.director = credits.director;
         movie.writer = credits.writer;
@@ -287,7 +349,7 @@ export async function GET(
       if (sets.length > 0) {
         db.prepare(`UPDATE movies SET ${sets.join(", ")} WHERE id = ?`).run(
           ...vals,
-          parseInt(id, 10),
+          rowId,
         );
       }
     } catch (error) {
