@@ -5,7 +5,7 @@ vi.mock("@/lib/db", async (importOriginal) => {
   return { ...actual, getDb: vi.fn(), getRecommendedMovies: vi.fn() };
 });
 
-import { filterResults, enrichWithCda, buildContext, getCdaLookup } from "@/lib/engines";
+import { filterResults, enrichWithCda, buildContext, getCdaLookup, normalizeTitle } from "@/lib/engines";
 import type { TmdbSearchResult } from "@/lib/tmdb";
 import type { Movie, RecommendedMovie } from "@/lib/db";
 import { getDb, getRecommendedMovies } from "@/lib/db";
@@ -50,6 +50,52 @@ function makeMovie(overrides: Partial<Movie> & { id: number; title: string }): M
 
 beforeEach(() => {
   vi.resetAllMocks();
+});
+
+// ---------------------------------------------------------------------------
+// normalizeTitle
+// ---------------------------------------------------------------------------
+
+describe("normalizeTitle", () => {
+  it("lowercases the title", () => {
+    expect(normalizeTitle("Inception")).toBe("inception");
+  });
+
+  it("trims leading and trailing whitespace", () => {
+    expect(normalizeTitle("  Arrival  ")).toBe("arrival");
+  });
+
+  it("collapses multiple spaces into one", () => {
+    expect(normalizeTitle("The  Dark   Knight")).toBe("the dark knight");
+  });
+
+  it("replaces bare zero-width space (U+200B) with a regular space", () => {
+    expect(normalizeTitle("Incep​tion")).toBe("incep tion");
+  });
+
+  it("strips zero-width non-joiner (U+200C)", () => {
+    expect(normalizeTitle("Film‌ Title")).toBe("film title");
+  });
+
+  it("strips zero-width joiner (U+200D)", () => {
+    expect(normalizeTitle("Film‍ Title")).toBe("film title");
+  });
+
+  it("strips BOM / zero-width no-break space (U+FEFF)", () => {
+    expect(normalizeTitle("﻿Inception")).toBe("inception");
+  });
+
+  it("normalizes non-breaking space (U+00A0) as regular whitespace", () => {
+    expect(normalizeTitle("The Matrix")).toBe("the matrix");
+  });
+
+  it("handles empty string", () => {
+    expect(normalizeTitle("")).toBe("");
+  });
+
+  it("preserves punctuation other than whitespace/ZWS variants", () => {
+    expect(normalizeTitle("Schindler's List")).toBe("schindler's list");
+  });
 });
 
 // ---------------------------------------------------------------------------
