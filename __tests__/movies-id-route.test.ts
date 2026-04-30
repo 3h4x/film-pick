@@ -857,4 +857,169 @@ describe("movies/[id] GET handler", () => {
     expect(row.tmdb_id).toBe(999888777);
     expect(row.genre).toBeNull();
   });
+
+  it("dedup: merges cda_url onto canonical and deletes duplicate row on auto-link", async () => {
+    // Canonical row already has the real TMDb ID
+    const canonicalId = insertMovie(db, {
+      title: "Parasite",
+      year: 2019,
+      genre: "Thriller, Drama",
+      director: "Bong Joon-ho",
+      rating: 8.5,
+      poster_url: "https://image.tmdb.org/t/p/w300/canon.jpg",
+      source: "tmdb",
+      imdb_id: "tt6751668",
+      tmdb_id: 496243,
+      type: "movie",
+    });
+
+    // Duplicate CDA row: no genre, pseudo-style (tmdb_id absent triggers auto-link)
+    const dupId = insertMovie(db, {
+      title: "Pasożyt",
+      year: 2019,
+      genre: null,
+      director: null,
+      rating: null,
+      poster_url: null,
+      source: "recommendation",
+      imdb_id: null,
+      tmdb_id: null,
+      type: "movie",
+    });
+    db.prepare("UPDATE movies SET cda_url = ? WHERE id = ?").run(
+      "https://www.cda.pl/video/parasite123/vfilm",
+      dupId,
+    );
+
+    vi.mocked(searchTmdb).mockResolvedValueOnce([
+      {
+        tmdb_id: 496243,
+        title: "Parasite",
+        year: 2019,
+        genre: "Thriller, Drama",
+        rating: 8.5,
+        poster_url: "https://image.tmdb.org/t/p/w300/canon.jpg",
+        imdb_id: "tt6751668",
+      },
+    ]);
+    vi.mocked(getMovieLocalized).mockResolvedValueOnce({
+      pl_title: "Pasożyt",
+      description: "A Korean family schemes to infiltrate a wealthy household.",
+    });
+
+    const res = await GET(getReq(dupId), makeParams(dupId));
+    expect(res.status).toBe(200);
+    const body = await res.json();
+
+    // Response should be the canonical row's data
+    expect(body.movie.id).toBe(canonicalId);
+    expect(body.movie.title).toBe("Parasite");
+    expect(body.movie.genre).toBe("Thriller, Drama");
+
+    // Duplicate row must be deleted
+    const dupRow = db.prepare("SELECT id FROM movies WHERE id = ?").get(dupId);
+    expect(dupRow).toBeUndefined();
+
+    // cda_url from duplicate should be on canonical
+    const canonRow = db.prepare("SELECT cda_url FROM movies WHERE id = ?").get(canonicalId) as { cda_url: string };
+    expect(canonRow.cda_url).toBe("https://www.cda.pl/video/parasite123/vfilm");
+  });
+
+  it("dedup: merges user_rating and wishlist from duplicate onto canonical when canonical lacks them", async () => {
+    const canonicalId = insertMovie(db, {
+      title: "Memories of Murder",
+      year: 2003,
+      genre: "Crime, Drama",
+      director: "Bong Joon-ho",
+      rating: 8.1,
+      poster_url: null,
+      source: "tmdb",
+      imdb_id: null,
+      tmdb_id: 195,
+      type: "movie",
+    });
+
+    const dupId = insertMovie(db, {
+      title: "Wspomnienie morderstwa",
+      year: 2003,
+      genre: null,
+      director: null,
+      rating: null,
+      poster_url: null,
+      source: "recommendation",
+      imdb_id: null,
+      tmdb_id: null,
+      type: "movie",
+    });
+    db.prepare("UPDATE movies SET user_rating = ?, wishlist = ? WHERE id = ?").run(8, 1, dupId);
+
+    vi.mocked(searchTmdb).mockResolvedValueOnce([
+      {
+        tmdb_id: 195,
+        title: "Memories of Murder",
+        year: 2003,
+        genre: "Crime, Drama",
+        rating: 8.1,
+        poster_url: null,
+        imdb_id: null,
+      },
+    ]);
+    vi.mocked(getMovieLocalized).mockResolvedValueOnce({ pl_title: null, description: null });
+
+    const res = await GET(getReq(dupId), makeParams(dupId));
+    expect(res.status).toBe(200);
+
+    const canonRow = db.prepare("SELECT user_rating, wishlist FROM movies WHERE id = ?").get(canonicalId) as { user_rating: number; wishlist: number };
+    expect(canonRow.user_rating).toBe(8);
+    expect(canonRow.wishlist).toBe(1);
+  });
+
+  it("dedup: does not overwrite existing user_rating on canonical with duplicate's value", async () => {
+    const canonicalId = insertMovie(db, {
+      title: "Oldboy",
+      year: 2003,
+      genre: "Thriller",
+      director: "Park Chan-wook",
+      rating: 8.4,
+      poster_url: null,
+      source: "tmdb",
+      imdb_id: null,
+      tmdb_id: 670,
+      type: "movie",
+    });
+    db.prepare("UPDATE movies SET user_rating = ? WHERE id = ?").run(9, canonicalId);
+
+    const dupId = insertMovie(db, {
+      title: "Oldboy PL",
+      year: 2003,
+      genre: null,
+      director: null,
+      rating: null,
+      poster_url: null,
+      source: "recommendation",
+      imdb_id: null,
+      tmdb_id: null,
+      type: "movie",
+    });
+    db.prepare("UPDATE movies SET user_rating = ? WHERE id = ?").run(5, dupId);
+
+    vi.mocked(searchTmdb).mockResolvedValueOnce([
+      {
+        tmdb_id: 670,
+        title: "Oldboy",
+        year: 2003,
+        genre: "Thriller",
+        rating: 8.4,
+        poster_url: null,
+        imdb_id: null,
+      },
+    ]);
+    vi.mocked(getMovieLocalized).mockResolvedValueOnce({ pl_title: null, description: null });
+
+    await GET(getReq(dupId), makeParams(dupId));
+
+    // Canonical's existing user_rating=9 must not be overwritten with duplicate's 5
+    const canonRow = db.prepare("SELECT user_rating FROM movies WHERE id = ?").get(canonicalId) as { user_rating: number };
+    expect(canonRow.user_rating).toBe(9);
+  });
 });
