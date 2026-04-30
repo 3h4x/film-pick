@@ -480,6 +480,17 @@ describe("recommendations GET handler", () => {
     expect(data[0].recommendations[0].title).toBe("Some Film");
   });
 
+  it("treats malformed disabled_engines JSON as empty list (no engines disabled)", async () => {
+    setSetting(db, "disabled_engines", "not-valid-json{{{");
+    const rec = makeRec({ tmdb_id: 601, title: "Should Still Appear" });
+    mockGenreEngine.mockResolvedValue([makeGroup({ type: "genre", reason: "Picks" }, [rec])]);
+
+    const res = await GET(req({ engine: "genre" }));
+    expect(res.status).toBe(200);
+    const data = await res.json();
+    expect(data[0].recommendations[0].title).toBe("Should Still Appear");
+  });
+
   // ── Engine error resilience ───────────────────────────────────────────────
 
   it("returns 200 with empty array when single engine throws", async () => {
