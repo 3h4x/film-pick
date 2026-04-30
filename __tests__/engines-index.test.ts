@@ -123,6 +123,14 @@ describe("filterResults", () => {
     expect(filterResults(results, ctx)).toHaveLength(0);
   });
 
+  it("filters out results whose title matches a library movie's pl_title", () => {
+    const library = [makeMovie({ id: 1, title: "Inception", tmdb_id: 999, pl_title: "Incepcja" })];
+    const ctx = buildContext(library, new Set());
+    // A result whose English title matches the library pl_title should be filtered
+    const results = [makeResult({ tmdb_id: 5, title: "Incepcja" })];
+    expect(filterResults(results, ctx)).toHaveLength(0);
+  });
+
   it("filters out dismissed results", () => {
     const ctx = buildContext([], new Set([42]));
     const results = [
@@ -372,6 +380,19 @@ describe("buildContext", () => {
     expect(ctx.libraryTitles.has("inception")).toBe(true);
     expect(ctx.libraryTitles.has("the matrix")).toBe(true);
     expect(ctx.libraryTitles.has("Inception")).toBe(false);
+  });
+
+  it("includes pl_title (normalised) in libraryTitles", () => {
+    const library = [makeMovie({ id: 1, title: "Inception", pl_title: "Incepcja" })];
+    const ctx = buildContext(library, new Set());
+    expect(ctx.libraryTitles.has("incepcja")).toBe(true);
+    expect(ctx.libraryTitles.has("Incepcja")).toBe(false);
+  });
+
+  it("does not add pl_title to libraryTitles when pl_title is null", () => {
+    const library = [makeMovie({ id: 1, title: "Inception" })];
+    const ctx = buildContext(library, new Set());
+    expect(ctx.libraryTitles.size).toBe(1);
   });
 
   it("attaches config when provided", () => {
