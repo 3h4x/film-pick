@@ -974,6 +974,134 @@ describe("movies/[id] GET handler", () => {
     expect(canonRow.wishlist).toBe(1);
   });
 
+  it("dedup: updates recommended_movies poster_url when canonical has cda_url and bestMatch has poster", async () => {
+    // Canonical row has cda_url — this is what the code will use to look up recommended_movies
+    const canonicalId = insertMovie(db, {
+      title: "The Handmaiden",
+      year: 2016,
+      genre: "Drama, Thriller",
+      director: "Park Chan-wook",
+      rating: 8.1,
+      poster_url: null,
+      source: "tmdb",
+      imdb_id: null,
+      tmdb_id: 342472,
+      type: "movie",
+    });
+    db.prepare("UPDATE movies SET cda_url = ? WHERE id = ?").run(
+      "https://www.cda.pl/video/handmaiden/vfilm",
+      canonicalId,
+    );
+
+    // A recommended_movies entry pointing at the same CDA URL but with no poster yet
+    db.prepare(`
+      INSERT INTO recommended_movies (tmdb_id, engine, reason, title, year, genre, rating, poster_url, cda_url)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `).run(342472, "cda", "CDA Premium", "The Handmaiden", 2016, "Drama", 8.1, null, "https://www.cda.pl/video/handmaiden/vfilm");
+
+    // Duplicate CDA row that will trigger the dedup path
+    const dupId = insertMovie(db, {
+      title: "Służąca",
+      year: 2016,
+      genre: null,
+      director: null,
+      rating: null,
+      poster_url: null,
+      source: "recommendation",
+      imdb_id: null,
+      tmdb_id: null,
+      type: "movie",
+    });
+
+    vi.mocked(searchTmdb).mockResolvedValueOnce([
+      {
+        tmdb_id: 342472,
+        title: "The Handmaiden",
+        year: 2016,
+        genre: "Drama, Thriller",
+        rating: 8.1,
+        poster_url: "/handmaiden.jpg",
+        imdb_id: null,
+      },
+    ]);
+    vi.mocked(getMovieLocalized).mockResolvedValueOnce({ pl_title: "Służąca", description: null });
+
+    const res = await GET(getReq(dupId), makeParams(dupId));
+    expect(res.status).toBe(200);
+
+    // recommended_movies poster_url should now be set to bestMatch.poster_url
+    const recRow = db
+      .prepare("SELECT poster_url FROM recommended_movies WHERE cda_url = ?")
+      .get("https://www.cda.pl/video/handmaiden/vfilm") as { poster_url: string };
+    expect(recRow.poster_url).toBe("/handmaiden.jpg");
+
+    // Canonical persisted, dup deleted
+    const dupRow = db.prepare("SELECT id FROM movies WHERE id = ?").get(dupId);
+    expect(dupRow).toBeUndefined();
+    const canonRow = db.prepare("SELECT id FROM movies WHERE id = ?").get(canonicalId);
+    expect(canonRow).toBeDefined();
+  });
+
+  it("dedup: skips recommended_movies update when canonical has no cda_url", async () => {
+    // Canonical without cda_url — the UPDATE should not run
+    const canonicalId = insertMovie(db, {
+      title: "A Tale of Two Sisters",
+      year: 2003,
+      genre: "Horror",
+      director: "Kim Jee-woon",
+      rating: 7.4,
+      poster_url: "/sisters.jpg",
+      source: "tmdb",
+      imdb_id: null,
+      tmdb_id: 10590,
+      type: "movie",
+    });
+
+    // Insert a recommended_movies row with a cda_url to confirm it is NOT updated
+    db.prepare(`
+      INSERT INTO recommended_movies (tmdb_id, engine, reason, title, year, genre, rating, poster_url, cda_url)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `).run(10590, "cda", "CDA Premium", "A Tale of Two Sisters", 2003, "Horror", 7.4, null, "https://www.cda.pl/video/sisters/vfilm");
+
+    const dupId = insertMovie(db, {
+      title: "Dwie siostry",
+      year: 2003,
+      genre: null,
+      director: null,
+      rating: null,
+      poster_url: null,
+      source: "recommendation",
+      imdb_id: null,
+      tmdb_id: null,
+      type: "movie",
+    });
+
+    vi.mocked(searchTmdb).mockResolvedValueOnce([
+      {
+        tmdb_id: 10590,
+        title: "A Tale of Two Sisters",
+        year: 2003,
+        genre: "Horror",
+        rating: 7.4,
+        poster_url: "/sisters.jpg",
+        imdb_id: null,
+      },
+    ]);
+    vi.mocked(getMovieLocalized).mockResolvedValueOnce({ pl_title: null, description: null });
+
+    await GET(getReq(dupId), makeParams(dupId));
+
+    // canonical has no cda_url → recommended_movies must NOT be updated
+    const recRow = db
+      .prepare("SELECT poster_url FROM recommended_movies WHERE cda_url = ?")
+      .get("https://www.cda.pl/video/sisters/vfilm") as { poster_url: string | null };
+    expect(recRow.poster_url).toBeNull();
+
+    // Sanity: canonical still exists, dup is gone
+    expect(db.prepare("SELECT id FROM movies WHERE id = ?").get(canonicalId)).toBeDefined();
+    expect(db.prepare("SELECT id FROM movies WHERE id = ?").get(dupId)).toBeUndefined();
+  });
+
   it("dedup: does not overwrite existing user_rating on canonical with duplicate's value", async () => {
     const canonicalId = insertMovie(db, {
       title: "Oldboy",
