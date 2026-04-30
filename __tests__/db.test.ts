@@ -493,6 +493,70 @@ describe("recommended movies", () => {
     pruneRecommendedMovies(db, "genre", [sampleMovie.tmdb_id]);
     expect(getRecommendedMovies(db, "genre")).toHaveLength(1);
   });
+
+  it("getRecommendedMovies prefers TMDb poster from movies table over stored poster", () => {
+    const rec = { ...sampleMovie, poster_url: "https://cda.pl/thumb.jpg" };
+    saveRecommendedMovies(db, "cda", "CDA Pick", [rec]);
+    insertMovie(db, {
+      title: rec.title,
+      year: rec.year,
+      genre: rec.genre,
+      director: null,
+      rating: rec.rating,
+      poster_url: "https://image.tmdb.org/t/p/w300/arrival.jpg",
+      source: "tmdb",
+      imdb_id: null,
+      tmdb_id: rec.tmdb_id,
+      type: "movie",
+    });
+    const results = getRecommendedMovies(db, "cda");
+    expect(results[0].poster_url).toBe("https://image.tmdb.org/t/p/w300/arrival.jpg");
+  });
+
+  it("getRecommendedMovies falls back to stored poster when movies table has no TMDb poster", () => {
+    const rec = { ...sampleMovie, poster_url: "https://cda.pl/thumb.jpg" };
+    saveRecommendedMovies(db, "cda", "CDA Pick", [rec]);
+    insertMovie(db, {
+      title: rec.title,
+      year: rec.year,
+      genre: rec.genre,
+      director: null,
+      rating: rec.rating,
+      poster_url: null,
+      source: "tmdb",
+      imdb_id: null,
+      tmdb_id: rec.tmdb_id,
+      type: "movie",
+    });
+    const results = getRecommendedMovies(db, "cda");
+    expect(results[0].poster_url).toBe("https://cda.pl/thumb.jpg");
+  });
+
+  it("getRecommendedMovies falls back to stored poster when no movies entry for tmdb_id", () => {
+    const rec = { ...sampleMovie, poster_url: "https://cda.pl/thumb.jpg" };
+    saveRecommendedMovies(db, "cda", "CDA Pick", [rec]);
+    const results = getRecommendedMovies(db, "cda");
+    expect(results[0].poster_url).toBe("https://cda.pl/thumb.jpg");
+  });
+
+  it("getRecommendedMovies does not use non-TMDb poster from movies table (must match https://image.tmdb.org%)", () => {
+    const rec = { ...sampleMovie, poster_url: "https://cda.pl/thumb.jpg" };
+    saveRecommendedMovies(db, "cda", "CDA Pick", [rec]);
+    insertMovie(db, {
+      title: rec.title,
+      year: rec.year,
+      genre: rec.genre,
+      director: null,
+      rating: rec.rating,
+      poster_url: "https://example.com/other-poster.jpg",
+      source: "tmdb",
+      imdb_id: null,
+      tmdb_id: rec.tmdb_id,
+      type: "movie",
+    });
+    const results = getRecommendedMovies(db, "cda");
+    expect(results[0].poster_url).toBe("https://cda.pl/thumb.jpg");
+  });
 });
 
 describe("getSetting / setSetting", () => {

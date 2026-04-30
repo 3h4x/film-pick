@@ -40,7 +40,8 @@ export type RecType =
   | "star_studded"
   | "random"
   | "cda"
-  | "mood";
+  | "mood"
+  | "watchlist";
 
 export interface RecommendationGroup {
   reason: string;
