@@ -212,4 +212,39 @@ describe("cdaEngine", () => {
     expect(recs[1].tmdb_id).toBe(3); // 7.0
     expect(recs[2].tmdb_id).toBe(1); // 5.5
   });
+
+  it("sorts genres alphabetically when preference scores are tied", async () => {
+    mockGetRecommendedMovies.mockReturnValue([
+      makeRec({ tmdb_id: 1, title: "Thriller Rec", genre: "Thriller" }),
+      makeRec({ tmdb_id: 2, title: "Action Rec", genre: "Action" }),
+      makeRec({ tmdb_id: 3, title: "Comedy Rec", genre: "Comedy" }),
+    ]);
+
+    // Empty library → all genre scores = 0 → alphabetical fallback
+    const ctx = buildContext([], new Set());
+    const result = await cdaEngine(ctx);
+
+    expect(result).toHaveLength(3);
+    expect(result[0].reason).toBe("Action on CDA");
+    expect(result[1].reason).toBe("Comedy on CDA");
+    expect(result[2].reason).toBe("Thriller on CDA");
+  });
+
+  it("skips library movies with user_rating < 5 when building genre preference scores", async () => {
+    mockGetRecommendedMovies.mockReturnValue([
+      makeRec({ tmdb_id: 1, title: "Sci-Fi Rec", genre: "Sci-Fi" }),
+      makeRec({ tmdb_id: 2, title: "Drama Rec", genre: "Drama" }),
+    ]);
+
+    // User dislikes Sci-Fi (rating < 5) and likes Drama — Sci-Fi should not score higher
+    const library = [
+      makeMovie({ id: 1, title: "Disliked Sci-Fi", genre: "Sci-Fi", user_rating: 2 }),
+      makeMovie({ id: 2, title: "Liked Drama", genre: "Drama", user_rating: 8 }),
+    ];
+    const ctx = buildContext(library, new Set());
+    const result = await cdaEngine(ctx);
+
+    expect(result).toHaveLength(2);
+    expect(result[0].reason).toBe("Drama on CDA");
+  });
 });
