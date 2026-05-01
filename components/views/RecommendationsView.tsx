@@ -94,7 +94,12 @@ export default function RecommendationsView({
     );
   }
 
-  const moodPicks = moodGroups.flatMap((g) => g.recommendations);
+  const moodPicks = (() => {
+    const seen = new Set<number>();
+    return moodGroups
+      .flatMap((g) => g.recommendations)
+      .filter((r) => { if (seen.has(r.tmdb_id)) return false; seen.add(r.tmdb_id); return true; });
+  })();
 
   return (
     <>
@@ -215,7 +220,7 @@ export default function RecommendationsView({
         </div>
       ) : recCategory === "all" ? (
         <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4">
-          {recommendations.flatMap((g) => g.recommendations).map((r) => (
+          {(() => { const seen = new Set<number>(); return recommendations.flatMap((g) => g.recommendations).filter((r) => { if (seen.has(r.tmdb_id)) return false; seen.add(r.tmdb_id); return true; }); })().map((r) => (
             <div key={r.tmdb_id} className="relative group/rec">
               <MovieCard title={r.title} year={r.year} genre={r.genre} rating={r.rating} userRating={null} posterUrl={r.poster_url} source="tmdb" cdaUrl={r.cda_url} onClick={() => handleRecClick(r)} />
               {recActionButtons(r)}
