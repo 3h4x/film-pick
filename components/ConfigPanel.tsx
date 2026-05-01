@@ -275,7 +275,8 @@ export default function ConfigPanel({
     <div className="max-w-2xl space-y-8">
 
       {/* Tab nav */}
-      <div className="flex gap-1 bg-gray-800/40 p-1 rounded-xl overflow-x-auto">
+      <div className="relative">
+        <div className="flex gap-1 bg-gray-800/40 p-1 rounded-xl overflow-x-auto [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
         {CONFIG_TABS.map((tab) => (
           <button
             key={tab.value}
@@ -289,6 +290,9 @@ export default function ConfigPanel({
             {tab.label}
           </button>
         ))}
+        </div>
+        {/* Right-edge fade to indicate horizontal scroll on small screens */}
+        <div className="pointer-events-none absolute inset-y-0 right-0 w-8 bg-gradient-to-l from-gray-900 to-transparent rounded-r-xl sm:hidden" />
       </div>
 
       {/* ── Library ─────────────────────────────────────────── */}
