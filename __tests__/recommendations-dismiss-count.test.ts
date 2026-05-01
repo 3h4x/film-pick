@@ -199,6 +199,28 @@ describe("recommendations/count GET", () => {
     expect(data.total).toBe(5);
   });
 
+  it("returns total:0 for a non-db-backed engine when its cache entry has expired (TTL)", async () => {
+    const group: RecommendationGroup = {
+      type: "genre",
+      reason: "Old picks",
+      recommendations: [
+        { tmdb_id: 88, title: "Expired Film", year: 2018, genre: "Thriller", rating: 6, poster_url: null, imdb_id: null },
+      ],
+    };
+    // Insert cache with a timestamp older than the default 24h TTL
+    const oldTimestamp = new Date(Date.now() - 25 * 60 * 60 * 1000)
+      .toISOString()
+      .replace("T", " ")
+      .replace(/\.\d+Z$/, "");
+    db.prepare(
+      "INSERT OR REPLACE INTO recommendation_cache (engine, data, movie_count, created_at) VALUES (?, ?, ?, ?)",
+    ).run("genre", JSON.stringify([group]), 0, oldTimestamp);
+
+    const res = await countGET();
+    const data = await res.json();
+    expect(data.total).toBe(0);
+  });
+
   it("recommendation-sourced movies do not affect the cache key (count uses library-only)", async () => {
     // Cache set for an empty library (movieCount = 0)
     const group: RecommendationGroup = {
