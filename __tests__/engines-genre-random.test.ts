@@ -151,9 +151,9 @@ describe("genreEngine", () => {
     expect(mockDiscoverByGenre).not.toHaveBeenCalledWith(18);
   });
 
-  it("treats user_rating=0 as unrated (default weight 5), not disliked", async () => {
-    // user_rating=0 means "not yet rated" throughout the codebase — it should
-    // contribute the same default weight as null, not be excluded as disliked.
+  it("treats user_rating=0 as unrated — still generates results via fallback for fresh libraries", async () => {
+    // user_rating=0 means "not yet rated". Primary scoring requires >= 7, fallback for >= 5,
+    // and a final fallback includes unrated movies with neutral weight so fresh libraries work.
     const library = [
       makeMovie({ id: 1, title: "Unrated Drama", genre: "Drama", user_rating: 0 }),
     ];
@@ -167,7 +167,7 @@ describe("genreEngine", () => {
     expect(mockDiscoverByGenre).toHaveBeenCalledWith(18);
   });
 
-  it("unrated (user_rating=0) and null-rated movies contribute equal weight to genre scoring", async () => {
+  it("unrated (user_rating=0) and null-rated movies both reach the fallback and produce results", async () => {
     const library = [
       makeMovie({ id: 1, title: "Null Rated", genre: "Drama", user_rating: undefined }),
       makeMovie({ id: 2, title: "Zero Rated", genre: "Drama", user_rating: 0 }),
@@ -178,7 +178,7 @@ describe("genreEngine", () => {
 
     const result = await genreEngine(ctx);
     expect(result).toHaveLength(1);
-    // Both movies contribute weight 5 each = total 10 for Drama
+    // Both go through fallback 2 with neutral weight; Drama still wins
     expect(mockDiscoverByGenre).toHaveBeenCalledTimes(1);
     expect(mockDiscoverByGenre).toHaveBeenCalledWith(18);
   });
@@ -246,10 +246,10 @@ describe("genreEngine", () => {
     expect(await genreEngine(ctx)).toEqual([]);
   });
 
-  it("only processes the top 12 genres even when library has more", async () => {
-    // Create 15 distinct genres each with one high-rated movie
+  it("only processes the top N genres (default 6) even when library has more", async () => {
+    // Create 10 distinct genres each with one high-rated movie
     const genres = Array.from(
-      { length: 15 },
+      { length: 10 },
       (_, i) => `Genre${String.fromCharCode(65 + i)}`,
     );
     const library = genres.map((g, i) =>
@@ -264,9 +264,9 @@ describe("genreEngine", () => {
     );
 
     const result = await genreEngine(ctx);
-    // Should produce at most 12 groups (top-12 genre limit)
-    expect(result.length).toBeLessThanOrEqual(12);
-    expect(mockDiscoverByGenre).toHaveBeenCalledTimes(12);
+    // Default top_genre_count is 6
+    expect(result.length).toBeLessThanOrEqual(6);
+    expect(mockDiscoverByGenre).toHaveBeenCalledTimes(6);
   });
 });
 
