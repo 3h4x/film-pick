@@ -268,6 +268,92 @@ describe("genreEngine", () => {
     expect(result.length).toBeLessThanOrEqual(6);
     expect(mockDiscoverByGenre).toHaveBeenCalledTimes(6);
   });
+
+  it("respects custom top_genre_count from config", async () => {
+    const genres = ["Drama", "Sci-Fi", "Action", "Comedy"];
+    const library = genres.map((g, i) =>
+      makeMovie({ id: i + 1, title: `Film ${g}`, genre: g, user_rating: 8 }),
+    );
+    const ctx = buildContext(library, new Set(), {
+      excluded_genres: [],
+      min_year: null,
+      min_rating: null,
+      max_per_group: 10,
+      top_genre_count: 2,
+    });
+
+    mockGenreNameToId.mockImplementation((g: string) => genres.indexOf(g) + 1);
+    mockDiscoverByGenre.mockImplementation((id: number) =>
+      Promise.resolve([makeResult({ tmdb_id: id * 1000, title: `Discovered ${id}` })]),
+    );
+
+    const result = await genreEngine(ctx);
+    expect(result.length).toBeLessThanOrEqual(2);
+    expect(mockDiscoverByGenre).toHaveBeenCalledTimes(2);
+  });
+
+  it("does not score excluded genres even when user rated them highly", async () => {
+    const library = [
+      makeMovie({ id: 1, title: "Horror Film", genre: "Horror", user_rating: 10 }),
+      makeMovie({ id: 2, title: "Drama Film", genre: "Drama", user_rating: 8 }),
+    ];
+    const ctx = buildContext(library, new Set(), {
+      excluded_genres: ["Horror"],
+      min_year: null,
+      min_rating: null,
+      max_per_group: 10,
+    });
+
+    mockGenreNameToId.mockImplementation((g: string) => (g === "Drama" ? 18 : 27));
+    mockDiscoverByGenre.mockResolvedValue([makeResult({ tmdb_id: 500, title: "New Film" })]);
+
+    const result = await genreEngine(ctx);
+    // Only Drama should produce a group — Horror is excluded from scoring
+    expect(result).toHaveLength(1);
+    expect(result[0].reason).toContain("Drama");
+    expect(mockDiscoverByGenre).not.toHaveBeenCalledWith(27);
+  });
+
+  it("uses fallback tier 1 (rated >= 5) when no movies are rated >= 7", async () => {
+    const library = [
+      makeMovie({ id: 1, title: "Ok Drama", genre: "Drama", user_rating: 6 }),
+      makeMovie({ id: 2, title: "Decent Sci-Fi", genre: "Sci-Fi", user_rating: 5 }),
+    ];
+    const ctx = buildContext(library, new Set());
+    mockGenreNameToId.mockImplementation((g: string) => (g === "Drama" ? 18 : 878));
+    mockDiscoverByGenre.mockImplementation((id: number) =>
+      Promise.resolve([makeResult({ tmdb_id: id * 10, title: `Film ${id}` })]),
+    );
+
+    const result = await genreEngine(ctx);
+    // Both genres should appear (tier-1 fallback: rating >= 5)
+    expect(result).toHaveLength(2);
+    const reasons = result.map((r) => r.reason);
+    expect(reasons.some((r) => r.includes("Drama"))).toBe(true);
+    expect(reasons.some((r) => r.includes("Sci-Fi"))).toBe(true);
+  });
+
+  it("excluded genre is skipped in fallback tier 1 as well", async () => {
+    // All movies rated between 5 and 6 (trigger tier-1 fallback), one genre excluded
+    const library = [
+      makeMovie({ id: 1, title: "Horror Film", genre: "Horror", user_rating: 6 }),
+      makeMovie({ id: 2, title: "Drama Film", genre: "Drama", user_rating: 5 }),
+    ];
+    const ctx = buildContext(library, new Set(), {
+      excluded_genres: ["Horror"],
+      min_year: null,
+      min_rating: null,
+      max_per_group: 10,
+    });
+
+    mockGenreNameToId.mockImplementation((g: string) => (g === "Drama" ? 18 : 27));
+    mockDiscoverByGenre.mockResolvedValue([makeResult({ tmdb_id: 500, title: "New Film" })]);
+
+    const result = await genreEngine(ctx);
+    expect(result).toHaveLength(1);
+    expect(result[0].reason).toContain("Drama");
+    expect(mockDiscoverByGenre).not.toHaveBeenCalledWith(27);
+  });
 });
 
 // ---------------------------------------------------------------------------
