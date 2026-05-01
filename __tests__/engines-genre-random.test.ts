@@ -354,6 +354,41 @@ describe("genreEngine", () => {
     expect(result[0].reason).toContain("Drama");
     expect(mockDiscoverByGenre).not.toHaveBeenCalledWith(27);
   });
+
+  it("returns empty when all library genres are excluded", async () => {
+    const library = [
+      makeMovie({ id: 1, title: "Horror Film", genre: "Horror", user_rating: 9 }),
+    ];
+    const ctx = buildContext(library, new Set(), {
+      excluded_genres: ["Horror"],
+      min_year: null,
+      min_rating: null,
+      max_per_group: 10,
+    });
+
+    expect(await genreEngine(ctx)).toEqual([]);
+    expect(mockDiscoverByGenre).not.toHaveBeenCalled();
+  });
+
+  it("excluded genres filter is case-insensitive", async () => {
+    const library = [
+      makeMovie({ id: 1, title: "Horror Film", genre: "Horror", user_rating: 9 }),
+      makeMovie({ id: 2, title: "Drama Film", genre: "Drama", user_rating: 8 }),
+    ];
+    const ctx = buildContext(library, new Set(), {
+      excluded_genres: ["HORROR"],
+      min_year: null,
+      min_rating: null,
+      max_per_group: 10,
+    });
+
+    mockGenreNameToId.mockImplementation((g: string) => (g === "Drama" ? 18 : 27));
+    mockDiscoverByGenre.mockResolvedValue([makeResult({ tmdb_id: 500, title: "New Film" })]);
+
+    const result = await genreEngine(ctx);
+    expect(result).toHaveLength(1);
+    expect(result[0].reason).toContain("Drama");
+  });
 });
 
 // ---------------------------------------------------------------------------
