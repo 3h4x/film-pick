@@ -225,6 +225,7 @@ export function initDb(db: Database.Database): void {
     CREATE INDEX IF NOT EXISTS idx_movies_user_rating ON movies (user_rating);
     CREATE INDEX IF NOT EXISTS idx_movies_title_year ON movies (title, year);
     CREATE INDEX IF NOT EXISTS idx_movies_type ON movies (type);
+    CREATE INDEX IF NOT EXISTS idx_movies_source ON movies (source);
     CREATE INDEX IF NOT EXISTS idx_recommended_movies_tmdb_id ON recommended_movies (tmdb_id);
   `);
 }
