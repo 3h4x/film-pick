@@ -354,13 +354,18 @@ export function getCachedEngine<T = unknown>(
   db: Database.Database,
   engine: string,
   movieCount: number,
+  maxAgeHours = 24,
 ): T[] | null {
   const row = db
     .prepare(
-      "SELECT data, movie_count FROM recommendation_cache WHERE engine = ?",
+      "SELECT data, movie_count, created_at FROM recommendation_cache WHERE engine = ?",
     )
-    .get(engine) as { data: string; movie_count: number } | undefined;
+    .get(engine) as
+    | { data: string; movie_count: number; created_at: string }
+    | undefined;
   if (!row || row.movie_count !== movieCount) return null;
+  const ageMs = Date.now() - new Date(row.created_at + "Z").getTime();
+  if (ageMs > maxAgeHours * 60 * 60 * 1000) return null;
   try {
     return JSON.parse(row.data) as T[];
   } catch {

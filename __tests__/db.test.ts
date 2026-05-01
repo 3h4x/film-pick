@@ -185,6 +185,39 @@ describe("recommendation cache", () => {
     const result = getCachedEngine(db, "genre", 5);
     expect(result).toBeNull();
   });
+
+  it("returns cached data when within maxAgeHours", () => {
+    const data = [{ tmdb_id: 1, title: "Fresh" }];
+    setCachedEngine(db, "genre", data, 5);
+    const result = getCachedEngine(db, "genre", 5, 24);
+    expect(result).toEqual(data);
+  });
+
+  it("returns null when cache exceeds maxAgeHours", () => {
+    const oldTimestamp = new Date(Date.now() - 25 * 60 * 60 * 1000)
+      .toISOString()
+      .replace("T", " ")
+      .replace(/\.\d+Z$/, "");
+    db.prepare(
+      "INSERT OR REPLACE INTO recommendation_cache (engine, data, movie_count, created_at) VALUES (?, ?, ?, ?)",
+    ).run("genre", JSON.stringify([{ tmdb_id: 1 }]), 5, oldTimestamp);
+    expect(getCachedEngine(db, "genre", 5, 24)).toBeNull();
+  });
+
+  it("accepts a custom maxAgeHours and respects it", () => {
+    const data = [{ tmdb_id: 2, title: "Custom" }];
+    const recentTimestamp = new Date(Date.now() - 2 * 60 * 60 * 1000)
+      .toISOString()
+      .replace("T", " ")
+      .replace(/\.\d+Z$/, "");
+    db.prepare(
+      "INSERT OR REPLACE INTO recommendation_cache (engine, data, movie_count, created_at) VALUES (?, ?, ?, ?)",
+    ).run("genre", JSON.stringify(data), 5, recentTimestamp);
+    // Within 3h window → hit
+    expect(getCachedEngine(db, "genre", 5, 3)).toEqual(data);
+    // Outside 1h window → miss
+    expect(getCachedEngine(db, "genre", 5, 1)).toBeNull();
+  });
 });
 
 describe("dismissed recommendations", () => {
