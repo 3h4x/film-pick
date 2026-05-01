@@ -185,6 +185,7 @@ export default function LibraryView({
               userRating={m.user_rating}
               posterUrl={m.poster_url}
               source={m.source}
+              cdaUrl={m.cda_url}
               onAddToWatchlist={
                 (!m.user_rating || m.user_rating === 0) && m.wishlist !== 1
                   ? () => handleMoveToWatchlist(m.id, m.title)
