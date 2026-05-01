@@ -34,6 +34,11 @@ export async function POST(request: NextRequest) {
       ) || null;
   }
 
+  // wishlist: set to 1 if either movie is wishlisted
+  if (source.wishlist && !target.wishlist) {
+    updates.wishlist = 1;
+  }
+
   // rating: take max (global rating)
   if (source.rating || target.rating) {
     updates.rating =

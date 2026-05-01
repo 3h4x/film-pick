@@ -194,6 +194,28 @@ describe("movies/[id]/full DELETE handler", () => {
     expect(row!.file_path).toBeNull();
   });
 
+  it("clears extra_files and video_metadata when disk_only=1", async () => {
+    const filePath = `${LIBRARY_ROOT}/somemovie.mkv`;
+    const id = insertWithFile(filePath);
+    db.prepare("UPDATE movies SET extra_files = ?, video_metadata = ? WHERE id = ?").run(
+      JSON.stringify([`${LIBRARY_ROOT}/somemovie.part2.mkv`]),
+      JSON.stringify({ format: "mkv" }),
+      id,
+    );
+
+    const res = await DELETE(deleteReq(id, "disk_only=1"), makeParams(id));
+    expect(res.status).toBe(200);
+    const row = db.prepare("SELECT file_path, extra_files, video_metadata FROM movies WHERE id = ?").get(id) as {
+      file_path: string | null;
+      extra_files: string | null;
+      video_metadata: string | null;
+    } | undefined;
+    expect(row).toBeDefined();
+    expect(row!.file_path).toBeNull();
+    expect(row!.extra_files).toBeNull();
+    expect(row!.video_metadata).toBeNull();
+  });
+
   it("skips file deletion when parent dir is outside library root", async () => {
     const filePath = "/other/location/somemovie.mkv";
     const id = insertWithFile(filePath);

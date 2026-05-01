@@ -283,6 +283,32 @@ describe("POST /api/movies/merge", () => {
     expect(extras.filter((e) => e === "/movies/shared.mkv")).toHaveLength(1);
   });
 
+  it("propagates wishlist=1 from source to target when target has none", async () => {
+    const sourceId = insertTestMovie(db, { title: "Source" });
+    const targetId = insertTestMovie(db, { title: "Target" });
+    db.prepare("UPDATE movies SET wishlist = 1 WHERE id = ?").run(sourceId);
+
+    await POST(makeRequest({ sourceId, targetId }));
+
+    const target = db
+      .prepare("SELECT wishlist FROM movies WHERE id = ?")
+      .get(targetId) as { wishlist: number };
+    expect(target.wishlist).toBe(1);
+  });
+
+  it("keeps target wishlist=1 when source has no wishlist", async () => {
+    const sourceId = insertTestMovie(db, { title: "Source" });
+    const targetId = insertTestMovie(db, { title: "Target" });
+    db.prepare("UPDATE movies SET wishlist = 1 WHERE id = ?").run(targetId);
+
+    await POST(makeRequest({ sourceId, targetId }));
+
+    const target = db
+      .prepare("SELECT wishlist FROM movies WHERE id = ?")
+      .get(targetId) as { wishlist: number };
+    expect(target.wishlist).toBe(1);
+  });
+
   it("copies director from source when target director is null", async () => {
     const sourceId = insertTestMovie(db, {
       title: "Source",
