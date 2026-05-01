@@ -26,8 +26,12 @@ export async function GET(request: NextRequest) {
   const engineKey = request.nextUrl.searchParams.get("engine") || "all";
   const refresh = request.nextUrl.searchParams.get("refresh") === "true";
   const allMovies = getMovies(db);
-  // For recommendation engine context, only count non-recommendation movies (the real library)
-  const movies = allMovies.filter((m) => m.source !== "recommendation");
+  // For recommendation engine context, use real library movies plus any wishlist items
+  // (wishlist items added via recommendation flow have source="recommendation" but must
+  // still be excluded from future recommendations).
+  const movies = allMovies.filter(
+    (m) => m.source !== "recommendation" || m.wishlist,
+  );
   const movieCount = movies.length;
   const dismissedIds = getDismissedIds(db);
   // Movies the user has rated — these should not appear in recommendations

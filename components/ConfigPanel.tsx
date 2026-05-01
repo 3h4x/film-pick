@@ -38,6 +38,7 @@ const DEFAULTS: RecConfig = {
   use_tmdb_similar: true,
   actor_min_appearances: 2,
   director_min_films: 2,
+  top_genre_count: 6,
 };
 
 interface ConfigPanelProps {
@@ -731,6 +732,25 @@ export default function ConfigPanel({
               {/* Excluded Genres */}
               <div>
                 <p className="text-xs text-gray-500 mb-2">Excluded genres</p>
+                <div className="flex flex-wrap gap-2 mb-2">
+                  <button
+                    onClick={() => {
+                      const hasAnim = draft.excluded_genres.includes("Animation");
+                      update({
+                        excluded_genres: hasAnim
+                          ? draft.excluded_genres.filter((g) => g !== "Animation")
+                          : [...draft.excluded_genres, "Animation"],
+                      });
+                    }}
+                    className={`text-xs px-3 py-1.5 rounded-lg transition-all border font-medium ${
+                      draft.excluded_genres.includes("Animation")
+                        ? "bg-orange-500/20 text-orange-300 border-orange-500/30"
+                        : "bg-white/5 text-gray-400 border-white/10 hover:bg-white/10 hover:text-gray-300"
+                    }`}
+                  >
+                    {draft.excluded_genres.includes("Animation") ? "✕ No Animation" : "Exclude Animation"}
+                  </button>
+                </div>
                 <div className="flex flex-wrap gap-2">
                   {ALL_GENRES.map((genre) => {
                     const excluded = draft.excluded_genres.includes(genre);
@@ -822,6 +842,25 @@ export default function ConfigPanel({
             <SubHeader>Engine Tuning</SubHeader>
             <Hint>Controls how each recommendation engine selects candidates.</Hint>
             <div className="space-y-5">
+
+              {/* Genre */}
+              <div className="rounded-lg bg-white/[0.03] border border-white/[0.06] p-4">
+                <p className="text-xs font-medium text-gray-400 uppercase tracking-wider mb-4">Genre</p>
+                <p className="text-xs text-gray-500 mb-2">Top genres to use</p>
+                <Hint>Only your top N genres (by rating sum) generate recommendation groups.</Hint>
+                <div className="flex gap-1 flex-wrap">
+                  {[3, 4, 5, 6, 8, 10].map((n) => (
+                    <PillButton
+                      key={n}
+                      active={(draft.top_genre_count ?? 6) === n}
+                      color="indigo"
+                      onClick={() => update({ top_genre_count: n })}
+                    >
+                      {n}
+                    </PillButton>
+                  ))}
+                </div>
+              </div>
 
               {/* Similar Movies */}
               <div className="rounded-lg bg-white/[0.03] border border-white/[0.06] p-4 space-y-4">

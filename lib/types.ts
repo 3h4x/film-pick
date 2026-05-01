@@ -74,6 +74,7 @@ export interface RecConfig {
   use_tmdb_similar?: boolean;
   actor_min_appearances?: number;
   director_min_films?: number;
+  top_genre_count?: number;
 }
 
 export const PAGE_SIZE = 36;
