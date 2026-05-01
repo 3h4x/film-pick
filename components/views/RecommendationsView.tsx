@@ -94,6 +94,8 @@ export default function RecommendationsView({
     );
   }
 
+  const moodPicks = moodGroups.flatMap((g) => g.recommendations);
+
   return (
     <>
       {(engineDropdownOpen || moodDropdownOpen) && (
@@ -192,9 +194,9 @@ export default function RecommendationsView({
           </div>
         ) : (
           <div>
-            <p className="text-gray-500 text-xs mb-3">{MOOD_PRESETS[activeMood].reason} — {moodGroups.flatMap((g) => g.recommendations).length} picks</p>
+            <p className="text-gray-500 text-xs mb-3">{MOOD_PRESETS[activeMood].reason} — {moodPicks.length} {moodPicks.length === 1 ? "pick" : "picks"}</p>
             <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4">
-              {moodGroups.flatMap((g) => g.recommendations).map((r) => (
+              {moodPicks.map((r) => (
                 <div key={r.tmdb_id} className="relative group/rec">
                   <MovieCard title={r.title} year={r.year} genre={r.genre} rating={r.rating} userRating={null} posterUrl={r.poster_url} source="tmdb" cdaUrl={r.cda_url} onClick={() => handleRecClick(r)} />
                   {recActionButtons(r, true)}
