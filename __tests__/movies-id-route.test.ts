@@ -185,6 +185,14 @@ describe("movies/[id] PATCH handler", () => {
     expect(body.error).toMatch(/wishlist/i);
   });
 
+  it("allows wishlist=null via PATCH (clears flag)", async () => {
+    db.prepare("UPDATE movies SET wishlist = 1 WHERE id = ?").run(movieId);
+    const res = await PATCH(patchReq({ wishlist: null }), makeParams(movieId));
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body.wishlist).toBeNull();
+  });
+
   it("returns 500 with error message and code when DB update throws", async () => {
     const dbError = Object.assign(new Error("SQLITE_CORRUPT: database disk image is malformed"), {
       code: "SQLITE_CORRUPT",

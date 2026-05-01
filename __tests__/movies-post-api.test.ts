@@ -102,6 +102,14 @@ describe("POST /api/movies", () => {
     expect(res.status).toBe(201);
   });
 
+  it("accepts wishlist=null without error (treated as not set)", async () => {
+    const res = await POST(postReq({ title: "Test", wishlist: null }));
+    expect(res.status).toBe(201);
+    const { id } = await res.json();
+    const row = db.prepare("SELECT wishlist FROM movies WHERE id = ?").get(id) as { wishlist: number };
+    expect(row.wishlist).toBe(0);
+  });
+
   it("returns 201 with id on success", async () => {
     const res = await POST(postReq({ title: "Interstellar" }));
     expect(res.status).toBe(201);

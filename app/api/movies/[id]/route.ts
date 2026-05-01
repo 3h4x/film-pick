@@ -394,9 +394,9 @@ export async function PATCH(
       );
     }
   }
-  if ("wishlist" in body && body.wishlist !== 0 && body.wishlist !== 1) {
+  if ("wishlist" in body && body.wishlist !== null && body.wishlist !== 0 && body.wishlist !== 1) {
     return Response.json(
-      { error: "wishlist must be 0 or 1" },
+      { error: "wishlist must be 0, 1, or null" },
       { status: 400 },
     );
   }
