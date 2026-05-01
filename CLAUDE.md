@@ -137,7 +137,7 @@ pnpm backup              # Backup SQLite DB
 
 **movies**: id, title, year, genre, director, writer, actors, rating, user_rating, poster_url, source, imdb_id, tmdb_id, type (`movie`|`tv`), file_path, extra_files (JSON), video_metadata (JSON), filmweb_id, filmweb_url, cda_url, pl_title, description, rated_at, created_at, wishlist (0|1)
 
-**Other tables**: settings (key/value), dismissed_recommendations (tmdb_id), recommendation_cache (engine, data, movie_count), recommended_movies (tmdb_id, engine, reason, title, year, genre, rating, poster_url, pl_title, cda_url, description), _migrations (migration guard)
+**Other tables**: settings (key/value), dismissed_recommendations (tmdb_id), recommendation_cache (engine, data, movie_count, created_at — `created_at` drives the TTL checked by `getCachedEngine(db, engine, maxAgeHours)`), recommended_movies (tmdb_id, engine, reason, title, year, genre, rating, poster_url, pl_title, cda_url, description), _migrations (migration guard)
 
 ### Environment
 
@@ -225,7 +225,7 @@ TMDB_API_KEY=<your_key> docker run -p 4000:4000 -v $(pwd)/data:/app/data -e TMDB
 ## Development
 
 - Use `pnpm` exclusively (not npm)
-- Conventional commits suggested
+- Conventional commits are enforced (see Scope & Safety Rules §1)
 - Type check with `pnpm type-check` before committing
 
 ## Coding Conventions
@@ -233,7 +233,7 @@ TMDB_API_KEY=<your_key> docker run -p 4000:4000 -v $(pwd)/data:/app/data -e TMDB
 1. **TypeScript strict mode is on.** All code must pass `pnpm type-check` with no errors. Avoid `any` even though the ESLint rule is disabled — use proper types or `unknown`.
 2. **Path alias `@/*` maps to the project root.** Use it for all cross-directory imports (e.g. `import { getDb } from "@/lib/db"`). Avoid `../..` relative chains.
 3. **React components are functional only.** No class components.
-4. **All DB access goes through `lib/db.ts`.** Never call `better-sqlite3` directly in route handlers or components — only through the exported functions in `lib/db.ts`.
+4. **All DB access uses `getDb()` from `lib/db.ts`.** Never instantiate `new Database()` directly — always call `getDb()` to get the singleton. For common operations, use the CRUD helpers exported by `lib/db.ts`; for complex queries not covered by helpers, calling `.prepare()` on the returned db instance is acceptable within route handlers.
 5. **All TMDb API calls go through `lib/tmdb.ts`.** Never call `fetch("https://api.themoviedb.org/...")` directly outside that module.
 6. **Async/await only.** No raw `.then()` chains.
 7. **ESLint + lint-staged run automatically** on `git commit` (ESLint `--fix` + type-check + full test suite). Do not skip hooks with `--no-verify`.
@@ -245,13 +245,13 @@ TMDB_API_KEY=<your_key> docker run -p 4000:4000 -v $(pwd)/data:/app/data -e TMDB
 
 ## Testing Rules
 
-1. **Test runner:** Vitest (`pnpm test` = `vitest run`; `pnpm test:watch` = interactive).
+1. **Test runner:** Vitest (`pnpm test` = `vitest run`; `pnpm test:watch` = interactive). Vitest is configured with `globals: true` — test files use `describe`, `it`, `expect`, `vi`, `beforeEach`, `afterEach` globally without importing them.
 2. **Tests live in `__tests__/`** and are named `<subject>.test.ts`. No colocated tests.
 3. **Use a real SQLite file for DB tests** (pattern: `new Database(TEST_DB)` + `initDb(db)` in `beforeEach`; close and `unlinkSync` in `afterEach`). Never mock the database layer — integration test against real SQLite.
 4. **Mock external HTTP** (TMDb, CDA) with `vi.fn()` assigned to `global.fetch`. Do not make real network calls in tests.
 5. **Run `pnpm test` after every code change** to verify nothing regressed. The lint-staged config also runs the full suite on commit.
 6. **New API routes and business logic require tests.** Trivial pass-through wrappers and UI-only components do not.
-7. **E2E tests** use Playwright (`pnpm test:e2e`). These are separate from unit tests and are not run by the pre-push hook.
+7. **E2E tests** use Playwright (`pnpm test:e2e`). They live in `e2e/` (not `__tests__/`). These are separate from unit tests and are not run by the pre-push hook.
 
 ## Architecture Patterns
 
