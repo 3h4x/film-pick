@@ -140,6 +140,34 @@ describe("recommendations GET handler", () => {
     expect(data[0].reason).toBe("Cached Group");
   });
 
+  // ── Single engine: expired TTL → bypass cache ────────────────────────────
+
+  it("re-runs engine when cache entry has exceeded 24h TTL", async () => {
+    const expired = makeGroup(
+      { type: "genre", reason: "Expired" },
+      [makeRec({ tmdb_id: 399, title: "Old Film" })],
+    );
+    const fresh = makeGroup(
+      { type: "genre", reason: "Fresh from engine" },
+      [makeRec({ tmdb_id: 400, title: "New Film" })],
+    );
+    // Insert cache with a timestamp >24h old
+    const oldTimestamp = new Date(Date.now() - 25 * 60 * 60 * 1000)
+      .toISOString()
+      .replace("T", " ")
+      .replace(/\.\d+Z$/, "");
+    db.prepare(
+      "INSERT OR REPLACE INTO recommendation_cache (engine, data, movie_count, created_at) VALUES (?, ?, ?, ?)",
+    ).run("genre", JSON.stringify([expired]), 0, oldTimestamp);
+    mockGenreEngine.mockResolvedValue([fresh]);
+
+    const res = await GET(req({ engine: "genre" }));
+    const data = await res.json();
+
+    expect(mockGenreEngine).toHaveBeenCalledOnce();
+    expect(data[0].reason).toBe("Fresh from engine");
+  });
+
   // ── Single engine: refresh=true clears cache ──────────────────────────────
 
   it("ignores cache and re-runs engine when refresh=true", async () => {
