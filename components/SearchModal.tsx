@@ -147,7 +147,7 @@ export default function SearchModal({
                   source="tmdb"
                   onClick={() => onAdd(r, false)}
                 />
-                <div className="absolute bottom-14 right-1 flex flex-col gap-1 sm:opacity-0 sm:group-hover/search:opacity-100 transition-all duration-200">
+                <div className="absolute bottom-14 right-1 flex flex-col gap-1 [@media(hover:hover)]:opacity-0 [@media(hover:hover)]:group-hover/search:opacity-100 transition-all duration-200">
                   <button
                     onClick={(e) => {
                       e.stopPropagation();

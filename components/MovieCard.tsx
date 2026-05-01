@@ -61,7 +61,7 @@ export default function MovieCard({
         </div>
 
         {/* Watchlist/Delete buttons */}
-        <div className="absolute top-2 right-2 flex gap-1.5 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity duration-200">
+        <div className="absolute top-2 right-2 flex gap-1.5 [@media(hover:hover)]:opacity-0 [@media(hover:hover)]:group-hover:opacity-100 transition-opacity duration-200">
           {onAddToWatchlist && (
             <button
               onClick={(e) => {
