@@ -846,7 +846,7 @@ export default function MovieDetail({
         <div className="overflow-y-auto flex-1 px-4 sm:px-8 pb-6 pt-2">
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
           {/* Left Column: Poster, Credits & Technical Info */}
-          <div className="lg:col-span-4 space-y-6">
+          <div className="order-2 lg:order-1 lg:col-span-4 space-y-6">
             <div className="flex-shrink-0 relative group">
               {posterUrl ? (
                 <div className="relative aspect-[2/3]">
@@ -1116,7 +1116,7 @@ export default function MovieDetail({
             )}
           </div>
 
-          <div className="lg:col-span-8 space-y-8">
+          <div className="order-1 lg:order-2 lg:col-span-8 space-y-8">
             {/* Title & Actions */}
             <div className="space-y-1">
               <h2 className="text-2xl sm:text-3xl font-black text-white tracking-tight">
