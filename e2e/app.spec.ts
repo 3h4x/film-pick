@@ -142,6 +142,7 @@ test.describe("library tab", () => {
   test("shows movie count", async ({ page }) => {
     await expect(page.getByText(/Showing 2 of 2/)).toBeVisible();
   });
+
 });
 
 test.describe("library search filter", () => {
@@ -302,6 +303,27 @@ test.describe("config tab", () => {
     const activeTab = page.getByRole("button", { name: /^Config/ });
     await expect(activeTab).toBeVisible();
     const box = await activeTab.boundingBox();
+
+    expect(box).not.toBeNull();
+    expect(box!.x).toBeGreaterThanOrEqual(0);
+    expect(box!.x + box!.width).toBeLessThanOrEqual(375);
+  });
+});
+
+test.describe("library tab responsive", () => {
+  test("keeps the active sort chip visible on mobile hash loads", async ({
+    page,
+  }) => {
+    await mockAPIs(page);
+    await page.setViewportSize({ width: 375, height: 812 });
+    await page.goto("/#library");
+    await expect(page.getByText(/Showing \d+ of \d+/)).toBeVisible({
+      timeout: 8_000,
+    });
+
+    const activeSort = page.getByRole("button", { name: "Date Added" });
+    await expect(activeSort).toBeVisible();
+    const box = await activeSort.boundingBox();
 
     expect(box).not.toBeNull();
     expect(box!.x).toBeGreaterThanOrEqual(0);

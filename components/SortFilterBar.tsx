@@ -1,5 +1,7 @@
 "use client";
 
+import { useEffect, useRef } from "react";
+
 type SortOption =
   | "user_rating"
   | "rating"
@@ -60,32 +62,71 @@ export default function SortFilterBar({
   onHasFileChange,
   onSearchChange,
 }: SortFilterBarProps) {
+  const sortTabsRef = useRef<HTMLDivElement | null>(null);
+
+  useEffect(() => {
+    const container = sortTabsRef.current;
+    if (!container) return;
+    const frame = window.requestAnimationFrame(() => {
+      const activeButton = container.querySelector<HTMLButtonElement>(
+        '[data-active="true"]',
+      );
+      if (!activeButton) return;
+
+      const edgePadding = 40;
+      const left = activeButton.offsetLeft;
+      const right = left + activeButton.offsetWidth;
+      const visibleLeft = container.scrollLeft;
+      const visibleRight = visibleLeft + container.clientWidth - edgePadding;
+
+      if (left < visibleLeft) {
+        container.scrollTo({ left: Math.max(left - edgePadding, 0) });
+        return;
+      }
+      if (right > visibleRight) {
+        container.scrollTo({
+          left: right - container.clientWidth + edgePadding,
+        });
+      }
+    });
+
+    return () => window.cancelAnimationFrame(frame);
+  }, [sort]);
+
   return (
     <div className="space-y-3 mb-6">
       {/* Sort + filter row */}
       <div className="flex flex-wrap items-center gap-3">
         {/* Sort buttons — scrollable on mobile */}
-        <div className="flex items-center gap-1 bg-gray-800/40 p-1 rounded-xl overflow-x-auto max-w-full">
-          {(Object.keys(SORT_LABELS) as SortOption[]).map((key) => (
-            <button
-              key={key}
-              onClick={() => onSortChange(key)}
-              className={`px-3 py-1.5 text-xs font-medium rounded-lg transition-all whitespace-nowrap ${
-                sort === key
-                  ? "bg-gray-700/80 text-white shadow-sm"
-                  : "text-gray-500 hover:text-gray-300 hover:bg-gray-700/30"
-              }`}
-            >
-              {SORT_LABELS[key]}
-            </button>
-          ))}
-          <button
-            onClick={onSortDirChange}
-            className="px-2 py-1.5 text-xs text-gray-400 hover:text-white rounded-lg hover:bg-gray-700/30 transition-all flex-shrink-0"
-            title={sortDir === "desc" ? "Descending" : "Ascending"}
+        <div className="relative min-w-0 max-w-full">
+          <div
+            ref={sortTabsRef}
+            className="flex items-center gap-1 bg-gray-800/40 p-1 rounded-xl overflow-x-auto pr-10 [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]"
           >
-            {sortDir === "desc" ? "↓" : "↑"}
-          </button>
+            {(Object.keys(SORT_LABELS) as SortOption[]).map((key) => (
+              <button
+                key={key}
+                data-active={sort === key}
+                onClick={() => onSortChange(key)}
+                className={`px-3 py-1.5 text-xs font-medium rounded-lg transition-all whitespace-nowrap shrink-0 ${
+                  sort === key
+                    ? "bg-gray-700/80 text-white shadow-sm"
+                    : "text-gray-500 hover:text-gray-300 hover:bg-gray-700/30"
+                }`}
+              >
+                {SORT_LABELS[key]}
+              </button>
+            ))}
+            <button
+              onClick={onSortDirChange}
+              className="px-2 py-1.5 text-xs text-gray-400 hover:text-white rounded-lg hover:bg-gray-700/30 transition-all flex-shrink-0"
+              title={sortDir === "desc" ? "Descending" : "Ascending"}
+            >
+              {sortDir === "desc" ? "↓" : "↑"}
+            </button>
+            <div aria-hidden className="shrink-0 w-6 sm:hidden" />
+          </div>
+          <div className="pointer-events-none absolute inset-y-0 right-0 w-8 bg-gradient-to-l from-[#0f1324] to-transparent rounded-r-xl sm:hidden" />
         </div>
 
         <div className="flex flex-wrap items-center gap-2">
