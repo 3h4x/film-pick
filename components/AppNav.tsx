@@ -1,4 +1,5 @@
 "use client";
+import { useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 import type { AppTab } from "@/lib/types";
 
@@ -36,6 +37,7 @@ export default function AppNav({
   onSearchEnter,
 }: AppNavProps) {
   const router = useRouter();
+  const tabsRef = useRef<HTMLDivElement | null>(null);
 
   const tabs = [
     {
@@ -57,6 +59,31 @@ export default function AppNav({
     ...(epgEnabled ? [{ key: "tv" as const, label: "TV", count: -1 }] : []),
     { key: "config" as const, label: "Config", count: -1 },
   ];
+
+  useEffect(() => {
+    const container = tabsRef.current;
+    if (!container) return;
+    const activeButton = container.querySelector<HTMLButtonElement>(
+      '[data-active="true"]',
+    );
+    if (!activeButton) return;
+
+    const edgePadding = 40;
+    const left = activeButton.offsetLeft;
+    const right = left + activeButton.offsetWidth;
+    const visibleLeft = container.scrollLeft;
+    const visibleRight = visibleLeft + container.clientWidth - edgePadding;
+
+    if (left < visibleLeft) {
+      container.scrollTo({ left: Math.max(left - edgePadding, 0) });
+      return;
+    }
+    if (right > visibleRight) {
+      container.scrollTo({
+        left: right - container.clientWidth + edgePadding,
+      });
+    }
+  }, [activeTab]);
 
   return (
     <nav className="sticky top-0 z-40 -mx-4 sm:-mx-6 px-4 sm:px-6 pt-4 pb-0 bg-[#0a0e1a]/90 backdrop-blur-2xl border-b border-white/[0.05] shadow-[0_1px_0_0_rgba(255,255,255,0.03)]">
@@ -190,12 +217,16 @@ export default function AppNav({
 
         {/* Row 2: Tabs */}
         <div className="relative">
-          <div className="flex gap-0.5 overflow-x-auto pr-6 [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
+          <div
+            ref={tabsRef}
+            className="flex gap-0.5 overflow-x-auto pr-10 [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]"
+          >
             {tabs.map((tab) => {
               const active = activeTab === tab.key;
               return (
                 <button
                   key={tab.key}
+                  data-active={active}
                   onClick={() => setActiveTab(tab.key)}
                   className={`relative shrink-0 px-3.5 py-2 pb-2.5 text-sm font-medium transition-all ${
                     active
@@ -219,6 +250,7 @@ export default function AppNav({
                 </button>
               );
             })}
+            <div aria-hidden className="shrink-0 w-6 sm:hidden" />
           </div>
           <div className="pointer-events-none absolute inset-y-0 right-0 w-8 bg-gradient-to-l from-[#0a0e1a] to-transparent sm:hidden" />
         </div>
