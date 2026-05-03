@@ -227,6 +227,7 @@ TMDB_API_KEY=<your_key> docker run -p 4000:4000 -v $(pwd)/data:/app/data -e TMDB
 - Use `pnpm` exclusively (not npm)
 - Conventional commits are enforced (see Scope & Safety Rules §1)
 - Type check with `pnpm type-check` before committing
+- Target the versions already in the repo: Next.js 16, React 19, TypeScript 6, Tailwind CSS 4, Node 22 (see Dockerfile). Follow current framework patterns instead of introducing legacy APIs.
 
 ## Coding Conventions
 
@@ -242,6 +243,11 @@ TMDB_API_KEY=<your_key> docker run -p 4000:4000 -v $(pwd)/data:/app/data -e TMDB
 10. **API error responses** always use `Response.json({ error: "..." }, { status: N })`. Use 400 for bad input, 404 for missing resources, 500 for unexpected failures. Never throw unhandled errors from route handlers — catch and return a 500.
 11. **Shared TypeScript types** belong in `lib/types.ts`. Do not define `Movie`, `RecType`, `AppTab`, or similar cross-cutting types in individual modules.
 12. **React hooks** for data fetching and complex state belong in `lib/hooks/`. Route handlers and components must not duplicate fetch logic that already exists in a hook.
+13. **Default to Server Components in `app/`** and add `"use client"` only for components that need browser APIs, event handlers, local state, refs, or effects.
+14. **Prefer async/await with explicit concurrency.** Use `Promise.all` only for independent work with a known small fan-out; avoid unbounded parallel TMDb/CDA/EPG requests.
+15. **Use the existing lint setup and let it auto-fix where possible.** Run `pnpm lint` for manual verification when touching multiple files or before pushing.
+16. **Keep imports direct and explicit.** Use `@/` aliases for project modules, avoid deep relative imports across directories, and do not introduce barrel files unless the repo already has them.
+17. **Log unexpected server-side failures with useful context** before returning a 500 so the failing route or operation is visible in stdout logs.
 
 ## Testing Rules
 
@@ -252,6 +258,9 @@ TMDB_API_KEY=<your_key> docker run -p 4000:4000 -v $(pwd)/data:/app/data -e TMDB
 5. **Run `pnpm test` after every code change** to verify nothing regressed. The lint-staged config also runs the full suite on commit.
 6. **New API routes and business logic require tests.** Trivial pass-through wrappers and UI-only components do not.
 7. **E2E tests** use Playwright (`pnpm test:e2e`). They live in `e2e/` (not `__tests__/`). These are separate from unit tests and are not run by the pre-push hook.
+8. **Prefer focused test runs while iterating, then finish with the full suite.** Use Vitest file targeting or Playwright spec targeting during development, but `pnpm test` remains the final check.
+9. **Playwright uses `http://localhost:4000`** and starts `pnpm dev` automatically when needed. Keep new e2e flows compatible with that port and dev-server startup model.
+10. **Mock network boundaries, not parsing/business logic.** For TMDb/CDA/EPG tests, stub `fetch` inputs/outputs and exercise the real route/helper code around them.
 
 ## Architecture Patterns
 
@@ -262,6 +271,10 @@ TMDB_API_KEY=<your_key> docker run -p 4000:4000 -v $(pwd)/data:/app/data -e TMDB
 5. Database schema changes require a migration block inside `initDb()` in `lib/db.ts` (additive `ALTER TABLE` or new table — never destructive).
 6. New tab-level views belong in `components/views/` as `<Name>View.tsx`. Smaller reusable UI pieces belong directly in `components/`.
 7. Scheduler modules (`cda-scheduler.ts`, `epg-scheduler.ts`) follow the same pattern: export `reschedule*Job(db)` and `run*Now(db)`; manage a single `activeTimer`; read interval from settings; start from `app/layout.tsx` or the relevant route on first use.
+8. **Client-side server state stays in hooks, not global stores.** Reuse `lib/hooks/` for fetch/caching/state orchestration before adding new top-level component state or a state library.
+9. **Route handlers own persistence and orchestration.** UI components should call existing API routes/hooks rather than reading the filesystem, hitting SQLite, or calling third-party APIs directly.
+10. **Caching belongs in the existing cache layers.** TMDb TTL logic stays in `lib/tmdb.ts`, recommendation cache logic stays in `lib/db.ts`/`recommendation_cache`, and EPG/CDA refresh behavior stays in their scheduler/fetch modules.
+11. **Keep filesystem-sensitive behavior inside the existing scanner/streaming/standardize modules and routes.** Do not duplicate path parsing, rename logic, or video-file detection in UI code.
 
 ## Dependency & Supply-Chain Security
 
@@ -270,6 +283,7 @@ TMDB_API_KEY=<your_key> docker run -p 4000:4000 -v $(pwd)/data:/app/data -e TMDB
 3. **Only `better-sqlite3`, `esbuild`, and `sharp` are allowed to run install scripts** (`pnpm.onlyBuiltDependencies` in `package.json`). Do not add packages with `postinstall`/`prepare` scripts without explicit user approval.
 4. **Never add a new dependency without explicit user approval.** Justify every new dep in the commit message.
 5. **Verify new packages before adding:** check npm download counts, publish date, and maintainer history to guard against typosquatting. Flag anything suspicious before installing.
+6. **Inspect lifecycle scripts before approving a dependency update.** `prepare`, `postinstall`, and `install` scripts are code execution and must be treated as a security review point.
 
 ## Scope & Safety Rules
 
@@ -278,3 +292,6 @@ TMDB_API_KEY=<your_key> docker run -p 4000:4000 -v $(pwd)/data:/app/data -e TMDB
 3. **Never commit secrets or `.env` files.** Use `bioenv` for all secrets.
 4. **Never modify `data/` contents** (SQLite DB and backups are gitignored and must stay that way).
 5. **Schema migrations must be additive.** Never drop columns or tables — the live DB on the server has real user data.
+6. **Do not push to `master` or trigger deployment-related changes casually.** Any push to `master` ships via GHA + Watchtower, so pushing is a separate deliberate action from committing.
+7. **Do not bypass Husky/commitlint/lint-staged hooks** with `--no-verify` or similar flags unless the user explicitly instructs it for a one-off emergency.
+8. **Do not change ports, image names, deployment wiring, or container volume paths without verifying all downstream references** (`README.md`, `docker-compose.yml`, Playwright base URL, and docs).
