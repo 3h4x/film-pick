@@ -309,6 +309,40 @@ test.describe("config tab", () => {
   });
 });
 
+test.describe("tv tab", () => {
+  test("keeps the active TV tab visible on mobile hash loads", async ({
+    page,
+  }) => {
+    await mockAPIs(page);
+    await page.route("/api/tv", (route) =>
+      route.fulfill({
+        json: {
+          channels: [],
+          programs: [],
+          cachedAt: new Date().toISOString(),
+          epgUrl: "",
+          cached: true,
+        },
+      }),
+    );
+    await page.route("/api/tv/blacklist", (route) =>
+      route.fulfill({ json: [] }),
+    );
+    await page.route("/api/tv/enrich", (route) => route.fulfill({ json: {} }));
+    await page.setViewportSize({ width: 375, height: 812 });
+    await page.goto("/#tv");
+    await page.waitForLoadState("networkidle");
+
+    const activeTab = page.getByRole("button", { name: /^TV$/ });
+    await expect(activeTab).toBeVisible();
+    const box = await activeTab.boundingBox();
+
+    expect(box).not.toBeNull();
+    expect(box!.x).toBeGreaterThanOrEqual(0);
+    expect(box!.x + box!.width).toBeLessThanOrEqual(375);
+  });
+});
+
 test.describe("watchlist tab", () => {
   test("shows empty state when watchlist is empty", async ({ page }) => {
     await mockAPIs(page);
