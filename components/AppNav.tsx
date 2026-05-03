@@ -59,6 +59,7 @@ export default function AppNav({
     ...(epgEnabled ? [{ key: "tv" as const, label: "TV", count: -1 }] : []),
     { key: "config" as const, label: "Config", count: -1 },
   ];
+  const tabLayoutKey = tabs.map((tab) => `${tab.key}:${tab.count}`).join("|");
 
   useEffect(() => {
     const container = tabsRef.current;
@@ -83,7 +84,7 @@ export default function AppNav({
         left: right - container.clientWidth + edgePadding,
       });
     }
-  }, [activeTab]);
+  }, [activeTab, initialLoad, tabLayoutKey]);
 
   return (
     <nav className="sticky top-0 z-40 -mx-4 sm:-mx-6 px-4 sm:px-6 pt-4 pb-0 bg-[#0a0e1a]/90 backdrop-blur-2xl border-b border-white/[0.05] shadow-[0_1px_0_0_rgba(255,255,255,0.03)]">
