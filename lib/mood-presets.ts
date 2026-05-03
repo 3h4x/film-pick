@@ -2,7 +2,10 @@ export type MoodKey =
   | "light_funny"
   | "mind_bender"
   | "comfort_rewatch"
+  | "action_evening"
   | "date_night"
+  | "discover_hidden"
+  | "documentary_night"
   | "dark_heavy"
   | "short"
   | "foreign"
@@ -43,6 +46,14 @@ export const MOOD_PRESETS: Record<MoodKey, MoodPreset> = {
     reason: "Comfort picks from your library",
     comfortRewatch: true,
   },
+  action_evening: {
+    label: "Action Evening",
+    icon: "💥",
+    reason: "High-energy action for tonight",
+    genreIds: [28, 53, 12],
+    minRating: 6.8,
+    minVotes: 300,
+  },
   date_night: {
     label: "Date Night",
     icon: "🌹",
@@ -50,6 +61,22 @@ export const MOOD_PRESETS: Record<MoodKey, MoodPreset> = {
     genreIds: [10749, 35],
     minRating: 7,
     minVotes: 300,
+  },
+  discover_hidden: {
+    label: "Discover Hidden",
+    icon: "🔦",
+    reason: "Under-the-radar discoveries",
+    genreIds: [18, 53, 9648],
+    minRating: 7.2,
+    minVotes: 80,
+  },
+  documentary_night: {
+    label: "Documentary Night",
+    icon: "🎞️",
+    reason: "A strong documentary pick",
+    genreIds: [99],
+    minRating: 7,
+    minVotes: 100,
   },
   dark_heavy: {
     label: "Dark & Heavy",
