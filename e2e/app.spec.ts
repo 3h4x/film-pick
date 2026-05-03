@@ -260,6 +260,23 @@ test.describe("config tab", () => {
     await page.waitForLoadState("networkidle");
     await expect(page.getByText(/TMDb/i).first()).toBeVisible({ timeout: 8_000 });
   });
+
+  test("keeps the active app tab visible on mobile hash loads", async ({
+    page,
+  }) => {
+    await mockAPIs(page);
+    await page.setViewportSize({ width: 375, height: 812 });
+    await page.goto("/#config");
+    await page.waitForLoadState("networkidle");
+
+    const activeTab = page.getByRole("button", { name: /^Config/ });
+    await expect(activeTab).toBeVisible();
+    const box = await activeTab.boundingBox();
+
+    expect(box).not.toBeNull();
+    expect(box!.x).toBeGreaterThanOrEqual(0);
+    expect(box!.x + box!.width).toBeLessThanOrEqual(375);
+  });
 });
 
 test.describe("watchlist tab", () => {

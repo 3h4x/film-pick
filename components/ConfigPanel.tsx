@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { EPG_PRESETS } from "@/lib/epg-presets";
 import type { RecConfig } from "@/lib/types";
 
@@ -123,6 +123,7 @@ export default function ConfigPanel({
   onSync,
 }: ConfigPanelProps) {
   const [activeTab, setActiveTab] = useState<ConfigTab>("library");
+  const tabsRef = useRef<HTMLDivElement | null>(null);
   const [draft, setDraft] = useState<RecConfig>(config);
   const [dirty, setDirty] = useState(false);
   const [apiKey, setApiKey] = useState("");
@@ -212,6 +213,31 @@ export default function ConfigPanel({
     return () => clearInterval(timer);
   }, [epgStatus]);
 
+  useEffect(() => {
+    const container = tabsRef.current;
+    if (!container) return;
+    const activeButton = container.querySelector<HTMLButtonElement>(
+      '[data-active="true"]',
+    );
+    if (!activeButton) return;
+
+    const edgePadding = 40;
+    const left = activeButton.offsetLeft;
+    const right = left + activeButton.offsetWidth;
+    const visibleLeft = container.scrollLeft;
+    const visibleRight = visibleLeft + container.clientWidth - edgePadding;
+
+    if (left < visibleLeft) {
+      container.scrollTo({ left: Math.max(left - edgePadding, 0) });
+      return;
+    }
+    if (right > visibleRight) {
+      container.scrollTo({
+        left: right - container.clientWidth + edgePadding,
+      });
+    }
+  }, [activeTab]);
+
   async function handleBackup() {
     setBackupState("running");
     setBackupFile(null);
@@ -276,10 +302,14 @@ export default function ConfigPanel({
 
       {/* Tab nav */}
       <div className="relative">
-        <div className="flex gap-1 bg-gray-800/40 p-1 rounded-xl overflow-x-auto [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
+        <div
+          ref={tabsRef}
+          className="flex gap-1 bg-gray-800/40 p-1 rounded-xl overflow-x-auto pr-10 [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]"
+        >
         {CONFIG_TABS.map((tab) => (
           <button
             key={tab.value}
+            data-active={activeTab === tab.value}
             onClick={() => setActiveTab(tab.value)}
             className={`px-4 py-2 text-sm font-medium rounded-lg transition-all whitespace-nowrap shrink-0 ${
               activeTab === tab.value
@@ -290,6 +320,7 @@ export default function ConfigPanel({
             {tab.label}
           </button>
         ))}
+        <div aria-hidden className="shrink-0 w-6 sm:hidden" />
         </div>
         {/* Right-edge fade to indicate horizontal scroll on small screens */}
         <div className="pointer-events-none absolute inset-y-0 right-0 w-8 bg-gradient-to-l from-gray-900 to-transparent rounded-r-xl sm:hidden" />
