@@ -353,105 +353,187 @@ export default function TvTab() {
       return (
         <div
           key={`${p.channel}-${p.start}`}
-          className={`grid grid-cols-[6rem_1fr_4.5rem_10rem_1.5rem] gap-x-4 items-center px-4 py-2.5 border-b border-gray-800/40 transition-colors group ${
+          className={`border-b border-gray-800/40 transition-colors group ${
             isNow
               ? "border-l-2 border-l-red-500/50 bg-white/[0.015] hover:bg-white/[0.025]"
               : "hover:bg-white/[0.02]"
           }`}
         >
-          {/* Time */}
-          <div className="tabular-nums shrink-0">
-            {isNow ? (
-              <div>
-                <div className="flex items-center gap-1.5">
-                  <span className="w-1.5 h-1.5 rounded-full bg-red-500 animate-pulse shrink-0" />
-                  <span className="text-gray-400 text-xs tabular-nums">
-                    until {formatTime(p.stop)}
+          <div className="px-4 py-3 md:hidden">
+            <div className="flex items-start justify-between gap-3">
+              <div className="min-w-0 flex-1 space-y-2">
+                <div className="flex items-center gap-2 text-[11px] text-gray-500">
+                  {ch?.icon && (
+                    <img
+                      src={ch.icon}
+                      alt=""
+                      className="w-4 h-4 object-contain rounded shrink-0 opacity-60"
+                      onError={(e) => {
+                        (e.currentTarget as HTMLImageElement).style.display = "none";
+                      }}
+                    />
+                  )}
+                  <span className="truncate" title={channelLabel(ch?.name ?? p.channel)}>
+                    {channelLabel(ch?.name ?? p.channel)}
                   </span>
                 </div>
-                {progress !== null && (
-                  <div className="h-px w-full bg-gray-700/80 mt-1.5 overflow-hidden rounded-full">
-                    <div
-                      className="h-full bg-red-500/60 rounded-full"
-                      style={{ width: `${progress}%` }}
-                    />
+                <div className="flex items-baseline gap-2">
+                  <span
+                    className={`font-medium text-sm leading-snug ${isNow ? "text-white" : "text-gray-200"}`}
+                  >
+                    {p.title}
+                  </span>
+                  {year && (
+                    <span className="text-gray-600 text-xs shrink-0">{year}</span>
+                  )}
+                </div>
+                <div className="flex flex-wrap items-center gap-2">
+                  <div className="tabular-nums shrink-0">
+                    {isNow ? (
+                      <div>
+                        <div className="flex items-center gap-1.5">
+                          <span className="w-1.5 h-1.5 rounded-full bg-red-500 animate-pulse shrink-0" />
+                          <span className="text-gray-400 text-xs tabular-nums">
+                            until {formatTime(p.stop)}
+                          </span>
+                        </div>
+                        {progress !== null && (
+                          <div className="h-px w-28 bg-gray-700/80 mt-1.5 overflow-hidden rounded-full">
+                            <div
+                              className="h-full bg-red-500/60 rounded-full"
+                              style={{ width: `${progress}%` }}
+                            />
+                          </div>
+                        )}
+                      </div>
+                    ) : (
+                      <div>
+                        <span
+                          className={`text-sm font-semibold tabular-nums leading-none ${isSoon ? "text-amber-400" : "text-gray-300"}`}
+                        >
+                          {formatTime(p.start)}
+                        </span>
+                        <span className="block text-gray-600 text-[11px] tabular-nums mt-0.5">
+                          {isSoon ? relativeTime(p.start, now) : `– ${formatTime(p.stop)}`}
+                        </span>
+                      </div>
+                    )}
                   </div>
-                )}
+                  {rating !== null && rating > 0 ? (
+                    <span
+                      className={`inline-flex items-center gap-0.5 text-xs font-semibold px-1.5 py-0.5 rounded ${
+                        rating >= 7
+                          ? "bg-emerald-500/15 text-emerald-400"
+                          : rating >= 5
+                            ? "bg-yellow-500/15 text-yellow-400"
+                            : "bg-gray-700/40 text-gray-500"
+                      }`}
+                    >
+                      ★ {rating.toFixed(1)}
+                    </span>
+                  ) : null}
+                </div>
               </div>
-            ) : (
-              <div>
-                <span
-                  className={`text-sm font-semibold tabular-nums leading-none ${isSoon ? "text-amber-400" : "text-gray-300"}`}
-                >
-                  {formatTime(p.start)}
-                </span>
-                <span className="block text-gray-600 text-[11px] tabular-nums mt-0.5">
-                  {isSoon ? relativeTime(p.start, now) : `– ${formatTime(p.stop)}`}
-                </span>
-              </div>
-            )}
-          </div>
-
-          {/* Film */}
-          <div className="min-w-0">
-            <div className="flex items-baseline gap-2">
-              <span
-                className={`font-medium text-sm leading-snug truncate ${isNow ? "text-white" : "text-gray-200"}`}
+              <button
+                onClick={() => blacklistChannel(p.channel)}
+                title={`Hide ${channelLabel(ch?.name ?? p.channel)}`}
+                className="w-8 h-8 flex shrink-0 items-center justify-center rounded-lg text-gray-600 hover:text-gray-300 hover:bg-white/[0.06] transition-all"
               >
-                {p.title}
-              </span>
-              {year && (
-                <span className="text-gray-600 text-xs shrink-0">{year}</span>
-              )}
+                ×
+              </button>
             </div>
           </div>
 
-          {/* Rating */}
-          <div>
-            {rating !== null && rating > 0 ? (
+          <div className="hidden md:grid md:grid-cols-[6rem_1fr_4.5rem_10rem_1.5rem] md:gap-x-4 md:items-center md:px-4 md:py-2.5">
+            <div className="tabular-nums shrink-0">
+              {isNow ? (
+                <div>
+                  <div className="flex items-center gap-1.5">
+                    <span className="w-1.5 h-1.5 rounded-full bg-red-500 animate-pulse shrink-0" />
+                    <span className="text-gray-400 text-xs tabular-nums">
+                      until {formatTime(p.stop)}
+                    </span>
+                  </div>
+                  {progress !== null && (
+                    <div className="h-px w-full bg-gray-700/80 mt-1.5 overflow-hidden rounded-full">
+                      <div
+                        className="h-full bg-red-500/60 rounded-full"
+                        style={{ width: `${progress}%` }}
+                      />
+                    </div>
+                  )}
+                </div>
+              ) : (
+                <div>
+                  <span
+                    className={`text-sm font-semibold tabular-nums leading-none ${isSoon ? "text-amber-400" : "text-gray-300"}`}
+                  >
+                    {formatTime(p.start)}
+                  </span>
+                  <span className="block text-gray-600 text-[11px] tabular-nums mt-0.5">
+                    {isSoon ? relativeTime(p.start, now) : `– ${formatTime(p.stop)}`}
+                  </span>
+                </div>
+              )}
+            </div>
+
+            <div className="min-w-0">
+              <div className="flex items-baseline gap-2">
+                <span
+                  className={`font-medium text-sm leading-snug truncate ${isNow ? "text-white" : "text-gray-200"}`}
+                >
+                  {p.title}
+                </span>
+                {year && (
+                  <span className="text-gray-600 text-xs shrink-0">{year}</span>
+                )}
+              </div>
+            </div>
+
+            <div>
+              {rating !== null && rating > 0 ? (
+                <span
+                  className={`inline-flex items-center gap-0.5 text-xs font-semibold px-1.5 py-0.5 rounded ${
+                    rating >= 7
+                      ? "bg-emerald-500/15 text-emerald-400"
+                      : rating >= 5
+                        ? "bg-yellow-500/15 text-yellow-400"
+                        : "bg-gray-700/40 text-gray-500"
+                  }`}
+                >
+                  ★ {rating.toFixed(1)}
+                </span>
+              ) : null}
+            </div>
+
+            <div className="flex items-center gap-1.5 min-w-0">
+              {ch?.icon && (
+                <img
+                  src={ch.icon}
+                  alt=""
+                  className="w-4 h-4 object-contain rounded shrink-0 opacity-60"
+                  onError={(e) => {
+                    (e.currentTarget as HTMLImageElement).style.display = "none";
+                  }}
+                />
+              )}
               <span
-                className={`inline-flex items-center gap-0.5 text-xs font-semibold px-1.5 py-0.5 rounded ${
-                  rating >= 7
-                    ? "bg-emerald-500/15 text-emerald-400"
-                    : rating >= 5
-                      ? "bg-yellow-500/15 text-yellow-400"
-                      : "bg-gray-700/40 text-gray-500"
-                }`}
+                className="text-gray-500 text-xs truncate"
+                title={channelLabel(ch?.name ?? p.channel)}
               >
-                ★ {rating.toFixed(1)}
+                {channelLabel(ch?.name ?? p.channel)}
               </span>
-            ) : null}
-          </div>
+            </div>
 
-          {/* Channel */}
-          <div className="flex items-center gap-1.5 min-w-0">
-            {ch?.icon && (
-              <img
-                src={ch.icon}
-                alt=""
-                className="w-4 h-4 object-contain rounded shrink-0 opacity-60"
-                onError={(e) => {
-                  (e.currentTarget as HTMLImageElement).style.display = "none";
-                }}
-              />
-            )}
-            <span
-              className="text-gray-500 text-xs truncate"
-              title={channelLabel(ch?.name ?? p.channel)}
-            >
-              {channelLabel(ch?.name ?? p.channel)}
-            </span>
-          </div>
-
-          {/* Blacklist */}
-          <div className="flex justify-end">
-            <button
-              onClick={() => blacklistChannel(p.channel)}
-              title={`Hide ${channelLabel(ch?.name ?? p.channel)}`}
-              className="w-5 h-5 flex items-center justify-center rounded text-gray-700 opacity-0 group-hover:opacity-100 hover:text-gray-300 hover:bg-white/[0.06] transition-all"
-            >
-              ×
-            </button>
+            <div className="flex justify-end">
+              <button
+                onClick={() => blacklistChannel(p.channel)}
+                title={`Hide ${channelLabel(ch?.name ?? p.channel)}`}
+                className="w-5 h-5 flex items-center justify-center rounded text-gray-700 opacity-0 group-hover:opacity-100 hover:text-gray-300 hover:bg-white/[0.06] transition-all"
+              >
+                ×
+              </button>
+            </div>
           </div>
         </div>
       );
@@ -467,7 +549,7 @@ export default function TvTab() {
         ) : (
           <div>
             {/* Column headers */}
-            <div className="grid grid-cols-[6rem_1fr_4.5rem_10rem_1.5rem] gap-x-4 px-4 pb-2 border-b border-gray-800/60">
+            <div className="hidden md:grid md:grid-cols-[6rem_1fr_4.5rem_10rem_1.5rem] md:gap-x-4 md:px-4 md:pb-2 border-b border-gray-800/60">
               {["Time", "Film", "Rating", "Channel", ""].map((h) => (
                 <span
                   key={h}
