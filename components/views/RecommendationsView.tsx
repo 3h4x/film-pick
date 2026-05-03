@@ -193,7 +193,8 @@ export default function RecommendationsView({
           </div>
           <p className="text-gray-400 text-lg font-medium">Unknown mood preset</p>
           <p className="text-gray-600 text-sm mt-2">
-            <span className="text-gray-500">&quot;{invalidMoodKey}&quot;</span> isn&apos;t available in this build. Choose one from the Mood menu.
+            <span className="text-gray-500">{`"${invalidMoodKey}" isn't available in this build.`}</span>{" "}
+            Choose one from the Mood menu.
           </p>
         </div>
       ) : activeMood ? (

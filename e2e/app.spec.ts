@@ -209,6 +209,19 @@ test.describe("discover / recommendations tab", () => {
     await expect(page.getByText("GoodFellas")).toBeVisible({ timeout: 10_000 });
   });
 
+  test("shows a readable empty state for invalid mood routes", async ({ page }) => {
+    await mockAPIs(page);
+    await page.goto("/#recommendations/mood/not-a-real-preset");
+    await expect(page.getByText("Unknown mood preset")).toBeVisible({
+      timeout: 10_000,
+    });
+    await expect(
+      page.getByText(
+        `"not-a-real-preset" isn't available in this build. Choose one from the Mood menu.`
+      )
+    ).toBeVisible();
+  });
+
   test("shows empty state when no movies", async ({ page }) => {
     await page.route("/api/movies", (route) => route.fulfill({ json: [] }));
     await page.route("/api/settings", (route) => route.fulfill({ json: MOCK_SETTINGS }));
