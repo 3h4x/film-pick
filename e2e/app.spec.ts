@@ -19,6 +19,26 @@ async function mockAPIs(page: Page) {
   await page.route("/api/recommendations/count", (route) =>
     route.fulfill({ json: { total: 12 } })
   );
+  await page.route("/api/recommendations/mood*", (route) =>
+    route.fulfill({
+      json: [
+        {
+          reason: "High-energy action for tonight",
+          type: "mood",
+          recommendations: [
+            {
+              tmdb_id: 603,
+              title: "The Matrix",
+              year: 1999,
+              genre: "Action, Science Fiction",
+              rating: 8.7,
+              poster_url: null,
+            },
+          ],
+        },
+      ],
+    })
+  );
   await page.route("/api/recommendations*", (route) =>
     route.fulfill({ json: MOCK_RECS })
   );
@@ -220,6 +240,16 @@ test.describe("discover / recommendations tab", () => {
         `"not-a-real-preset" isn't available in this build. Choose one from the Mood menu.`
       )
     ).toBeVisible();
+  });
+
+  test("restores a valid mood route from the hash", async ({ page }) => {
+    await mockAPIs(page);
+    await page.goto("/#recommendations/mood/action_evening");
+    await expect(page.getByRole("button", { name: /Action Evening/i })).toBeVisible({
+      timeout: 10_000,
+    });
+    await expect(page.getByText("The Matrix")).toBeVisible({ timeout: 10_000 });
+    await expect(page.getByText("Unknown mood preset")).not.toBeVisible();
   });
 
   test("shows empty state when no movies", async ({ page }) => {

@@ -113,7 +113,19 @@ describe("GET /api/recommendations/mood", () => {
   });
 
   it("accepts all valid mood keys", async () => {
-    const keys = ["light_funny", "mind_bender", "comfort_rewatch", "date_night", "dark_heavy", "short", "foreign", "feel_good"];
+    const keys = [
+      "light_funny",
+      "mind_bender",
+      "comfort_rewatch",
+      "action_evening",
+      "date_night",
+      "discover_hidden",
+      "documentary_night",
+      "dark_heavy",
+      "short",
+      "foreign",
+      "feel_good",
+    ];
     for (const key of keys) {
       const req = new NextRequest(`http://localhost/api/recommendations/mood?key=${key}`);
       const res = await GET(req);
