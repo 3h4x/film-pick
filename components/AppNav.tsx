@@ -189,35 +189,38 @@ export default function AppNav({
         </div>
 
         {/* Row 2: Tabs */}
-        <div className="flex gap-0.5 overflow-x-auto">
-          {tabs.map((tab) => {
-            const active = activeTab === tab.key;
-            return (
-              <button
-                key={tab.key}
-                onClick={() => setActiveTab(tab.key)}
-                className={`relative px-3.5 py-2 pb-2.5 text-sm font-medium transition-all ${
-                  active
-                    ? "text-white"
-                    : "text-gray-500 hover:text-gray-300"
-                }`}
-              >
-                {tab.label}
-                {tab.count >= 0 && (
-                  <span
-                    className={`ml-1.5 text-[11px] tabular-nums ${
-                      active ? "text-indigo-400" : "text-gray-600"
-                    }`}
-                  >
-                    {tab.count}
-                  </span>
-                )}
-                {active && (
-                  <div className="absolute bottom-0 left-1 right-1 h-[2px] bg-gradient-to-r from-indigo-500/60 via-indigo-500 to-indigo-500/60 rounded-full" />
-                )}
-              </button>
-            );
-          })}
+        <div className="relative">
+          <div className="flex gap-0.5 overflow-x-auto pr-6 [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
+            {tabs.map((tab) => {
+              const active = activeTab === tab.key;
+              return (
+                <button
+                  key={tab.key}
+                  onClick={() => setActiveTab(tab.key)}
+                  className={`relative shrink-0 px-3.5 py-2 pb-2.5 text-sm font-medium transition-all ${
+                    active
+                      ? "text-white"
+                      : "text-gray-500 hover:text-gray-300"
+                  }`}
+                >
+                  {tab.label}
+                  {tab.count >= 0 && (
+                    <span
+                      className={`ml-1.5 text-[11px] tabular-nums ${
+                        active ? "text-indigo-400" : "text-gray-600"
+                      }`}
+                    >
+                      {tab.count}
+                    </span>
+                  )}
+                  {active && (
+                    <div className="absolute bottom-0 left-1 right-1 h-[2px] bg-gradient-to-r from-indigo-500/60 via-indigo-500 to-indigo-500/60 rounded-full" />
+                  )}
+                </button>
+              );
+            })}
+          </div>
+          <div className="pointer-events-none absolute inset-y-0 right-0 w-8 bg-gradient-to-l from-[#0a0e1a] to-transparent sm:hidden" />
         </div>
       </div>
     </nav>
