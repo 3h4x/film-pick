@@ -30,6 +30,7 @@ function parseHash(): {
   if (typeof window === "undefined")
     return { tab: "recommendations", category: "all" };
   const hash = window.location.hash.replace("#", "");
+  if (hash === "library") return { tab: "library", category: "all" };
   if (hash === "wishlist") return { tab: "wishlist", category: "all" };
   if (hash === "config") return { tab: "config", category: "all" };
   if (hash === "tv") return { tab: "tv", category: "all" };

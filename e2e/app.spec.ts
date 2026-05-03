@@ -86,6 +86,15 @@ test.describe("tab navigation", () => {
     await page.getByRole("button", { name: /^Discover/ }).click();
     await expect(page).toHaveURL(/#recommendations/);
   });
+
+  test("restores Library tab from hash on load", async ({ page }) => {
+    await mockAPIs(page);
+    await page.goto("/#library");
+    await expect(page).toHaveURL(/#library/);
+    await expect(page.getByText(/Showing \d+ of \d+/)).toBeVisible({
+      timeout: 8_000,
+    });
+  });
 });
 
 test.describe("library tab", () => {
