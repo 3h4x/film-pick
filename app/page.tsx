@@ -21,7 +21,12 @@ import { useSettings } from "@/lib/hooks/useSettings";
 import type { AppTab, ToastItem, Movie, RecConfig } from "@/lib/types";
 import { MOOD_PRESETS, type MoodKey } from "@/lib/mood-presets";
 
-function parseHash(): { tab: AppTab; category: string; moodKey?: MoodKey } {
+function parseHash(): {
+  tab: AppTab;
+  category: string;
+  moodKey?: MoodKey;
+  invalidMoodKey?: string;
+} {
   if (typeof window === "undefined")
     return { tab: "recommendations", category: "all" };
   const hash = window.location.hash.replace("#", "");
@@ -34,7 +39,13 @@ function parseHash(): { tab: AppTab; category: string; moodKey?: MoodKey } {
     const parts = hash.split("/");
     if (parts[1] === "mood" && parts[2] && parts[2] in MOOD_PRESETS)
       return { tab: "recommendations", category: "all", moodKey: parts[2] as MoodKey };
-    if (parts[1] === "mood") return { tab: "recommendations", category: "all" };
+    if (parts[1] === "mood") {
+      return {
+        tab: "recommendations",
+        category: "all",
+        invalidMoodKey: parts[2] ? decodeURIComponent(parts[2]) : undefined,
+      };
+    }
     return { tab: "recommendations", category: parts[1] || "all" };
   }
   if (hash.startsWith("person/"))
@@ -49,6 +60,7 @@ export default function Home() {
   const [searchOpen, setSearchOpen] = useState(false);
   const [importOpen, setImportOpen] = useState(false);
   const [syncOpen, setSyncOpen] = useState(false);
+  const [invalidMoodKey, setInvalidMoodKey] = useState<string | null>(null);
   const [disabledEngines, setDisabledEngines] = useState<string[]>([]);
   const [recConfig, setRecConfig] = useState<RecConfig>({
     excluded_genres: [], min_year: null, min_rating: null, max_per_group: 15,
@@ -96,13 +108,17 @@ export default function Home() {
       pendingMovieRef.current = hash.substring(7);
       return;
     }
-    const { tab, category, moodKey } = parseHash();
+    const { tab, category, moodKey, invalidMoodKey } = parseHash();
     if (tab === "search") return;
     if (tab !== "recommendations") setActiveTab(tab);
     if (tab === "person") setPersonFilter(category);
     else if (tab === "recommendations") {
+      setInvalidMoodKey(invalidMoodKey ?? null);
       if (moodKey) recs.setActiveMood(moodKey);
-      else if (category !== "all") recs.setRecCategory(category);
+      else {
+        recs.setActiveMood(null);
+        recs.setRecCategory(category);
+      }
     }
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -137,12 +153,13 @@ export default function Home() {
         : activeTab === "wishlist" ? "#wishlist"
         : activeTab === "config" ? "#config"
         : activeTab === "tv" ? "#tv"
+        : invalidMoodKey ? `#recommendations/mood/${encodeURIComponent(invalidMoodKey)}`
         : recs.activeMood ? `#recommendations/mood/${recs.activeMood}`
         : recs.recCategory === "all" ? "#recommendations"
         : `#recommendations/${recs.recCategory}`;
     }
     if (window.location.hash !== hash) window.history.replaceState(null, "", hash);
-  }, [selectedMovie, activeTab, recs.recCategory, recs.activeMood, personFilter, searchQuery]);
+  }, [selectedMovie, activeTab, recs.recCategory, recs.activeMood, invalidMoodKey, personFilter, searchQuery]);
 
   // Browser back/forward / external hash navigation
   useEffect(() => {
@@ -162,10 +179,14 @@ export default function Home() {
         return;
       }
       setSelectedMovie(null);
-      const { tab, category, moodKey } = parseHash();
+      const { tab, category, moodKey, invalidMoodKey } = parseHash();
       setActiveTab(tab);
       if (tab === "person") setPersonFilter(category);
-      else { recs.setActiveMood(moodKey ?? null); recs.setRecCategory(category); }
+      else {
+        setInvalidMoodKey(tab === "recommendations" ? invalidMoodKey ?? null : null);
+        recs.setActiveMood(moodKey ?? null);
+        recs.setRecCategory(category);
+      }
     }
     window.addEventListener("hashchange", onHashChange);
     return () => window.removeEventListener("hashchange", onHashChange);
@@ -206,7 +227,13 @@ export default function Home() {
           />
         )}
         {activeTab === "recommendations" && (
-          <RecommendationsView recs={recs} hasMovies={movies.length > 0} disabledEngines={disabledEngines} />
+          <RecommendationsView
+            recs={recs}
+            hasMovies={movies.length > 0}
+            disabledEngines={disabledEngines}
+            invalidMoodKey={invalidMoodKey}
+            clearInvalidMood={() => setInvalidMoodKey(null)}
+          />
         )}
         {activeTab === "person" && personFilter && (
           <PersonView name={personFilter} movies={movies} onBack={() => setActiveTab("library")} onClickMovie={setSelectedMovie} />

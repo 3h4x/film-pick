@@ -36,12 +36,16 @@ interface RecommendationsViewProps {
   recs: RecsState;
   hasMovies: boolean;
   disabledEngines: string[];
+  invalidMoodKey: string | null;
+  clearInvalidMood: () => void;
 }
 
 export default function RecommendationsView({
   recs,
   hasMovies,
   disabledEngines,
+  invalidMoodKey,
+  clearInvalidMood,
 }: RecommendationsViewProps) {
   const {
     recsLoading,
@@ -126,7 +130,7 @@ export default function RecommendationsView({
           {engineDropdownOpen && (
             <div className="absolute top-full left-0 mt-1 bg-gray-800 border border-gray-700 rounded-xl shadow-xl z-50 py-1 min-w-[180px]">
               {REC_CATEGORIES.filter((cat) => cat.value === "all" || !disabledEngines.includes(cat.value)).map((cat) => (
-                <button key={cat.value} onClick={() => { setRecCategory(cat.value); setActiveMood(null); setEngineDropdownOpen(false); }}
+                <button key={cat.value} onClick={() => { clearInvalidMood(); setRecCategory(cat.value); setActiveMood(null); setEngineDropdownOpen(false); }}
                   className={`w-full flex items-center justify-between px-3 py-1.5 text-xs font-medium transition-all ${!activeMood && recCategory === cat.value ? "text-white bg-gray-700/60" : "text-gray-400 hover:text-gray-200 hover:bg-gray-700/30"}`}>
                   <span>{cat.label}</span>
                   {categoryCounts[cat.value] != null && <span className="tabular-nums text-gray-600 ml-3">{categoryCounts[cat.value]}</span>}
@@ -151,14 +155,14 @@ export default function RecommendationsView({
             <div className="absolute top-full left-0 mt-1 bg-gray-800 border border-gray-700 rounded-xl shadow-xl z-50 py-1 min-w-[180px]">
               {activeMood && (
                 <>
-                  <button onClick={() => { setActiveMood(null); setMoodDropdownOpen(false); }} className="w-full flex items-center px-3 py-1.5 text-xs font-medium text-gray-500 hover:text-gray-200 hover:bg-gray-700/30 transition-all">Clear mood</button>
+                  <button onClick={() => { clearInvalidMood(); setActiveMood(null); setMoodDropdownOpen(false); }} className="w-full flex items-center px-3 py-1.5 text-xs font-medium text-gray-500 hover:text-gray-200 hover:bg-gray-700/30 transition-all">Clear mood</button>
                   <div className="h-px bg-gray-700/60 mx-2 my-1" />
                 </>
               )}
               {MOOD_KEYS.map((key) => {
                 const preset = MOOD_PRESETS[key];
                 return (
-                  <button key={key} onClick={() => { setActiveMood(key); setMoodDropdownOpen(false); }}
+                  <button key={key} onClick={() => { clearInvalidMood(); setActiveMood(key); setMoodDropdownOpen(false); }}
                     className={`w-full flex items-center gap-2 px-3 py-1.5 text-xs font-medium transition-all ${activeMood === key ? "text-white bg-indigo-600/40" : "text-gray-400 hover:text-gray-200 hover:bg-gray-700/30"}`}>
                     <span>{preset.icon}</span>
                     <span>{preset.label}</span>
@@ -182,7 +186,17 @@ export default function RecommendationsView({
       </div>
 
       {/* Content */}
-      {activeMood ? (
+      {invalidMoodKey ? (
+        <div className="text-center py-24">
+          <div className="w-20 h-20 mx-auto mb-6 rounded-2xl bg-gray-800/50 flex items-center justify-center">
+            <span className="text-4xl">🧭</span>
+          </div>
+          <p className="text-gray-400 text-lg font-medium">Unknown mood preset</p>
+          <p className="text-gray-600 text-sm mt-2">
+            <span className="text-gray-500">&quot;{invalidMoodKey}&quot;</span> isn&apos;t available in this build. Choose one from the Mood menu.
+          </p>
+        </div>
+      ) : activeMood ? (
         moodLoading ? (
           <RecommendationSkeleton />
         ) : moodError ? (
