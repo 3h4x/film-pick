@@ -72,9 +72,45 @@ export default function SortFilterBar({
         '[data-active="true"]',
       );
       if (!activeButton) return;
-      activeButton.scrollIntoView({
-        inline: "nearest",
-        block: "nearest",
+      const sortButtons = Array.from(
+        container.querySelectorAll<HTMLButtonElement>("button[data-active]"),
+      );
+      const firstButtonOffset = sortButtons[0]?.offsetLeft ?? 0;
+      const rightPadding = window.innerWidth < 640 ? 40 : 0;
+      const maxScrollLeft = Math.max(
+        container.scrollWidth - container.clientWidth,
+        0,
+      );
+      const activeLeft = activeButton.offsetLeft;
+      const activeRight = activeLeft + activeButton.offsetWidth;
+      const visibleLeft = container.scrollLeft;
+      const visibleRight =
+        visibleLeft + container.clientWidth - rightPadding;
+
+      let targetScrollLeft: number | null = null;
+      if (activeLeft < visibleLeft + firstButtonOffset) {
+        targetScrollLeft = Math.max(activeLeft - firstButtonOffset, 0);
+      } else if (activeRight > visibleRight) {
+        targetScrollLeft = Math.min(
+          activeRight - (container.clientWidth - rightPadding),
+          maxScrollLeft,
+        );
+      }
+
+      if (targetScrollLeft === null) return;
+
+      const snapPoints = sortButtons.map((button) =>
+        Math.max(button.offsetLeft - firstButtonOffset, 0),
+      );
+      const snappedScrollLeft = snapPoints.reduce((closest, candidate) =>
+        Math.abs(candidate - targetScrollLeft) <
+        Math.abs(closest - targetScrollLeft)
+          ? candidate
+          : closest,
+      );
+
+      container.scrollTo({
+        left: Math.min(snappedScrollLeft, maxScrollLeft),
       });
     });
 
