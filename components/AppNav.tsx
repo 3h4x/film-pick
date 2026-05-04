@@ -69,20 +69,19 @@ export default function AppNav({
     );
     if (!activeButton) return;
 
-    const edgePadding = 40;
-    const left = activeButton.offsetLeft;
-    const right = left + activeButton.offsetWidth;
+    const edgePadding = 16;
+    const left = activeButton.offsetLeft - edgePadding;
+    const right = activeButton.offsetLeft + activeButton.offsetWidth + edgePadding;
     const visibleLeft = container.scrollLeft;
-    const visibleRight = visibleLeft + container.clientWidth - edgePadding;
+    const visibleRight = container.scrollLeft + container.clientWidth;
 
     if (left < visibleLeft) {
-      container.scrollTo({ left: Math.max(left - edgePadding, 0) });
+      container.scrollTo({ left: Math.max(left, 0) });
       return;
     }
     if (right > visibleRight) {
-      container.scrollTo({
-        left: right - container.clientWidth + edgePadding,
-      });
+      const maxScrollLeft = Math.max(container.scrollWidth - container.clientWidth, 0);
+      container.scrollTo({ left: Math.min(right - container.clientWidth, maxScrollLeft) });
     }
   }, [activeTab, initialLoad, tabLayoutKey]);
 
@@ -225,6 +224,7 @@ export default function AppNav({
             ref={tabsRef}
             className="flex gap-0.5 overflow-x-auto pr-10 [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]"
           >
+            <div aria-hidden className="shrink-0 w-4 sm:hidden" />
             {tabs.map((tab) => {
               const active = activeTab === tab.key;
               return (
@@ -254,7 +254,7 @@ export default function AppNav({
                 </button>
               );
             })}
-            <div aria-hidden className="shrink-0 w-6 sm:hidden" />
+            <div aria-hidden className="shrink-0 w-10 sm:hidden" />
           </div>
           <div className="pointer-events-none absolute inset-y-0 right-0 w-8 bg-gradient-to-l from-[#0a0e1a] to-transparent sm:hidden" />
         </div>
