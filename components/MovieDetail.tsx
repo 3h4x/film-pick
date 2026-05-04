@@ -662,16 +662,16 @@ export default function MovieDetail({
       onClick={onClose}
     >
       <div
-        className="bg-gray-900 border border-gray-700/50 rounded-2xl w-full max-w-5xl max-h-[90vh] shadow-2xl relative flex flex-col"
+        className="bg-gray-900 border border-gray-700/50 rounded-2xl w-[calc(100vw-1rem)] sm:w-full max-w-5xl max-h-[90vh] shadow-2xl relative flex flex-col"
         onClick={(e) => e.stopPropagation()}
       >
-        <div className="shrink-0 flex items-center justify-end gap-2 px-4 sm:px-6 pt-3 pb-2">
+        <div className="shrink-0 flex items-center justify-end gap-2 px-3 sm:px-6 pt-3 pb-3">
           {filePath && (
             <div className="flex items-center gap-2 mr-2">
               <button
                 onClick={() => handlePlay("play")}
                 disabled={isPlaying}
-                className="flex items-center gap-2 bg-indigo-500 hover:bg-indigo-600 text-white px-3 py-1.5 rounded-xl font-bold transition-all shadow-lg shadow-indigo-500/20 disabled:opacity-50 group h-10"
+                className="flex items-center gap-2 bg-indigo-500 hover:bg-indigo-600 text-white px-3.5 py-2 rounded-xl font-bold transition-all shadow-lg shadow-indigo-500/20 disabled:opacity-50 group min-h-11"
                 title="Play Movie"
               >
                 <span className="text-base group-hover:scale-110 transition-transform">
@@ -683,7 +683,7 @@ export default function MovieDetail({
               </button>
               <button
                 onClick={() => handlePlay("folder")}
-                className="flex items-center justify-center w-10 h-10 bg-gray-800 hover:bg-gray-700 text-gray-400 hover:text-white rounded-xl transition-all border border-gray-700/50 group"
+                className="flex items-center justify-center w-11 h-11 bg-gray-800 hover:bg-gray-700 text-gray-400 hover:text-white rounded-xl transition-all border border-gray-700/50 group"
                 title="Open in Finder"
               >
                 <span className="text-lg group-hover:scale-110 transition-transform">
@@ -697,7 +697,7 @@ export default function MovieDetail({
               e.stopPropagation();
               setIsMenuOpen(!isMenuOpen);
             }}
-            className={`w-10 h-10 rounded-xl flex items-center justify-center transition-all ${
+            className={`w-11 h-11 rounded-xl flex items-center justify-center transition-all ${
               isMenuOpen
                 ? "bg-indigo-500 text-white shadow-lg shadow-indigo-500/20"
                 : "bg-gray-800/80 text-gray-500 hover:text-white hover:bg-gray-800"
@@ -708,7 +708,7 @@ export default function MovieDetail({
           </button>
           <button
             onClick={onClose}
-            className="w-10 h-10 bg-gray-800/80 hover:bg-gray-800 text-gray-500 hover:text-white rounded-xl flex items-center justify-center transition-all text-xl"
+            className="w-11 h-11 bg-gray-800/80 hover:bg-gray-800 text-gray-500 hover:text-white rounded-xl flex items-center justify-center transition-all text-xl"
             title="Close"
           >
             ✕
@@ -843,7 +843,7 @@ export default function MovieDetail({
           </div>
         )}
 
-        <div className="overflow-y-auto flex-1 px-4 sm:px-8 pb-6 pt-2">
+        <div className="overflow-y-auto flex-1 px-4 sm:px-8 pb-6 pt-3">
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
           {/* Left Column: Poster, Credits & Technical Info */}
           <div className="order-2 lg:order-1 lg:col-span-4 space-y-6">
