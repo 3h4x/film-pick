@@ -1,0 +1,111 @@
+import { describe, expect, it, vi } from "vitest";
+import { scrollActiveSortChipIntoView } from "@/components/SortFilterBar";
+
+type FakeButton = Pick<HTMLButtonElement, "offsetLeft" | "offsetWidth">;
+
+interface FakeContainer {
+  clientWidth: number;
+  scrollLeft: number;
+  scrollWidth: number;
+  querySelector: (selector: string) => HTMLButtonElement | null;
+  querySelectorAll: (selector: string) => HTMLButtonElement[];
+  scrollTo: (options: { left: number }) => void;
+}
+
+function createButton(offsetLeft: number, offsetWidth: number): FakeButton {
+  return {
+    offsetLeft,
+    offsetWidth,
+  };
+}
+
+function createContainer({
+  buttons,
+  activeIndex,
+  clientWidth,
+  scrollLeft,
+  scrollWidth,
+}: {
+  buttons: FakeButton[];
+  activeIndex: number;
+  clientWidth: number;
+  scrollLeft: number;
+  scrollWidth: number;
+}) {
+  const scrollTo = vi.fn();
+  const activeButton = buttons[activeIndex] as HTMLButtonElement;
+  const sortButtons = buttons as HTMLButtonElement[];
+  const container: FakeContainer = {
+    clientWidth,
+    scrollLeft,
+    scrollWidth,
+    querySelector: (selector) =>
+      selector === '[data-active="true"]' ? activeButton : null,
+    querySelectorAll: (selector) =>
+      selector === "button[data-active]" ? sortButtons : [],
+    scrollTo,
+  };
+
+  return {
+    container: container as unknown as HTMLDivElement,
+    scrollTo,
+  };
+}
+
+describe("scrollActiveSortChipIntoView", () => {
+  it("snaps rightward to the first boundary that still fully reveals the active chip", () => {
+    const { container, scrollTo } = createContainer({
+      buttons: [
+        createButton(0, 50),
+        createButton(60, 50),
+        createButton(120, 50),
+        createButton(180, 30),
+      ],
+      activeIndex: 3,
+      clientWidth: 100,
+      scrollLeft: 0,
+      scrollWidth: 320,
+    });
+
+    scrollActiveSortChipIntoView(container, 390);
+
+    expect(scrollTo).toHaveBeenCalledWith({ left: 180 });
+  });
+
+  it("snaps leftward to the last boundary that keeps the active chip visible", () => {
+    const { container, scrollTo } = createContainer({
+      buttons: [
+        createButton(0, 50),
+        createButton(60, 50),
+        createButton(120, 50),
+        createButton(180, 50),
+      ],
+      activeIndex: 1,
+      clientWidth: 100,
+      scrollLeft: 150,
+      scrollWidth: 260,
+    });
+
+    scrollActiveSortChipIntoView(container, 390);
+
+    expect(scrollTo).toHaveBeenCalledWith({ left: 60 });
+  });
+
+  it("does not scroll when the active chip is already fully visible", () => {
+    const { container, scrollTo } = createContainer({
+      buttons: [
+        createButton(0, 50),
+        createButton(60, 50),
+        createButton(120, 50),
+      ],
+      activeIndex: 1,
+      clientWidth: 160,
+      scrollLeft: 0,
+      scrollWidth: 210,
+    });
+
+    scrollActiveSortChipIntoView(container, 1024);
+
+    expect(scrollTo).not.toHaveBeenCalled();
+  });
+});
