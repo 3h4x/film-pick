@@ -110,7 +110,7 @@ export default function RecommendationRow({
               onClick={() => onClickMovie(r)}
             />
             {/* Action buttons — hover on desktop, always visible on mobile */}
-            <div className="absolute right-1 bottom-14 z-10 flex flex-col gap-1 opacity-100 transition-all duration-200 md:[@media(hover:hover)]:opacity-0 md:[@media(hover:hover)]:group-hover/rec:opacity-100">
+            <div className="absolute right-1 bottom-14 z-10 flex flex-col gap-1 opacity-100 transition-all duration-200 [@media(hover:hover)]:opacity-0 [@media(hover:hover)]:group-hover/rec:opacity-100">
               <button
                 onClick={() => onAction(r.tmdb_id, "liked", r)}
                 className="bg-green-600/90 backdrop-blur-sm text-white rounded-lg w-9 h-9 text-sm flex items-center justify-center hover:bg-green-500 transition-colors"

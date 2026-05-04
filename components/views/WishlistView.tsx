@@ -46,31 +46,31 @@ export default function WishlistView({
             source={m.source}
             onClick={() => onMovieClick(m)}
           />
-          <div className="absolute right-1 bottom-14 z-10 flex flex-col gap-1 opacity-100 transition-all duration-200 md:[@media(hover:hover)]:opacity-0 md:[@media(hover:hover)]:group-hover/wish:opacity-100">
+          <div className="absolute right-1 bottom-14 z-10 flex flex-col gap-1 opacity-100 transition-all duration-200 [@media(hover:hover)]:opacity-0 [@media(hover:hover)]:group-hover/wish:opacity-100">
             <button
               onClick={() => onAction(m, "liked")}
-              className="bg-green-600/90 backdrop-blur-sm text-white rounded-lg w-7 h-7 text-sm flex items-center justify-center hover:bg-green-500 transition-colors"
+              className="bg-green-600/90 backdrop-blur-sm text-white rounded-lg w-9 h-9 text-sm flex items-center justify-center hover:bg-green-500 transition-colors"
               title="Watched &amp; liked"
             >
               👍
             </button>
             <button
               onClick={() => onAction(m, "watched")}
-              className="bg-gray-600/90 backdrop-blur-sm text-white rounded-lg w-7 h-7 text-sm flex items-center justify-center hover:bg-gray-500 transition-colors"
+              className="bg-gray-600/90 backdrop-blur-sm text-white rounded-lg w-9 h-9 text-sm flex items-center justify-center hover:bg-gray-500 transition-colors"
               title="Watched"
             >
               👁
             </button>
             <button
               onClick={() => onAction(m, "disliked")}
-              className="bg-orange-600/90 backdrop-blur-sm text-white rounded-lg w-7 h-7 text-sm flex items-center justify-center hover:bg-orange-500 transition-colors"
+              className="bg-orange-600/90 backdrop-blur-sm text-white rounded-lg w-9 h-9 text-sm flex items-center justify-center hover:bg-orange-500 transition-colors"
               title="Watched &amp; disliked"
             >
               👎
             </button>
             <button
               onClick={() => onAction(m, "remove")}
-              className="bg-red-600/90 backdrop-blur-sm text-white rounded-lg w-7 h-7 text-sm flex items-center justify-center hover:bg-red-500 transition-colors"
+              className="bg-red-600/90 backdrop-blur-sm text-white rounded-lg w-9 h-9 text-sm flex items-center justify-center hover:bg-red-500 transition-colors"
               title="Remove from watchlist"
             >
               ✕
