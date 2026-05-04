@@ -46,7 +46,7 @@ export default function WishlistView({
             source={m.source}
             onClick={() => onMovieClick(m)}
           />
-          <div className="absolute bottom-14 right-1 flex flex-col gap-1 opacity-0 group-hover/wish:opacity-100 transition-all duration-200">
+          <div className="absolute right-1 bottom-14 z-10 flex flex-col gap-1 opacity-100 transition-all duration-200 md:[@media(hover:hover)]:opacity-0 md:[@media(hover:hover)]:group-hover/wish:opacity-100">
             <button
               onClick={() => onAction(m, "liked")}
               className="bg-green-600/90 backdrop-blur-sm text-white rounded-lg w-7 h-7 text-sm flex items-center justify-center hover:bg-green-500 transition-colors"
