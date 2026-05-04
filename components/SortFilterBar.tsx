@@ -72,36 +72,24 @@ export default function SortFilterBar({
         '[data-active="true"]',
       );
       if (!activeButton) return;
-
-      const edgePadding = 40;
-      const left = activeButton.offsetLeft;
-      const right = left + activeButton.offsetWidth;
-      const visibleLeft = container.scrollLeft;
-      const visibleRight = visibleLeft + container.clientWidth - edgePadding;
-
-      if (left < visibleLeft) {
-        container.scrollTo({ left: Math.max(left - edgePadding, 0) });
-        return;
-      }
-      if (right > visibleRight) {
-        container.scrollTo({
-          left: right - container.clientWidth + edgePadding,
-        });
-      }
+      activeButton.scrollIntoView({
+        inline: "nearest",
+        block: "nearest",
+      });
     });
 
     return () => window.cancelAnimationFrame(frame);
-  }, [sort]);
+  }, [sort, sortDir]);
 
   return (
     <div className="space-y-3 mb-6">
       {/* Sort + filter row */}
       <div className="flex flex-wrap items-center gap-3">
         {/* Sort buttons — scrollable on mobile */}
-        <div className="relative min-w-0 max-w-full">
+        <div className="relative min-w-0 w-full sm:w-auto">
           <div
             ref={sortTabsRef}
-            className="flex items-center gap-1 bg-gray-800/40 p-1 rounded-xl overflow-x-auto pr-10 [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]"
+            className="flex w-full items-center gap-1 bg-gray-800/40 p-1 rounded-xl overflow-x-auto pr-10 sm:w-auto [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]"
           >
             {(Object.keys(SORT_LABELS) as SortOption[]).map((key) => (
               <button
