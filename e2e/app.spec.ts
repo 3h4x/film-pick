@@ -282,6 +282,31 @@ test.describe("discover / recommendations tab", () => {
     await page.getByRole("button", { name: "By Genre" }).click();
     await expect(page).toHaveURL(/#recommendations\/genre/);
   });
+
+  test("dropdown controls stay clickable while the backdrop is open", async ({
+    page,
+  }) => {
+    await mockAPIs(page);
+    await page.goto("/");
+    await expect(page.getByPlaceholder("Search library...")).toBeVisible();
+
+    const engineButton = page.getByRole("button", { name: /^All/ }).first();
+    const moodButton = page.getByRole("button", { name: /^Mood/ }).first();
+
+    await engineButton.click();
+    await expect(page.getByRole("button", { name: "By Genre" })).toBeVisible();
+
+    await engineButton.click();
+    await expect(page.getByRole("button", { name: "By Genre" })).not.toBeVisible();
+
+    await engineButton.click();
+    await moodButton.click();
+    await expect(page.getByRole("button", { name: "Action Evening" })).toBeVisible();
+
+    await page.getByRole("button", { name: "Action Evening" }).click();
+    await expect(page).toHaveURL(/#recommendations\/mood\/action_evening/);
+    await expect(page.getByText("The Matrix")).toBeVisible({ timeout: 10_000 });
+  });
 });
 
 test.describe("config tab", () => {
