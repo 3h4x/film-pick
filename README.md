@@ -1,7 +1,3 @@
-<p align="center">
-  <img src="logo.png" alt="FilmPick" width="200" />
-</p>
-
 <h1 align="center">FilmPick</h1>
 
 <p align="center">Your personal movie discovery engine. Tracks what you watch, learns what you love, and finds what to watch next.</p>
