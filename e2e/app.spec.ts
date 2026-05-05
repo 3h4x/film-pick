@@ -307,6 +307,107 @@ test.describe("discover / recommendations tab", () => {
     await expect(page).toHaveURL(/#recommendations\/mood\/action_evening/);
     await expect(page.getByText("The Matrix")).toBeVisible({ timeout: 10_000 });
   });
+
+  test("keeps recommendation filters below the sticky nav on narrow viewports", async ({
+    page,
+  }) => {
+    await mockAPIs(page);
+    await page.setViewportSize({ width: 990, height: 344 });
+    await page.goto("/");
+    await expect(page.getByPlaceholder("Search library...")).toBeVisible();
+
+    const activeTab = page.getByRole("button", { name: /^Discover/ });
+    const engineButton = page.getByRole("button", { name: /^All/ }).first();
+    const moodButton = page.getByRole("button", { name: /^Mood/ }).first();
+
+    const activeTabBox = await activeTab.boundingBox();
+    const engineButtonBox = await engineButton.boundingBox();
+    const moodButtonBox = await moodButton.boundingBox();
+
+    expect(activeTabBox).not.toBeNull();
+    expect(engineButtonBox).not.toBeNull();
+    expect(moodButtonBox).not.toBeNull();
+
+    expect(engineButtonBox!.y).toBeGreaterThanOrEqual(
+      activeTabBox!.y + activeTabBox!.height,
+    );
+    expect(moodButtonBox!.y).toBeGreaterThanOrEqual(
+      activeTabBox!.y + activeTabBox!.height,
+    );
+  });
+
+  test("does not let recommendation filters paint above the sticky nav while scrolling", async ({
+    page,
+  }) => {
+    const tallRecs = [
+      {
+        reason: "Because you liked crime epics",
+        type: "genre",
+        recommendations: Array.from({ length: 24 }, (_, index) => ({
+          tmdb_id: 1000 + index,
+          title: `Movie ${index + 1}`,
+          year: 2000 + index,
+          genre: "Action",
+          rating: 7.5,
+          poster_url: null,
+        })),
+      },
+    ];
+
+    await page.route("/api/movies", (route) => {
+      if (route.request().method() === "GET") {
+        route.fulfill({ json: MOCK_MOVIES });
+      } else {
+        route.continue();
+      }
+    });
+    await page.route("/api/settings", (route) => {
+      if (route.request().method() === "GET") {
+        route.fulfill({ json: MOCK_SETTINGS });
+      } else {
+        route.continue();
+      }
+    });
+    await page.route("/api/recommendations/count", (route) =>
+      route.fulfill({ json: { total: 24 } }),
+    );
+    await page.route("/api/recommendations/mood*", (route) =>
+      route.fulfill({ json: [] }),
+    );
+    await page.route("/api/recommendations*", (route) =>
+      route.fulfill({ json: tallRecs }),
+    );
+
+    await page.setViewportSize({ width: 990, height: 344 });
+    await page.goto("/");
+    await expect(page.getByPlaceholder("Search library...")).toBeVisible();
+
+    await page.evaluate(() => window.scrollTo(0, 180));
+
+    const activeTab = page.getByRole("button", { name: /^Discover/ });
+    const engineButton = page.getByRole("button", { name: /^All/ }).first();
+    const activeTabBox = await activeTab.boundingBox();
+    const engineButtonBox = await engineButton.boundingBox();
+
+    expect(activeTabBox).not.toBeNull();
+    expect(engineButtonBox).not.toBeNull();
+    expect(engineButtonBox!.y).toBeLessThan(activeTabBox!.y + activeTabBox!.height);
+
+    const probeX = engineButtonBox!.x + engineButtonBox!.width / 2;
+    const probeY = Math.max(
+      activeTabBox!.y + 1,
+      engineButtonBox!.y + engineButtonBox!.height / 2,
+    );
+
+    const topElementText = await page.evaluate(
+      ({ x, y }) =>
+        document.elementFromPoint(x, y)?.textContent?.replace(/\s+/g, " ").trim() ??
+        null,
+      { x: probeX, y: probeY },
+    );
+
+    expect(topElementText).toContain("Discover");
+  });
 });
 
 test.describe("config tab", () => {
