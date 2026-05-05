@@ -382,7 +382,7 @@ test.describe("discover / recommendations tab", () => {
     await page.goto("/");
     await expect(page.getByPlaceholder("Search library...")).toBeVisible();
 
-    await page.evaluate(() => window.scrollTo(0, 180));
+    await page.evaluate(() => window.scrollTo(0, 220));
 
     const activeTab = page.getByRole("button", { name: /^Discover/ });
     const engineButton = page.getByRole("button", { name: /^All/ }).first();
@@ -393,20 +393,22 @@ test.describe("discover / recommendations tab", () => {
     expect(engineButtonBox).not.toBeNull();
     expect(engineButtonBox!.y).toBeLessThan(activeTabBox!.y + activeTabBox!.height);
 
-    const probeX = engineButtonBox!.x + engineButtonBox!.width / 2;
-    const probeY = Math.max(
-      activeTabBox!.y + 1,
-      engineButtonBox!.y + engineButtonBox!.height / 2,
+    const probeX = Math.floor(engineButtonBox!.x + engineButtonBox!.width / 2);
+    const probeY = Math.floor(
+      Math.max(activeTabBox!.y + 2, engineButtonBox!.y + 8),
     );
 
-    const topElementText = await page.evaluate(
+    const topButtonText = await page.evaluate(
       ({ x, y }) =>
-        document.elementFromPoint(x, y)?.textContent?.replace(/\s+/g, " ").trim() ??
-        null,
+        document
+          .elementFromPoint(x, y)
+          ?.closest("button")
+          ?.textContent?.replace(/\s+/g, " ")
+          .trim() ?? null,
       { x: probeX, y: probeY },
     );
 
-    expect(topElementText).toContain("Discover");
+    expect(topButtonText).toContain("Discover");
   });
 });
 

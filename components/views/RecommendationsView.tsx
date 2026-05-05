@@ -109,7 +109,7 @@ export default function RecommendationsView({
     <>
       {(engineDropdownOpen || moodDropdownOpen) && (
         <div
-          className="fixed inset-0 z-40"
+          className="fixed inset-0 z-20"
           onClick={() => {
             setEngineDropdownOpen(false);
             setMoodDropdownOpen(false);
@@ -118,7 +118,7 @@ export default function RecommendationsView({
       )}
 
       {/* Filter row */}
-      <div className="relative z-50 mb-4 flex flex-wrap items-start gap-2 sm:items-center">
+      <div className="relative z-30 mb-4 flex flex-wrap items-start gap-2 sm:items-center">
         {/* Engine dropdown */}
         <div className="relative">
           <button
