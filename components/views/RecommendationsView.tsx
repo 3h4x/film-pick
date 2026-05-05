@@ -185,7 +185,7 @@ export default function RecommendationsView({
           )}
         </div>
 
-        <div className="ml-auto flex w-full items-center justify-between gap-2 sm:w-auto sm:justify-end">
+        <div className="ml-auto flex items-center gap-2">
           {lastRecsRefresh && (
             <span className="text-gray-600 text-xs hidden sm:inline">refreshed {formatRefreshTime(lastRecsRefresh)}</span>
           )}
