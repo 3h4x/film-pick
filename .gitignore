@@ -1,6 +1,11 @@
 
 *.mkv
 *.mp4
+/*.png
+/*.jpg
+/*.jpeg
+/*.gif
+/*.webp
 **/*.pyc
 .playwright-mcp/
 data/
