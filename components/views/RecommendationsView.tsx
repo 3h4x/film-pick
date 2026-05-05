@@ -108,15 +108,24 @@ export default function RecommendationsView({
   return (
     <>
       {(engineDropdownOpen || moodDropdownOpen) && (
-        <div className="fixed inset-0 z-40" onClick={() => { setEngineDropdownOpen(false); setMoodDropdownOpen(false); }} />
+        <div
+          className="fixed inset-0 z-40"
+          onClick={() => {
+            setEngineDropdownOpen(false);
+            setMoodDropdownOpen(false);
+          }}
+        />
       )}
 
       {/* Filter row */}
-      <div className="flex items-center gap-2 relative z-50">
+      <div className="relative z-50 mb-4 flex flex-wrap items-start gap-2 sm:items-center">
         {/* Engine dropdown */}
         <div className="relative">
           <button
-            onClick={() => { setEngineDropdownOpen(!engineDropdownOpen); setMoodDropdownOpen(false); }}
+            onClick={() => {
+              setEngineDropdownOpen(!engineDropdownOpen);
+              setMoodDropdownOpen(false);
+            }}
             className={`flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-medium transition-all border ${!activeMood ? "bg-gray-700/80 border-gray-600 text-white" : "bg-gray-800/60 border-gray-700/50 text-gray-400 hover:text-gray-200 hover:border-gray-600"}`}
           >
             <span>{activeMood ? "Engine" : (REC_CATEGORIES.find((c) => c.value === recCategory)?.label ?? "All")}</span>
@@ -143,7 +152,10 @@ export default function RecommendationsView({
         {/* Mood dropdown */}
         <div className="relative">
           <button
-            onClick={() => { setMoodDropdownOpen(!moodDropdownOpen); setEngineDropdownOpen(false); }}
+            onClick={() => {
+              setMoodDropdownOpen(!moodDropdownOpen);
+              setEngineDropdownOpen(false);
+            }}
             className={`flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-medium transition-all border ${activeMood ? "bg-indigo-600/80 border-indigo-500/60 text-white" : "bg-gray-800/60 border-gray-700/50 text-gray-400 hover:text-gray-200 hover:border-gray-600"}`}
           >
             {activeMood ? (<><span>{MOOD_PRESETS[activeMood].icon}</span><span>{MOOD_PRESETS[activeMood].label}</span></>) : <span>Mood</span>}
@@ -173,7 +185,7 @@ export default function RecommendationsView({
           )}
         </div>
 
-        <div className="flex items-center gap-2 ml-auto">
+        <div className="ml-auto flex w-full items-center justify-between gap-2 sm:w-auto sm:justify-end">
           {lastRecsRefresh && (
             <span className="text-gray-600 text-xs hidden sm:inline">refreshed {formatRefreshTime(lastRecsRefresh)}</span>
           )}
