@@ -21,6 +21,16 @@ import { useSettings } from "@/lib/hooks/useSettings";
 import type { AppTab, ToastItem, Movie, RecConfig } from "@/lib/types";
 import { MOOD_PRESETS, type MoodKey } from "@/lib/mood-presets";
 
+function findMovieFromHashRef(movies: Movie[], ref: string): Movie | undefined {
+  if (ref.startsWith("local/")) {
+    const id = parseInt(ref.substring(6), 10);
+    return movies.find((m) => m.id === id);
+  }
+
+  const tmdbId = parseInt(ref, 10);
+  return Number.isNaN(tmdbId) ? undefined : movies.find((m) => m.tmdb_id === tmdbId);
+}
+
 function parseHash(): {
   tab: AppTab;
   category: string;
@@ -127,16 +137,16 @@ export default function Home() {
   useEffect(() => {
     if (!pendingMovieRef.current || initialLoad) return;
     const ref = pendingMovieRef.current;
-    pendingMovieRef.current = null;
-    let found: Movie | undefined;
-    if (ref.startsWith("local/")) {
-      const id = parseInt(ref.substring(6), 10);
-      found = movies.find((m) => m.id === id);
-    } else {
-      const tmdbId = parseInt(ref, 10);
-      if (!isNaN(tmdbId)) found = movies.find((m) => m.tmdb_id === tmdbId);
+
+    const found = findMovieFromHashRef(movies, ref);
+    if (found) {
+      pendingMovieRef.current = null;
+      setSelectedMovie(found);
+      return;
     }
-    if (found) setSelectedMovie(found);
+
+    // Keep the pending hash until the library actually has rows to search.
+    if (movies.length > 0) pendingMovieRef.current = null;
   }, [movies, initialLoad]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Sync URL hash with state (movie modal takes precedence over tab hash)
@@ -168,15 +178,13 @@ export default function Home() {
       const hash = window.location.hash;
       if (hash.startsWith("#movie/")) {
         const ref = hash.substring(7);
-        let found: Movie | undefined;
-        if (ref.startsWith("local/")) {
-          const id = parseInt(ref.substring(6), 10);
-          found = movies.find((m) => m.id === id);
+        const found = findMovieFromHashRef(movies, ref);
+        if (found) {
+          pendingMovieRef.current = null;
+          setSelectedMovie(found);
         } else {
-          const tmdbId = parseInt(ref, 10);
-          if (!isNaN(tmdbId)) found = movies.find((m) => m.tmdb_id === tmdbId);
+          pendingMovieRef.current = ref;
         }
-        if (found) setSelectedMovie(found);
         return;
       }
       setSelectedMovie(null);
