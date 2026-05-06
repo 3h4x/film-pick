@@ -27,6 +27,10 @@ pnpm backup              # Backup SQLite DB
 ```
 ├── app/
 │   ├── page.tsx                      — Dashboard (Library + Recommendations tabs)
+│   ├── global-error.tsx              — Next.js global error boundary
+│   ├── search/
+│   │   ├── page.tsx                  — Standalone TMDb search entry page
+│   │   └── [query]/page.tsx          — TMDb search results page
 │   └── api/
 │       ├── movies/route.ts           — GET/POST library
 │       ├── movies/[id]/route.ts      — GET/DELETE single movie
@@ -54,6 +58,8 @@ pnpm backup              # Backup SQLite DB
 │           ├── enrich/route.ts       — Enrich TV show entries from TMDb
 │           └── blacklist/route.ts    — Manage EPG channel blacklist
 ├── components/
+│   ├── AppNav.tsx                    — Top app navigation bar with tab routing and search input
+│   ├── CardActionStack.tsx           — Reusable overlay action buttons for movie cards
 │   ├── TabNav.tsx                    — Pill-style tab navigation
 │   ├── MovieCard.tsx                 — Poster card (user rating + global rating badges)
 │   ├── MovieDetail.tsx               — Full movie detail view; MY RATING badge (♥) always visible, click to toggle 1–10 picker inline
