@@ -1,3 +1,7 @@
+"use client";
+
+import { useState } from "react";
+
 interface MovieCardProps {
   title: string;
   year: number | null;
@@ -25,6 +29,36 @@ export default function MovieCard({
   onAddToWatchlist,
   onClick,
 }: MovieCardProps) {
+  const [mobileActionsOpen, setMobileActionsOpen] = useState(false);
+
+  const actionButtons = [
+    onAddToWatchlist
+      ? {
+          key: "watchlist",
+          label: "Add to Watchlist",
+          className:
+            "bg-indigo-500/80 backdrop-blur-sm text-white rounded-lg w-9 h-9 text-xs font-bold hover:bg-indigo-400 flex items-center justify-center shadow-lg",
+          icon: "+",
+          onClick: onAddToWatchlist,
+        }
+      : null,
+    onDelete
+      ? {
+          key: "delete",
+          label: "Remove",
+          className:
+            "bg-red-500/80 backdrop-blur-sm text-white rounded-lg w-9 h-9 text-xs font-bold hover:bg-red-400 flex items-center justify-center shadow-lg",
+          icon: "✕",
+          onClick: onDelete,
+        }
+      : null,
+  ].filter((action): action is NonNullable<typeof action> => action !== null);
+
+  function runAction(action: (typeof actionButtons)[number]) {
+    action.onClick();
+    setMobileActionsOpen(false);
+  }
+
   return (
     <div
       className={`group relative rounded-xl overflow-hidden bg-gray-800/60 backdrop-blur-sm border border-gray-700/30 hover:border-indigo-500/40 transition-all duration-300 hover:shadow-xl hover:shadow-indigo-500/5 hover:-translate-y-1 ${onClick ? "cursor-pointer" : ""}`}
@@ -60,33 +94,58 @@ export default function MovieCard({
           )}
         </div>
 
-        {/* Watchlist/Delete buttons */}
-        <div className="absolute top-2 right-2 flex gap-1.5 [@media(hover:hover)]:opacity-0 [@media(hover:hover)]:group-hover:opacity-100 transition-opacity duration-200">
-          {onAddToWatchlist && (
-            <button
-              onClick={(e) => {
-                e.stopPropagation();
-                onAddToWatchlist();
-              }}
-              className="bg-indigo-500/80 backdrop-blur-sm text-white rounded-lg w-9 h-9 text-xs font-bold hover:bg-indigo-400 flex items-center justify-center shadow-lg"
-              title="Add to Watchlist"
-            >
-              +
-            </button>
-          )}
-          {onDelete && (
-            <button
-              onClick={(e) => {
-                e.stopPropagation();
-                onDelete();
-              }}
-              className="bg-red-500/80 backdrop-blur-sm text-white rounded-lg w-9 h-9 text-xs font-bold hover:bg-red-400 flex items-center justify-center shadow-lg"
-              title="Remove"
-            >
-              ✕
-            </button>
-          )}
-        </div>
+        {actionButtons.length > 0 && (
+          <div className="absolute top-2 right-2 z-10">
+            <div className="hidden flex-col gap-1 opacity-0 transition-all duration-200 [@media(hover:hover)]:flex [@media(hover:hover)]:group-hover:opacity-100">
+              {actionButtons.map((action) => (
+                <button
+                  key={action.key}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    runAction(action);
+                  }}
+                  className={action.className}
+                  title={action.label}
+                  aria-label={action.label}
+                >
+                  {action.icon}
+                </button>
+              ))}
+            </div>
+
+            <div className="flex flex-col items-end gap-1 [@media(hover:hover)]:hidden">
+              {mobileActionsOpen && (
+                <div className="mb-1 flex flex-col gap-1 rounded-xl border border-gray-700/60 bg-gray-950/80 p-1 shadow-2xl backdrop-blur-md">
+                  {actionButtons.map((action) => (
+                    <button
+                      key={action.key}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        runAction(action);
+                      }}
+                      className={action.className}
+                      title={action.label}
+                      aria-label={action.label}
+                    >
+                      {action.icon}
+                    </button>
+                  ))}
+                </div>
+              )}
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setMobileActionsOpen((open) => !open);
+                }}
+                className="flex h-9 w-9 items-center justify-center rounded-lg bg-black/70 text-white shadow-lg backdrop-blur-sm transition-colors hover:bg-black/80"
+                title={mobileActionsOpen ? "Hide actions" : "Show actions"}
+                aria-label={mobileActionsOpen ? "Hide actions" : "Show actions"}
+              >
+                {mobileActionsOpen ? "✕" : "⋯"}
+              </button>
+            </div>
+          </div>
+        )}
 
         {/* Source + CDA badges */}
         <div className="absolute bottom-2 right-2 flex gap-1">

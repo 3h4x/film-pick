@@ -2,6 +2,7 @@ import type { ComponentProps } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it, vi } from "vitest";
 import RecommendationRow from "@/components/RecommendationRow";
+import MovieCard from "@/components/MovieCard";
 import RecommendationsView from "@/components/views/RecommendationsView";
 import WishlistView from "@/components/views/WishlistView";
 import type { Movie, RecommendationGroup } from "@/lib/types";
@@ -11,6 +12,8 @@ const HOVER_REVEAL_REC_CLASS =
   "hidden flex-col gap-1 opacity-0 transition-all duration-200 [@media(hover:hover)]:flex [@media(hover:hover)]:group-hover/rec:opacity-100";
 const HOVER_REVEAL_WISH_CLASS =
   "[@media(hover:hover)]:group-hover/wish:opacity-100";
+const HOVER_REVEAL_LIBRARY_CLASS =
+  "hidden flex-col gap-1 opacity-0 transition-all duration-200 [@media(hover:hover)]:flex [@media(hover:hover)]:group-hover:opacity-100";
 
 const rec: TmdbSearchResult = {
   title: "Heat",
@@ -125,6 +128,26 @@ describe("responsive action visibility", () => {
     );
 
     expect(html).toContain(HOVER_REVEAL_WISH_CLASS);
+    expect(html).toContain("Show actions");
+    expect(html).not.toContain("md:[@media(hover:hover)]");
+  });
+
+  it("uses the compact mobile action toggle for library cards", () => {
+    const html = renderToStaticMarkup(
+      <MovieCard
+        title="Heat"
+        year={1995}
+        genre="Crime"
+        rating={8.3}
+        userRating={null}
+        posterUrl={null}
+        source="tmdb"
+        onAddToWatchlist={vi.fn()}
+        onDelete={vi.fn()}
+      />,
+    );
+
+    expect(html).toContain(HOVER_REVEAL_LIBRARY_CLASS);
     expect(html).toContain("Show actions");
     expect(html).not.toContain("md:[@media(hover:hover)]");
   });
