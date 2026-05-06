@@ -62,27 +62,30 @@ export default function AppNav({
   const tabLayoutKey = tabs.map((tab) => `${tab.key}:${tab.count}`).join("|");
 
   useEffect(() => {
-    const container = tabsRef.current;
-    if (!container) return;
-    const activeButton = container.querySelector<HTMLButtonElement>(
-      '[data-active="true"]',
-    );
-    if (!activeButton) return;
+    const raf = requestAnimationFrame(() => {
+      const container = tabsRef.current;
+      if (!container) return;
+      const activeButton = container.querySelector<HTMLButtonElement>(
+        '[data-active="true"]',
+      );
+      if (!activeButton) return;
 
-    const edgePadding = 16;
-    const left = activeButton.offsetLeft - edgePadding;
-    const right = activeButton.offsetLeft + activeButton.offsetWidth + edgePadding;
-    const visibleLeft = container.scrollLeft;
-    const visibleRight = container.scrollLeft + container.clientWidth;
+      const edgePadding = 16;
+      const left = activeButton.offsetLeft - edgePadding;
+      const right = activeButton.offsetLeft + activeButton.offsetWidth + edgePadding;
+      const visibleLeft = container.scrollLeft;
+      const visibleRight = container.scrollLeft + container.clientWidth;
 
-    if (left < visibleLeft) {
-      container.scrollTo({ left: Math.max(left, 0) });
-      return;
-    }
-    if (right > visibleRight) {
-      const maxScrollLeft = Math.max(container.scrollWidth - container.clientWidth, 0);
-      container.scrollTo({ left: Math.min(right - container.clientWidth, maxScrollLeft) });
-    }
+      if (left < visibleLeft) {
+        container.scrollTo({ left: Math.max(left, 0) });
+        return;
+      }
+      if (right > visibleRight) {
+        const maxScrollLeft = Math.max(container.scrollWidth - container.clientWidth, 0);
+        container.scrollTo({ left: Math.min(right - container.clientWidth, maxScrollLeft) });
+      }
+    });
+    return () => cancelAnimationFrame(raf);
   }, [activeTab, initialLoad, tabLayoutKey]);
 
   return (
