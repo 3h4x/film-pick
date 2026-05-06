@@ -8,9 +8,9 @@ import type { Movie, RecommendationGroup } from "@/lib/types";
 import type { TmdbSearchResult } from "@/lib/tmdb";
 
 const HOVER_REVEAL_REC_CLASS =
-  "absolute right-1 bottom-14 z-10 flex flex-col gap-1 opacity-100 transition-all duration-200 [@media(hover:hover)]:opacity-0 [@media(hover:hover)]:group-hover/rec:opacity-100";
+  "hidden flex-col gap-1 opacity-0 transition-all duration-200 [@media(hover:hover)]:flex [@media(hover:hover)]:group-hover/rec:opacity-100";
 const HOVER_REVEAL_WISH_CLASS =
-  "absolute right-1 bottom-14 z-10 flex flex-col gap-1 opacity-100 transition-all duration-200 [@media(hover:hover)]:opacity-0 [@media(hover:hover)]:group-hover/wish:opacity-100";
+  "[@media(hover:hover)]:group-hover/wish:opacity-100";
 
 const rec: TmdbSearchResult = {
   title: "Heat",
@@ -101,6 +101,7 @@ describe("responsive action visibility", () => {
     );
 
     expect(html).toContain(HOVER_REVEAL_REC_CLASS);
+    expect(html).toContain("Show actions");
     expect(html).not.toContain("md:[@media(hover:hover)]");
   });
 
@@ -110,6 +111,7 @@ describe("responsive action visibility", () => {
     );
 
     expect(html).toContain(HOVER_REVEAL_REC_CLASS);
+    expect(html).toContain("Show actions");
     expect(html).not.toContain("md:[@media(hover:hover)]");
   });
 
@@ -123,6 +125,7 @@ describe("responsive action visibility", () => {
     );
 
     expect(html).toContain(HOVER_REVEAL_WISH_CLASS);
+    expect(html).toContain("Show actions");
     expect(html).not.toContain("md:[@media(hover:hover)]");
   });
 });

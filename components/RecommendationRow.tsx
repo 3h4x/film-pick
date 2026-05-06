@@ -1,5 +1,6 @@
 "use client";
 
+import CardActionStack from "./CardActionStack";
 import MovieCard from "./MovieCard";
 import type { TmdbSearchResult } from "@/lib/tmdb";
 
@@ -109,44 +110,50 @@ export default function RecommendationRow({
               cdaUrl={r.cda_url}
               onClick={() => onClickMovie(r)}
             />
-            {/* Action buttons — hover on desktop, always visible on mobile */}
-            <div className="absolute right-1 bottom-14 z-10 flex flex-col gap-1 opacity-100 transition-all duration-200 [@media(hover:hover)]:opacity-0 [@media(hover:hover)]:group-hover/rec:opacity-100">
-              <button
-                onClick={() => onAction(r.tmdb_id, "liked", r)}
-                className="bg-green-600/90 backdrop-blur-sm text-white rounded-lg w-9 h-9 text-sm flex items-center justify-center hover:bg-green-500 transition-colors"
-                title="Watched &amp; liked"
-              >
-                👍
-              </button>
-              <button
-                onClick={() => onAction(r.tmdb_id, "watched", r)}
-                className="bg-gray-600/90 backdrop-blur-sm text-white rounded-lg w-9 h-9 text-sm flex items-center justify-center hover:bg-gray-500 transition-colors"
-                title="Watched"
-              >
-                👁
-              </button>
-              <button
-                onClick={() => onAction(r.tmdb_id, "wishlist", r)}
-                className="bg-blue-600/90 backdrop-blur-sm text-white rounded-lg w-9 h-9 text-sm flex items-center justify-center hover:bg-blue-500 transition-colors"
-                title="Add to watchlist"
-              >
-                🔖
-              </button>
-              <button
-                onClick={() => onAction(r.tmdb_id, "disliked", r)}
-                className="bg-orange-600/90 backdrop-blur-sm text-white rounded-lg w-9 h-9 text-sm flex items-center justify-center hover:bg-orange-500 transition-colors"
-                title="Watched &amp; disliked"
-              >
-                👎
-              </button>
-              <button
-                onClick={() => onAction(r.tmdb_id, "dismiss", r)}
-                className="bg-red-600/90 backdrop-blur-sm text-white rounded-lg w-9 h-9 text-sm flex items-center justify-center hover:bg-red-500 transition-colors"
-                title="Don't show again"
-              >
-                ✕
-              </button>
-            </div>
+            <CardActionStack
+              actions={[
+                {
+                  key: "liked",
+                  label: "Watched & liked",
+                  icon: "👍",
+                  className:
+                    "bg-green-600/90 backdrop-blur-sm text-white rounded-lg w-9 h-9 text-sm flex items-center justify-center hover:bg-green-500 transition-colors",
+                  onClick: () => onAction(r.tmdb_id, "liked", r),
+                },
+                {
+                  key: "watched",
+                  label: "Watched",
+                  icon: "👁",
+                  className:
+                    "bg-gray-600/90 backdrop-blur-sm text-white rounded-lg w-9 h-9 text-sm flex items-center justify-center hover:bg-gray-500 transition-colors",
+                  onClick: () => onAction(r.tmdb_id, "watched", r),
+                },
+                {
+                  key: "wishlist",
+                  label: "Add to watchlist",
+                  icon: "🔖",
+                  className:
+                    "bg-blue-600/90 backdrop-blur-sm text-white rounded-lg w-9 h-9 text-sm flex items-center justify-center hover:bg-blue-500 transition-colors",
+                  onClick: () => onAction(r.tmdb_id, "wishlist", r),
+                },
+                {
+                  key: "disliked",
+                  label: "Watched & disliked",
+                  icon: "👎",
+                  className:
+                    "bg-orange-600/90 backdrop-blur-sm text-white rounded-lg w-9 h-9 text-sm flex items-center justify-center hover:bg-orange-500 transition-colors",
+                  onClick: () => onAction(r.tmdb_id, "disliked", r),
+                },
+                {
+                  key: "dismiss",
+                  label: "Don't show again",
+                  icon: "✕",
+                  className:
+                    "bg-red-600/90 backdrop-blur-sm text-white rounded-lg w-9 h-9 text-sm flex items-center justify-center hover:bg-red-500 transition-colors",
+                  onClick: () => onAction(r.tmdb_id, "dismiss", r),
+                },
+              ]}
+            />
           </div>
         ))}
       </div>

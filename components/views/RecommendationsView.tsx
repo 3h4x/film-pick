@@ -1,4 +1,5 @@
 "use client";
+import CardActionStack from "@/components/CardActionStack";
 import MovieCard from "@/components/MovieCard";
 import RecommendationRow from "@/components/RecommendationRow";
 import RecommendationSkeleton from "@/components/RecommendationSkeleton";
@@ -88,13 +89,50 @@ export default function RecommendationsView({
 
   function recActionButtons(r: TmdbSearchResult, fromMood = false) {
     return (
-      <div className="absolute right-1 bottom-14 z-10 flex flex-col gap-1 opacity-100 transition-all duration-200 [@media(hover:hover)]:opacity-0 [@media(hover:hover)]:group-hover/rec:opacity-100">
-        <button onClick={() => handleRecAction(r.tmdb_id, "liked", r, fromMood)} className="bg-green-600/90 backdrop-blur-sm text-white rounded-lg w-9 h-9 text-sm flex items-center justify-center hover:bg-green-500 transition-colors" title="Watched &amp; liked">👍</button>
-        <button onClick={() => handleRecAction(r.tmdb_id, "watched", r, fromMood)} className="bg-gray-600/90 backdrop-blur-sm text-white rounded-lg w-9 h-9 text-sm flex items-center justify-center hover:bg-gray-500 transition-colors" title="Watched">👁</button>
-        <button onClick={() => handleRecAction(r.tmdb_id, "wishlist", r, fromMood)} className="bg-blue-600/90 backdrop-blur-sm text-white rounded-lg w-9 h-9 text-sm flex items-center justify-center hover:bg-blue-500 transition-colors" title="Add to watchlist">🔖</button>
-        <button onClick={() => handleRecAction(r.tmdb_id, "disliked", r, fromMood)} className="bg-orange-600/90 backdrop-blur-sm text-white rounded-lg w-9 h-9 text-sm flex items-center justify-center hover:bg-orange-500 transition-colors" title="Watched &amp; disliked">👎</button>
-        <button onClick={() => handleRecAction(r.tmdb_id, "dismiss", r, fromMood)} className="bg-red-600/90 backdrop-blur-sm text-white rounded-lg w-9 h-9 text-sm flex items-center justify-center hover:bg-red-500 transition-colors" title="Don't show again">✕</button>
-      </div>
+      <CardActionStack
+        actions={[
+          {
+            key: "liked",
+            label: "Watched & liked",
+            icon: "👍",
+            className:
+              "bg-green-600/90 backdrop-blur-sm text-white rounded-lg w-9 h-9 text-sm flex items-center justify-center hover:bg-green-500 transition-colors",
+            onClick: () => handleRecAction(r.tmdb_id, "liked", r, fromMood),
+          },
+          {
+            key: "watched",
+            label: "Watched",
+            icon: "👁",
+            className:
+              "bg-gray-600/90 backdrop-blur-sm text-white rounded-lg w-9 h-9 text-sm flex items-center justify-center hover:bg-gray-500 transition-colors",
+            onClick: () => handleRecAction(r.tmdb_id, "watched", r, fromMood),
+          },
+          {
+            key: "wishlist",
+            label: "Add to watchlist",
+            icon: "🔖",
+            className:
+              "bg-blue-600/90 backdrop-blur-sm text-white rounded-lg w-9 h-9 text-sm flex items-center justify-center hover:bg-blue-500 transition-colors",
+            onClick: () => handleRecAction(r.tmdb_id, "wishlist", r, fromMood),
+          },
+          {
+            key: "disliked",
+            label: "Watched & disliked",
+            icon: "👎",
+            className:
+              "bg-orange-600/90 backdrop-blur-sm text-white rounded-lg w-9 h-9 text-sm flex items-center justify-center hover:bg-orange-500 transition-colors",
+            onClick: () => handleRecAction(r.tmdb_id, "disliked", r, fromMood),
+          },
+          {
+            key: "dismiss",
+            label: "Don't show again",
+            icon: "✕",
+            className:
+              "bg-red-600/90 backdrop-blur-sm text-white rounded-lg w-9 h-9 text-sm flex items-center justify-center hover:bg-red-500 transition-colors",
+            onClick: () => handleRecAction(r.tmdb_id, "dismiss", r, fromMood),
+          },
+        ]}
+      />
     );
   }
 
