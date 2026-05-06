@@ -177,6 +177,26 @@ test.describe("library search filter", () => {
 });
 
 test.describe("movie detail", () => {
+  test("opens movie detail from a tmdb hash deep link", async ({ page }) => {
+    await mockAPIs(page);
+    await page.route("/api/movies/1/full", (route) =>
+      route.fulfill({
+        json: {
+          movie: { ...MOCK_MOVIES[0] },
+          cast: [],
+          crew: [],
+          similar: [],
+        },
+      })
+    );
+
+    await page.goto("/#movie/238");
+    const overlay = page.locator(".fixed.inset-0");
+    await expect(overlay.getByText("The Godfather").first()).toBeVisible({
+      timeout: 10_000,
+    });
+  });
+
   test("opens movie detail on card click", async ({ page }) => {
     await mockAPIs(page);
     await page.route("/api/movies/1/full", (route) =>
