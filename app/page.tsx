@@ -284,7 +284,12 @@ export default function Home() {
           }}
           allMovies={movies}
           onPersonClick={(name) => { setSelectedMovie(null); setPersonFilter(name); setActiveTab("person"); }}
-          onSearchTMDb={(query, targetId) => { setSearchQuery(query); search.setSearchTargetId(targetId || null); setSearchOpen(true); }}
+          onSearchTMDb={(query, targetId) => {
+            setSelectedMovie(null);
+            setSearchQuery(query);
+            search.setSearchTargetId(targetId || null);
+            setSearchOpen(true);
+          }}
           onMerge={async (sourceId, targetId) => {
             if (targetId === -1) { setMovies((prev) => prev.filter((m) => m.id !== sourceId)); setSelectedMovie(null); return; }
             const res = await fetch(`/api/movies/${targetId}`);
