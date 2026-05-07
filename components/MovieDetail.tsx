@@ -1735,7 +1735,7 @@ export default function MovieDetail({
                     Last Rated
                   </p>
                   <p className="text-[11px] text-gray-500 font-medium">
-                    {movie.rated_at}
+                    {new Date(movie.rated_at).toLocaleDateString()}
                   </p>
                 </div>
               )}
