@@ -246,14 +246,15 @@ TMDB_API_KEY=<your_key> docker run -p 4000:4000 -v $(pwd)/data:/app/data -e TMDB
 7. **ESLint + lint-staged run automatically** on `git commit` (ESLint `--fix` + type-check + full test suite). Do not skip hooks with `--no-verify`.
 8. **Pre-push hook runs `pnpm lint && pnpm test`.** Ensure both pass before pushing.
 9. **File naming:** React components and view files use PascalCase (`MovieCard.tsx`). Library modules and hooks use kebab-case (`cda-fetch.ts`, `useLibrary.ts`).
-10. **API error responses** always use `Response.json({ error: "..." }, { status: N })`. Use 400 for bad input, 404 for missing resources, 500 for unexpected failures. Never throw unhandled errors from route handlers — catch and return a 500.
-11. **Shared TypeScript types** belong in `lib/types.ts`. Do not define `Movie`, `RecType`, `AppTab`, or similar cross-cutting types in individual modules.
-12. **React hooks** for data fetching and complex state belong in `lib/hooks/`. Route handlers and components must not duplicate fetch logic that already exists in a hook.
-13. **Default to Server Components in `app/`** and add `"use client"` only for components that need browser APIs, event handlers, local state, refs, or effects.
-14. **Prefer async/await with explicit concurrency.** Use `Promise.all` only for independent work with a known small fan-out; avoid unbounded parallel TMDb/CDA/EPG requests.
-15. **Use the existing lint setup and let it auto-fix where possible.** Run `pnpm lint` for manual verification when touching multiple files or before pushing.
-16. **Keep imports direct and explicit.** Use `@/` aliases for project modules, avoid deep relative imports across directories, and do not introduce barrel files unless the repo already has them.
-17. **Log unexpected server-side failures with useful context** before returning a 500 so the failing route or operation is visible in stdout logs.
+10. **Keep TypeScript identifiers camelCase unless mirroring persisted schema fields.** SQLite column names and raw row fields stay snake_case (`user_rating`, `file_path`, `created_at`), but local variables, helper return shapes, and component props should be camelCase unless they intentionally match the database/API contract.
+11. **API error responses** always use `Response.json({ error: "..." }, { status: N })`. Use 400 for bad input, 404 for missing resources, 500 for unexpected failures. Never throw unhandled errors from route handlers — catch and return a 500.
+12. **Shared TypeScript types** belong in `lib/types.ts`. Do not define `Movie`, `RecType`, `AppTab`, or similar cross-cutting types in individual modules.
+13. **React hooks** for data fetching and complex state belong in `lib/hooks/`. Route handlers and components must not duplicate fetch logic that already exists in a hook.
+14. **Default to Server Components in `app/`** and add `"use client"` only for components that need browser APIs, event handlers, local state, refs, or effects.
+15. **Prefer async/await with explicit concurrency.** Use `Promise.all` only for independent work with a known small fan-out; avoid unbounded parallel TMDb/CDA/EPG requests.
+16. **Use the existing lint setup and let it auto-fix where possible.** Run `pnpm lint` for manual verification when touching multiple files or before pushing.
+17. **Keep imports direct and explicit.** Use `@/` aliases for project modules, avoid deep relative imports across directories, and do not introduce barrel files unless the repo already has them.
+18. **Log unexpected server-side failures with useful context** before returning a 500 so the failing route or operation is visible in stdout logs.
 
 ## Testing Rules
 
