@@ -241,6 +241,82 @@ test.describe("movie detail", () => {
     await overlay.locator('[title="Close"]').click();
     await expect(overlay).not.toBeVisible({ timeout: 5_000 });
   });
+
+  test("opens relink search above the detail modal from Fix Metadata", async ({
+    page,
+  }) => {
+    await mockAPIs(page);
+    await page.route("/api/movies/1/full", (route) =>
+      route.fulfill({
+        json: {
+          movie: { ...MOCK_MOVIES[0] },
+          cast: [],
+          crew: [],
+          similar: [],
+        },
+      }),
+    );
+    await page.route("/api/search*", (route) =>
+      route.fulfill({
+        json: [
+          {
+            tmdb_id: 238,
+            title: "The Godfather",
+            year: 1972,
+            genre: "Crime, Drama",
+            rating: 9.2,
+            poster_url: null,
+            imdb_id: "tt0068646",
+          },
+        ],
+      }),
+    );
+    await page.route("/api/movies/1", (route) => {
+      if (route.request().method() === "PATCH") {
+        route.fulfill({
+          json: {
+            ...MOCK_MOVIES[0],
+            imdb_id: "tt0068646",
+            source: "tmdb",
+          },
+        });
+        return;
+      }
+
+      route.continue();
+    });
+
+    await page.goto("/");
+    await goToLibrary(page);
+
+    await page.getByText("The Godfather").first().click();
+    const detailOverlay = page.locator(".fixed.inset-0").filter({
+      has: page.getByTitle("Management Menu"),
+    });
+    await expect(detailOverlay).toBeVisible({ timeout: 8_000 });
+
+    await detailOverlay.getByTitle("Management Menu").click();
+    await detailOverlay.getByRole("button", { name: /Fix Metadata/i }).click();
+
+    await expect(detailOverlay).not.toBeVisible({ timeout: 5_000 });
+
+    const searchOverlay = page.locator(".fixed.inset-0").filter({
+      has: page.getByRole("heading", { name: "Relink Metadata" }),
+    });
+    await expect(searchOverlay).toBeVisible({ timeout: 8_000 });
+
+    const relinkHeading = searchOverlay.getByRole("heading", {
+      name: "Relink Metadata",
+    });
+    await expect(relinkHeading).toBeVisible();
+
+    const queryInput = searchOverlay.getByPlaceholder("Search movies...");
+    await expect(queryInput).toBeVisible();
+    await expect(queryInput).toHaveValue("The Godfather");
+
+    await searchOverlay.locator('[title="Update existing movie"]').click();
+    await expect(searchOverlay).not.toBeVisible({ timeout: 5_000 });
+  });
 });
 
 test.describe("discover / recommendations tab", () => {

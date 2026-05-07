@@ -85,7 +85,7 @@ export default function SearchModal({
   }
 
   return (
-    <div className="fixed inset-0 z-[60]">
+    <div className="fixed inset-0 z-[90]">
       <div className="absolute inset-0 bg-black/70 backdrop-blur-sm" onClick={onClose} />
       <div className="relative flex items-start justify-center pt-[10vh] h-full pointer-events-none">
         <div className="bg-gray-900 border border-gray-700/50 rounded-2xl p-6 w-full max-w-2xl max-h-[75vh] overflow-y-auto shadow-2xl shadow-black/50 pointer-events-auto mx-4">
