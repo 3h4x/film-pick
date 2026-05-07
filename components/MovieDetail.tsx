@@ -1116,14 +1116,16 @@ export default function MovieDetail({
             )}
           </div>
 
-          <div className="order-1 lg:order-2 lg:col-span-8 space-y-8">
+          <div className="order-1 lg:order-2 lg:col-span-8 space-y-6 sm:space-y-8">
             {/* Title & Actions */}
-            <div className="space-y-1">
-              <h2 className="text-2xl sm:text-3xl font-black text-white tracking-tight">
+            <div className="space-y-2 sm:space-y-1">
+              <h2 className="text-xl leading-tight sm:text-3xl lg:text-4xl font-black text-white tracking-tight">
                 {movieTitle}
               </h2>
               {plTitle && plTitle !== movieTitle && (
-                <p className="text-xl text-gray-400 font-medium">{plTitle}</p>
+                <p className="text-base leading-snug text-gray-400 font-medium sm:text-xl">
+                  {plTitle}
+                </p>
               )}
             </div>
 
@@ -1150,7 +1152,7 @@ export default function MovieDetail({
             <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
               <div className="space-y-6">
                 {/* Ratings */}
-                <div className="flex items-center gap-6">
+                <div className="flex flex-wrap items-center gap-4 sm:gap-6">
                   <div className="space-y-1.5">
                       <p className="text-[10px] text-gray-500 font-black uppercase tracking-widest">
                         My Rating
