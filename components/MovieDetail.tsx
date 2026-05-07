@@ -658,7 +658,7 @@ export default function MovieDetail({
 
   return (
     <div
-      className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-50"
+      className="fixed inset-0 z-[80] flex items-center justify-center bg-[#03050b]"
       onClick={onClose}
     >
       <div
@@ -718,7 +718,7 @@ export default function MovieDetail({
         {/* Menu Dropdown */}
         {isMenuOpen && (
           <div
-            className="absolute top-16 right-6 z-[60] w-64 bg-gray-900 border border-gray-700/50 rounded-2xl shadow-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-200"
+            className="absolute top-16 right-6 z-[90] w-64 overflow-hidden rounded-2xl border border-gray-700/50 bg-gray-900 shadow-2xl animate-in fade-in zoom-in-95 duration-200"
             onClick={(e) => e.stopPropagation()}
           >
             <div className="p-2 space-y-1">
