@@ -1,6 +1,7 @@
 node_modules
 .next
 data
+tmp
 .git
 .github
 __tests__
