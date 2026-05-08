@@ -242,6 +242,32 @@ test.describe("movie detail", () => {
     await expect(overlay).not.toBeVisible({ timeout: 5_000 });
   });
 
+  test("locks background scroll while movie detail is open", async ({ page }) => {
+    await mockAPIs(page);
+    await page.route("/api/movies/1/full", (route) =>
+      route.fulfill({
+        json: {
+          movie: { ...MOCK_MOVIES[0] },
+          cast: [],
+          crew: [],
+          similar: [],
+        },
+      })
+    );
+    await page.setViewportSize({ width: 375, height: 812 });
+    await page.goto("/#movie/238");
+    await expect(page.locator(".fixed.inset-0").getByText("The Godfather").first()).toBeVisible({
+      timeout: 8_000,
+    });
+
+    const startScrollY = await page.evaluate(() => window.scrollY);
+    await page.mouse.wheel(0, 1200);
+
+    await expect
+      .poll(async () => page.evaluate(() => window.scrollY))
+      .toBe(startScrollY);
+  });
+
   test("opens relink search above the detail modal from Fix Metadata", async ({
     page,
   }) => {
