@@ -1,6 +1,10 @@
 import type { ComponentProps } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it, vi } from "vitest";
+import {
+  CARD_ACTION_ICON_SIZE_CLASS,
+  CARD_ACTION_TOUCH_TARGET_CLASS,
+} from "@/components/card-action-styles";
 import RecommendationRow from "@/components/RecommendationRow";
 import MovieCard from "@/components/MovieCard";
 import RecommendationsView from "@/components/views/RecommendationsView";
@@ -149,6 +153,12 @@ describe("responsive action visibility", () => {
 
     expect(html).toContain(HOVER_REVEAL_LIBRARY_CLASS);
     expect(html).toContain("Show actions");
+    expect(html).toContain(CARD_ACTION_TOUCH_TARGET_CLASS);
     expect(html).not.toContain("md:[@media(hover:hover)]");
+  });
+
+  it("shares the mobile touch-target classes across card action entrypoints", () => {
+    expect(CARD_ACTION_TOUCH_TARGET_CLASS).toBe("h-11 w-11 sm:h-9 sm:w-9");
+    expect(CARD_ACTION_ICON_SIZE_CLASS).toBe("text-base sm:text-sm");
   });
 });
