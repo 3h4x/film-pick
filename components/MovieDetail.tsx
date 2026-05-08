@@ -847,7 +847,7 @@ export default function MovieDetail({
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
           {/* Left Column: Poster, Credits & Technical Info */}
           <div className="order-2 lg:order-1 lg:col-span-4 space-y-6">
-            <div className="flex-shrink-0 relative group">
+            <div className="hidden lg:block flex-shrink-0 relative group">
               {posterUrl ? (
                 <div className="relative aspect-[2/3]">
                   <img
@@ -1117,6 +1117,39 @@ export default function MovieDetail({
           </div>
 
           <div className="order-1 lg:order-2 lg:col-span-8 space-y-6 sm:space-y-8">
+            <div className="lg:hidden mx-auto w-full max-w-[220px]">
+              {posterUrl ? (
+                <div className="relative aspect-[2/3]">
+                  <img
+                    src={posterUrl}
+                    alt={movie.title}
+                    className="w-full h-full object-cover rounded-2xl shadow-2xl border border-gray-700/30"
+                    onError={(e) => {
+                      (e.target as HTMLImageElement).style.display = "none";
+                      (
+                        e.target as HTMLImageElement
+                      ).parentElement?.classList.add(
+                        "flex",
+                        "items-center",
+                        "justify-center",
+                        "bg-gray-800",
+                      );
+                      const span = document.createElement("span");
+                      span.className = "text-6xl opacity-30";
+                      span.innerText = "🎬";
+                      (e.target as HTMLImageElement).parentElement?.appendChild(
+                        span,
+                      );
+                    }}
+                  />
+                </div>
+              ) : (
+                <div className="w-full aspect-[2/3] bg-gray-800 rounded-2xl flex items-center justify-center border border-gray-700/30">
+                  <span className="text-6xl opacity-30">🎬</span>
+                </div>
+              )}
+            </div>
+
             {/* Title & Actions */}
             <div className="space-y-2 sm:space-y-1">
               <h2 className="text-xl leading-tight sm:text-3xl lg:text-4xl font-black text-white tracking-tight">
