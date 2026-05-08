@@ -53,7 +53,7 @@ function createContainer({
 }
 
 describe("scrollActiveSortChipIntoView", () => {
-  it("snaps rightward to the first boundary that still fully reveals the active chip", () => {
+  it("snaps rightward far enough to clear the trailing mobile controls", () => {
     const { container, scrollTo } = createContainer({
       buttons: [
         createButton(0, 50),
@@ -69,7 +69,7 @@ describe("scrollActiveSortChipIntoView", () => {
 
     scrollActiveSortChipIntoView(container, 390);
 
-    expect(scrollTo).toHaveBeenCalledWith({ left: 180 });
+    expect(scrollTo).toHaveBeenCalledWith({ left: 220 });
   });
 
   it("snaps leftward to the last boundary that keeps the active chip visible", () => {
@@ -107,5 +107,24 @@ describe("scrollActiveSortChipIntoView", () => {
     scrollActiveSortChipIntoView(container, 1024);
 
     expect(scrollTo).not.toHaveBeenCalled();
+  });
+
+  it("accounts for trailing mobile controls after the last sort chip", () => {
+    const { container, scrollTo } = createContainer({
+      buttons: [
+        createButton(0, 50),
+        createButton(60, 50),
+        createButton(120, 50),
+        createButton(180, 50),
+      ],
+      activeIndex: 3,
+      clientWidth: 100,
+      scrollLeft: 0,
+      scrollWidth: 290,
+    });
+
+    scrollActiveSortChipIntoView(container, 390);
+
+    expect(scrollTo).toHaveBeenCalledWith({ left: 190 });
   });
 });

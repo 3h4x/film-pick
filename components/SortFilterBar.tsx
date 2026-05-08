@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef } from "react";
+import { useLayoutEffect, useRef } from "react";
 
 type SortOption =
   | "user_rating"
@@ -56,7 +56,16 @@ export function scrollActiveSortChipIntoView(
   if (sortButtons.length === 0) return;
 
   const firstButtonOffset = sortButtons[0]?.offsetLeft ?? 0;
-  const rightPadding = viewportWidth < 640 ? 40 : 0;
+  const lastSortButton = sortButtons[sortButtons.length - 1];
+  const trailingInset =
+    lastSortButton
+      ? Math.max(
+          container.scrollWidth -
+            (lastSortButton.offsetLeft + lastSortButton.offsetWidth),
+          0,
+        )
+      : 0;
+  const rightPadding = viewportWidth < 640 ? Math.max(trailingInset, 40) : 0;
   const maxScrollLeft = Math.max(
     container.scrollWidth - container.clientWidth,
     0,
@@ -121,14 +130,10 @@ export default function SortFilterBar({
 }: SortFilterBarProps) {
   const sortTabsRef = useRef<HTMLDivElement | null>(null);
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     const container = sortTabsRef.current;
     if (!container) return;
-    const frame = window.requestAnimationFrame(() => {
-      scrollActiveSortChipIntoView(container, window.innerWidth);
-    });
-
-    return () => window.cancelAnimationFrame(frame);
+    scrollActiveSortChipIntoView(container, window.innerWidth);
   }, [sort, sortDir]);
 
   return (
