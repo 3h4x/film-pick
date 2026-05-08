@@ -268,6 +268,7 @@ TMDB_API_KEY=<your_key> docker run -p 4000:4000 -v $(pwd)/data:/app/data -e TMDB
 8. **Prefer focused test runs while iterating, then finish with the full suite.** Use Vitest file targeting or Playwright spec targeting during development, but `pnpm test` remains the final check.
 9. **Playwright uses `http://localhost:4000`** and starts `pnpm dev` automatically when needed. Keep new e2e flows compatible with that port and dev-server startup model.
 10. **Mock network boundaries, not parsing/business logic.** For TMDb/CDA/EPG tests, stub `fetch` inputs/outputs and exercise the real route/helper code around them.
+11. **Vitest runs in `environment: "node"`**, not `jsdom`. For component tests, prefer `renderToStaticMarkup`, pure helper extraction, or targeted module tests over introducing browser-only test infrastructure.
 
 ## Architecture Patterns
 
@@ -282,6 +283,7 @@ TMDB_API_KEY=<your_key> docker run -p 4000:4000 -v $(pwd)/data:/app/data -e TMDB
 9. **Route handlers own persistence and orchestration.** UI components should call existing API routes/hooks rather than reading the filesystem, hitting SQLite, or calling third-party APIs directly.
 10. **Caching belongs in the existing cache layers.** TMDb TTL logic stays in `lib/tmdb.ts`, recommendation cache logic stays in `lib/db.ts`/`recommendation_cache`, and EPG/CDA refresh behavior stays in their scheduler/fetch modules.
 11. **Keep filesystem-sensitive behavior inside the existing scanner/streaming/standardize modules and routes.** Do not duplicate path parsing, rename logic, or video-file detection in UI code.
+12. **Preserve the current standalone deployment contract** when touching build/runtime config: `next.config.ts` must keep `output: "standalone"` and `serverExternalPackages: ["better-sqlite3"]` unless every Docker/deployment path is re-verified.
 
 ## Dependency & Supply-Chain Security
 
@@ -302,3 +304,4 @@ TMDB_API_KEY=<your_key> docker run -p 4000:4000 -v $(pwd)/data:/app/data -e TMDB
 6. **Do not push to `master` or trigger deployment-related changes casually.** Any push to `master` ships via GHA + Watchtower, so pushing is a separate deliberate action from committing.
 7. **Do not bypass Husky/commitlint/lint-staged hooks** with `--no-verify` or similar flags unless the user explicitly instructs it for a one-off emergency.
 8. **Do not change ports, image names, deployment wiring, or container volume paths without verifying all downstream references** (`README.md`, `docker-compose.yml`, Playwright base URL, and docs).
+9. **Never place real TMDb credentials in committed fixtures, screenshots, docs, or seeded SQLite data.** Use `bioenv` for local runs and obvious placeholders in any artifact that can land in git.
