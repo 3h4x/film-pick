@@ -2,6 +2,10 @@
 
 import { useState, useEffect, useRef } from "react";
 import MovieCard from "./MovieCard";
+import {
+  CARD_ACTION_ICON_SIZE_CLASS,
+  CARD_ACTION_TOUCH_TARGET_CLASS,
+} from "./card-action-styles";
 
 interface SearchResult {
   title: string;
@@ -153,7 +157,7 @@ export default function SearchModal({
                       e.stopPropagation();
                       onAdd(r, false);
                     }}
-                    className="bg-indigo-600/90 backdrop-blur-sm text-white rounded-lg w-9 h-9 text-sm flex items-center justify-center hover:bg-indigo-500 transition-colors"
+                    className={`bg-indigo-600/90 backdrop-blur-sm text-white rounded-lg ${CARD_ACTION_TOUCH_TARGET_CLASS} ${CARD_ACTION_ICON_SIZE_CLASS} flex items-center justify-center hover:bg-indigo-500 transition-colors`}
                     title={
                       targetMovieId ? "Update existing movie" : "Add to library"
                     }
@@ -165,7 +169,7 @@ export default function SearchModal({
                       e.stopPropagation();
                       onAdd(r, true);
                     }}
-                    className="bg-blue-600/90 backdrop-blur-sm text-white rounded-lg w-9 h-9 text-sm flex items-center justify-center hover:bg-blue-500 transition-colors"
+                    className={`bg-blue-600/90 backdrop-blur-sm text-white rounded-lg ${CARD_ACTION_TOUCH_TARGET_CLASS} ${CARD_ACTION_ICON_SIZE_CLASS} flex items-center justify-center hover:bg-blue-500 transition-colors`}
                     title="Add to watchlist"
                   >
                     🔖

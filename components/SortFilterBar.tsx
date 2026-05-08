@@ -133,7 +133,17 @@ export default function SortFilterBar({
   useLayoutEffect(() => {
     const container = sortTabsRef.current;
     if (!container) return;
-    scrollActiveSortChipIntoView(container, window.innerWidth);
+
+    const syncActiveChip = () => {
+      scrollActiveSortChipIntoView(container, window.innerWidth);
+    };
+
+    syncActiveChip();
+    window.addEventListener("resize", syncActiveChip);
+
+    return () => {
+      window.removeEventListener("resize", syncActiveChip);
+    };
   }, [sort, sortDir]);
 
   return (

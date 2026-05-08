@@ -2,6 +2,10 @@
 
 import CardActionStack from "./CardActionStack";
 import MovieCard from "./MovieCard";
+import {
+  CARD_ACTION_ICON_SIZE_CLASS,
+  CARD_ACTION_TOUCH_TARGET_CLASS,
+} from "./card-action-styles";
 import type { TmdbSearchResult } from "@/lib/tmdb";
 
 export type RecAction =
@@ -117,7 +121,7 @@ export default function RecommendationRow({
                   label: "Watched & liked",
                   icon: "👍",
                   className:
-                    "bg-green-600/90 backdrop-blur-sm text-white rounded-lg h-11 w-11 text-base flex items-center justify-center hover:bg-green-500 transition-colors sm:h-9 sm:w-9 sm:text-sm",
+                    `bg-green-600/90 backdrop-blur-sm text-white rounded-lg ${CARD_ACTION_TOUCH_TARGET_CLASS} ${CARD_ACTION_ICON_SIZE_CLASS} flex items-center justify-center hover:bg-green-500 transition-colors`,
                   onClick: () => onAction(r.tmdb_id, "liked", r),
                 },
                 {
@@ -125,7 +129,7 @@ export default function RecommendationRow({
                   label: "Watched",
                   icon: "👁",
                   className:
-                    "bg-gray-600/90 backdrop-blur-sm text-white rounded-lg h-11 w-11 text-base flex items-center justify-center hover:bg-gray-500 transition-colors sm:h-9 sm:w-9 sm:text-sm",
+                    `bg-gray-600/90 backdrop-blur-sm text-white rounded-lg ${CARD_ACTION_TOUCH_TARGET_CLASS} ${CARD_ACTION_ICON_SIZE_CLASS} flex items-center justify-center hover:bg-gray-500 transition-colors`,
                   onClick: () => onAction(r.tmdb_id, "watched", r),
                 },
                 {
@@ -133,7 +137,7 @@ export default function RecommendationRow({
                   label: "Add to watchlist",
                   icon: "🔖",
                   className:
-                    "bg-blue-600/90 backdrop-blur-sm text-white rounded-lg h-11 w-11 text-base flex items-center justify-center hover:bg-blue-500 transition-colors sm:h-9 sm:w-9 sm:text-sm",
+                    `bg-blue-600/90 backdrop-blur-sm text-white rounded-lg ${CARD_ACTION_TOUCH_TARGET_CLASS} ${CARD_ACTION_ICON_SIZE_CLASS} flex items-center justify-center hover:bg-blue-500 transition-colors`,
                   onClick: () => onAction(r.tmdb_id, "wishlist", r),
                 },
                 {
@@ -141,7 +145,7 @@ export default function RecommendationRow({
                   label: "Watched & disliked",
                   icon: "👎",
                   className:
-                    "bg-orange-600/90 backdrop-blur-sm text-white rounded-lg h-11 w-11 text-base flex items-center justify-center hover:bg-orange-500 transition-colors sm:h-9 sm:w-9 sm:text-sm",
+                    `bg-orange-600/90 backdrop-blur-sm text-white rounded-lg ${CARD_ACTION_TOUCH_TARGET_CLASS} ${CARD_ACTION_ICON_SIZE_CLASS} flex items-center justify-center hover:bg-orange-500 transition-colors`,
                   onClick: () => onAction(r.tmdb_id, "disliked", r),
                 },
                 {
@@ -149,7 +153,7 @@ export default function RecommendationRow({
                   label: "Don't show again",
                   icon: "✕",
                   className:
-                    "bg-red-600/90 backdrop-blur-sm text-white rounded-lg h-11 w-11 text-base flex items-center justify-center hover:bg-red-500 transition-colors sm:h-9 sm:w-9 sm:text-sm",
+                    `bg-red-600/90 backdrop-blur-sm text-white rounded-lg ${CARD_ACTION_TOUCH_TARGET_CLASS} ${CARD_ACTION_ICON_SIZE_CLASS} flex items-center justify-center hover:bg-red-500 transition-colors`,
                   onClick: () => onAction(r.tmdb_id, "dismiss", r),
                 },
               ]}

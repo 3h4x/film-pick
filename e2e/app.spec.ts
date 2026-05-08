@@ -553,6 +553,27 @@ test.describe("library tab responsive", () => {
     expect(box!.x).toBeGreaterThanOrEqual(0);
     expect(box!.x + box!.width).toBeLessThanOrEqual(375);
   });
+
+  test("keeps the active sort chip visible after resizing from desktop to mobile", async ({
+    page,
+  }) => {
+    await mockAPIs(page);
+    await page.setViewportSize({ width: 1280, height: 900 });
+    await page.goto("/#library");
+    await expect(page.getByText(/Showing \d+ of \d+/)).toBeVisible({
+      timeout: 8_000,
+    });
+
+    await page.setViewportSize({ width: 375, height: 812 });
+
+    const activeSort = page.getByRole("button", { name: "Date Added" });
+    await expect(activeSort).toBeVisible();
+    const box = await activeSort.boundingBox();
+
+    expect(box).not.toBeNull();
+    expect(box!.x).toBeGreaterThanOrEqual(0);
+    expect(box!.x + box!.width).toBeLessThanOrEqual(375);
+  });
 });
 
 test.describe("tv tab", () => {
