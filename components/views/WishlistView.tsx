@@ -54,7 +54,7 @@ export default function WishlistView({
                 label: "Watched & liked",
                 icon: "👍",
                 className:
-                  "bg-green-600/90 backdrop-blur-sm text-white rounded-lg w-9 h-9 text-sm flex items-center justify-center hover:bg-green-500 transition-colors",
+                  "bg-green-600/90 backdrop-blur-sm text-white rounded-lg h-11 w-11 text-base flex items-center justify-center hover:bg-green-500 transition-colors sm:h-9 sm:w-9 sm:text-sm",
                 onClick: () => onAction(m, "liked"),
               },
               {
@@ -62,7 +62,7 @@ export default function WishlistView({
                 label: "Watched",
                 icon: "👁",
                 className:
-                  "bg-gray-600/90 backdrop-blur-sm text-white rounded-lg w-9 h-9 text-sm flex items-center justify-center hover:bg-gray-500 transition-colors",
+                  "bg-gray-600/90 backdrop-blur-sm text-white rounded-lg h-11 w-11 text-base flex items-center justify-center hover:bg-gray-500 transition-colors sm:h-9 sm:w-9 sm:text-sm",
                 onClick: () => onAction(m, "watched"),
               },
               {
@@ -70,7 +70,7 @@ export default function WishlistView({
                 label: "Watched & disliked",
                 icon: "👎",
                 className:
-                  "bg-orange-600/90 backdrop-blur-sm text-white rounded-lg w-9 h-9 text-sm flex items-center justify-center hover:bg-orange-500 transition-colors",
+                  "bg-orange-600/90 backdrop-blur-sm text-white rounded-lg h-11 w-11 text-base flex items-center justify-center hover:bg-orange-500 transition-colors sm:h-9 sm:w-9 sm:text-sm",
                 onClick: () => onAction(m, "disliked"),
               },
               {
@@ -78,7 +78,7 @@ export default function WishlistView({
                 label: "Remove from watchlist",
                 icon: "✕",
                 className:
-                  "bg-red-600/90 backdrop-blur-sm text-white rounded-lg w-9 h-9 text-sm flex items-center justify-center hover:bg-red-500 transition-colors",
+                  "bg-red-600/90 backdrop-blur-sm text-white rounded-lg h-11 w-11 text-base flex items-center justify-center hover:bg-red-500 transition-colors sm:h-9 sm:w-9 sm:text-sm",
                 onClick: () => onAction(m, "remove"),
               },
             ]}

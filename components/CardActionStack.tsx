@@ -65,7 +65,7 @@ export default function CardActionStack({ actions }: CardActionStackProps) {
             e.stopPropagation();
             setMobileOpen((open) => !open);
           }}
-          className="flex h-9 w-9 items-center justify-center rounded-lg bg-black/70 text-white shadow-lg backdrop-blur-sm transition-colors hover:bg-black/80"
+          className="flex h-11 w-11 items-center justify-center rounded-lg bg-black/70 text-white shadow-lg backdrop-blur-sm transition-colors hover:bg-black/80 sm:h-9 sm:w-9"
           title={mobileOpen ? "Hide actions" : "Show actions"}
           aria-label={mobileOpen ? "Hide actions" : "Show actions"}
         >
