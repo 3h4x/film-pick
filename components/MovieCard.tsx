@@ -37,7 +37,7 @@ export default function MovieCard({
           key: "watchlist",
           label: "Add to Watchlist",
           className:
-            "bg-indigo-500/80 backdrop-blur-sm text-white rounded-lg w-9 h-9 text-xs font-bold hover:bg-indigo-400 flex items-center justify-center shadow-lg",
+            "bg-indigo-500/80 backdrop-blur-sm text-white rounded-lg h-11 w-11 text-sm font-bold hover:bg-indigo-400 flex items-center justify-center shadow-lg sm:h-9 sm:w-9 sm:text-xs",
           icon: "+",
           onClick: onAddToWatchlist,
         }
@@ -47,7 +47,7 @@ export default function MovieCard({
           key: "delete",
           label: "Remove",
           className:
-            "bg-red-500/80 backdrop-blur-sm text-white rounded-lg w-9 h-9 text-xs font-bold hover:bg-red-400 flex items-center justify-center shadow-lg",
+            "bg-red-500/80 backdrop-blur-sm text-white rounded-lg h-11 w-11 text-sm font-bold hover:bg-red-400 flex items-center justify-center shadow-lg sm:h-9 sm:w-9 sm:text-xs",
           icon: "✕",
           onClick: onDelete,
         }
@@ -137,7 +137,7 @@ export default function MovieCard({
                   e.stopPropagation();
                   setMobileActionsOpen((open) => !open);
                 }}
-                className="flex h-9 w-9 items-center justify-center rounded-lg bg-black/70 text-white shadow-lg backdrop-blur-sm transition-colors hover:bg-black/80"
+                className="flex h-11 w-11 items-center justify-center rounded-lg bg-black/70 text-white shadow-lg backdrop-blur-sm transition-colors hover:bg-black/80 sm:h-9 sm:w-9"
                 title={mobileActionsOpen ? "Hide actions" : "Show actions"}
                 aria-label={mobileActionsOpen ? "Hide actions" : "Show actions"}
               >

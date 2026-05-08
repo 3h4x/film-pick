@@ -117,7 +117,7 @@ export default function RecommendationRow({
                   label: "Watched & liked",
                   icon: "👍",
                   className:
-                    "bg-green-600/90 backdrop-blur-sm text-white rounded-lg w-9 h-9 text-sm flex items-center justify-center hover:bg-green-500 transition-colors",
+                    "bg-green-600/90 backdrop-blur-sm text-white rounded-lg h-11 w-11 text-base flex items-center justify-center hover:bg-green-500 transition-colors sm:h-9 sm:w-9 sm:text-sm",
                   onClick: () => onAction(r.tmdb_id, "liked", r),
                 },
                 {
@@ -125,7 +125,7 @@ export default function RecommendationRow({
                   label: "Watched",
                   icon: "👁",
                   className:
-                    "bg-gray-600/90 backdrop-blur-sm text-white rounded-lg w-9 h-9 text-sm flex items-center justify-center hover:bg-gray-500 transition-colors",
+                    "bg-gray-600/90 backdrop-blur-sm text-white rounded-lg h-11 w-11 text-base flex items-center justify-center hover:bg-gray-500 transition-colors sm:h-9 sm:w-9 sm:text-sm",
                   onClick: () => onAction(r.tmdb_id, "watched", r),
                 },
                 {
@@ -133,7 +133,7 @@ export default function RecommendationRow({
                   label: "Add to watchlist",
                   icon: "🔖",
                   className:
-                    "bg-blue-600/90 backdrop-blur-sm text-white rounded-lg w-9 h-9 text-sm flex items-center justify-center hover:bg-blue-500 transition-colors",
+                    "bg-blue-600/90 backdrop-blur-sm text-white rounded-lg h-11 w-11 text-base flex items-center justify-center hover:bg-blue-500 transition-colors sm:h-9 sm:w-9 sm:text-sm",
                   onClick: () => onAction(r.tmdb_id, "wishlist", r),
                 },
                 {
@@ -141,7 +141,7 @@ export default function RecommendationRow({
                   label: "Watched & disliked",
                   icon: "👎",
                   className:
-                    "bg-orange-600/90 backdrop-blur-sm text-white rounded-lg w-9 h-9 text-sm flex items-center justify-center hover:bg-orange-500 transition-colors",
+                    "bg-orange-600/90 backdrop-blur-sm text-white rounded-lg h-11 w-11 text-base flex items-center justify-center hover:bg-orange-500 transition-colors sm:h-9 sm:w-9 sm:text-sm",
                   onClick: () => onAction(r.tmdb_id, "disliked", r),
                 },
                 {
@@ -149,7 +149,7 @@ export default function RecommendationRow({
                   label: "Don't show again",
                   icon: "✕",
                   className:
-                    "bg-red-600/90 backdrop-blur-sm text-white rounded-lg w-9 h-9 text-sm flex items-center justify-center hover:bg-red-500 transition-colors",
+                    "bg-red-600/90 backdrop-blur-sm text-white rounded-lg h-11 w-11 text-base flex items-center justify-center hover:bg-red-500 transition-colors sm:h-9 sm:w-9 sm:text-sm",
                   onClick: () => onAction(r.tmdb_id, "dismiss", r),
                 },
               ]}
