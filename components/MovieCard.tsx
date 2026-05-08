@@ -1,6 +1,19 @@
 "use client";
 
 import { useState } from "react";
+import {
+  CARD_ACTION_TOGGLE_CLASS,
+  CARD_ACTION_TOUCH_TARGET_CLASS,
+} from "./card-action-styles";
+
+function getPosterMonogram(title: string) {
+  const parts = title
+    .split(/\s+/)
+    .map((part) => part.trim())
+    .filter(Boolean);
+
+  return (parts[0]?.[0] ?? "") + (parts[1]?.[0] ?? "");
+}
 
 interface MovieCardProps {
   title: string;
@@ -37,7 +50,7 @@ export default function MovieCard({
           key: "watchlist",
           label: "Add to Watchlist",
           className:
-            "bg-indigo-500/80 backdrop-blur-sm text-white rounded-lg h-11 w-11 text-sm font-bold hover:bg-indigo-400 flex items-center justify-center shadow-lg sm:h-9 sm:w-9 sm:text-xs",
+            `bg-indigo-500/80 backdrop-blur-sm text-white rounded-lg ${CARD_ACTION_TOUCH_TARGET_CLASS} text-sm font-bold hover:bg-indigo-400 flex items-center justify-center shadow-lg sm:text-xs`,
           icon: "+",
           onClick: onAddToWatchlist,
         }
@@ -47,7 +60,7 @@ export default function MovieCard({
           key: "delete",
           label: "Remove",
           className:
-            "bg-red-500/80 backdrop-blur-sm text-white rounded-lg h-11 w-11 text-sm font-bold hover:bg-red-400 flex items-center justify-center shadow-lg sm:h-9 sm:w-9 sm:text-xs",
+            `bg-red-500/80 backdrop-blur-sm text-white rounded-lg ${CARD_ACTION_TOUCH_TARGET_CLASS} text-sm font-bold hover:bg-red-400 flex items-center justify-center shadow-lg sm:text-xs`,
           icon: "✕",
           onClick: onDelete,
         }
@@ -72,8 +85,23 @@ export default function MovieCard({
             className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
           />
         ) : (
-          <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-gray-800 to-gray-900">
-            <span className="text-5xl opacity-30">🎬</span>
+          <div className="h-full w-full bg-[radial-gradient(circle_at_top,_rgba(99,102,241,0.28),_transparent_52%),linear-gradient(160deg,_rgba(15,23,42,0.96),_rgba(17,24,39,0.84))]">
+            <div className="flex h-full flex-col justify-between p-4">
+              <div className="self-start rounded-full border border-white/10 bg-black/20 px-2 py-1 text-[10px] font-semibold uppercase tracking-[0.18em] text-gray-300">
+                No poster
+              </div>
+              <div className="space-y-3">
+                <div className="text-5xl font-black tracking-tight text-white/12">
+                  {getPosterMonogram(title).toUpperCase()}
+                </div>
+                <div className="space-y-1">
+                  <p className="text-lg font-semibold leading-tight text-white">
+                    {title}
+                  </p>
+                  {year && <p className="text-sm text-gray-400">{year}</p>}
+                </div>
+              </div>
+            </div>
           </div>
         )}
 
@@ -137,7 +165,7 @@ export default function MovieCard({
                   e.stopPropagation();
                   setMobileActionsOpen((open) => !open);
                 }}
-                className="flex h-11 w-11 items-center justify-center rounded-lg bg-black/70 text-white shadow-lg backdrop-blur-sm transition-colors hover:bg-black/80 sm:h-9 sm:w-9"
+                className={CARD_ACTION_TOGGLE_CLASS}
                 title={mobileActionsOpen ? "Hide actions" : "Show actions"}
                 aria-label={mobileActionsOpen ? "Hide actions" : "Show actions"}
               >
