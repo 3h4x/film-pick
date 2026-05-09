@@ -1,16 +1,3 @@
-export type MoodKey =
-  | "light_funny"
-  | "mind_bender"
-  | "comfort_rewatch"
-  | "action_evening"
-  | "date_night"
-  | "discover_hidden"
-  | "documentary_night"
-  | "dark_heavy"
-  | "short"
-  | "foreign"
-  | "feel_good";
-
 export interface MoodPreset {
   label: string;
   icon: string;
@@ -23,7 +10,7 @@ export interface MoodPreset {
   comfortRewatch?: boolean;
 }
 
-export const MOOD_PRESETS: Record<MoodKey, MoodPreset> = {
+const moodPresets = {
   light_funny: {
     label: "Light & Funny",
     icon: "😄",
@@ -111,6 +98,58 @@ export const MOOD_PRESETS: Record<MoodKey, MoodPreset> = {
     minRating: 7,
     minVotes: 300,
   },
-};
+  horror_night: {
+    label: "Horror Night",
+    icon: "🩸",
+    reason: "Straight-up horror for tonight",
+    genreIds: [27],
+    minRating: 6.3,
+    minVotes: 200,
+  },
+  horror_psychological: {
+    label: "Psychological Horror",
+    icon: "🧠",
+    reason: "Unsettling psychological horror",
+    genreIds: [27, 9648, 53],
+    minRating: 6.8,
+    minVotes: 200,
+  },
+  horror_creature: {
+    label: "Creature Feature",
+    icon: "👹",
+    reason: "Monsters, creatures, and survival",
+    genreIds: [27, 878, 12],
+    minRating: 6.1,
+    minVotes: 150,
+  },
+  horror_comedy: {
+    label: "Horror Comedy",
+    icon: "🪓",
+    reason: "Scary, weird, and a little fun",
+    genreIds: [27, 35],
+    minRating: 6.2,
+    minVotes: 150,
+  },
+  crime_thriller: {
+    label: "Crime Thriller",
+    icon: "🕵️",
+    reason: "Tense crime and thriller picks",
+    genreIds: [80, 53, 9648],
+    minRating: 7,
+    minVotes: 250,
+  },
+  animated_escape: {
+    label: "Animated Escape",
+    icon: "🎨",
+    reason: "Animation beyond the usual comfort picks",
+    genreIds: [16, 12, 14],
+    minRating: 7,
+    minVotes: 150,
+  },
+} satisfies Record<string, MoodPreset>;
+
+export type MoodKey = keyof typeof moodPresets;
+
+export const MOOD_PRESETS: Record<MoodKey, MoodPreset> = moodPresets;
 
 export const MOOD_KEYS = Object.keys(MOOD_PRESETS) as MoodKey[];

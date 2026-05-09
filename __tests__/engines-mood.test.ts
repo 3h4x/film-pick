@@ -91,6 +91,14 @@ describe("MOOD_PRESETS", () => {
   it("short preset has maxRuntime", () => {
     expect(MOOD_PRESETS.short.maxRuntime).toBeLessThanOrEqual(100);
   });
+
+  it("includes multiple horror presets", () => {
+    const horrorKeys = MOOD_KEYS.filter((key) => key.startsWith("horror_"));
+    expect(horrorKeys.length).toBeGreaterThanOrEqual(4);
+    for (const key of horrorKeys) {
+      expect(MOOD_PRESETS[key].genreIds).toContain(27);
+    }
+  });
 });
 
 // ---------------------------------------------------------------------------
