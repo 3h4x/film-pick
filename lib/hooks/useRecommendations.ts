@@ -5,6 +5,10 @@ import { REC_CATEGORIES } from "@/lib/types";
 import type { MoodKey } from "@/lib/mood-presets";
 import type { TmdbSearchResult } from "@/lib/tmdb";
 import {
+  getCanonicalMovieForTmdbId,
+  upsertCanonicalTmdbMovie,
+} from "@/lib/search";
+import {
   getRatedMovieTmdbIds,
   filterRatedRecommendations,
   deduplicateRecommendations,
@@ -237,6 +241,8 @@ export function useRecommendations({
     rec: TmdbSearchResult,
     fromMood = false,
   ) {
+    const existingMovie = getCanonicalMovieForTmdbId(movies, rec.tmdb_id);
+
     removeFromView(tmdbId, rec.title);
     if (!fromMood) setTotalRecsCount((c) => Math.max(0, c - 1));
 
@@ -279,31 +285,51 @@ export function useRecommendations({
         cda_url: rec.cda_url || null,
       };
       setMovies((prev) => {
-        const exists = prev.some((m) => m.tmdb_id === rec.tmdb_id);
-        return exists
-          ? prev.map((m) =>
-              m.tmdb_id === rec.tmdb_id ? { ...m, ...newMovie } : m,
-            )
-          : [newMovie, ...prev];
-      });
-      fetch("/api/movies", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
+        const optimisticUpdate: Partial<Movie> = {
           title: rec.title,
           year: rec.year,
           genre: rec.genre,
           director: null,
+          writer: null,
+          actors: null,
           rating: rec.rating,
+          user_rating: userRating,
           poster_url: rec.poster_url,
           source: rec.cda_url ? "cda" : "tmdb",
-          imdb_id: null,
-          tmdb_id: rec.tmdb_id,
           type: "movie",
-          user_rating: userRating,
+          tmdb_id: rec.tmdb_id,
+          rated_at: null,
           wishlist: isWishlist ? 1 : 0,
           cda_url: rec.cda_url || null,
-        }),
+        };
+
+        return upsertCanonicalTmdbMovie(
+          prev,
+          rec.tmdb_id,
+          newMovie,
+          optimisticUpdate,
+        );
+      });
+      const requestBody = {
+        title: rec.title,
+        year: rec.year,
+        genre: rec.genre,
+        director: null,
+        rating: rec.rating,
+        poster_url: rec.poster_url,
+        source: rec.cda_url ? "cda" : "tmdb",
+        imdb_id: null,
+        tmdb_id: rec.tmdb_id,
+        type: "movie",
+        user_rating: userRating,
+        wishlist: isWishlist ? 1 : 0,
+        cda_url: rec.cda_url || null,
+      };
+
+      fetch(existingMovie ? `/api/movies/${existingMovie.id}` : "/api/movies", {
+        method: existingMovie ? "PATCH" : "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(requestBody),
       });
     }
 
@@ -315,7 +341,7 @@ export function useRecommendations({
   }
 
   async function handleRecClick(rec: TmdbSearchResult) {
-    const existing = movies.find((m) => m.tmdb_id === rec.tmdb_id);
+    const existing = getCanonicalMovieForTmdbId(movies, rec.tmdb_id);
     if (existing) {
       setSelectedMovie(existing);
       return;

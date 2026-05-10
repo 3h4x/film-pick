@@ -27,6 +27,7 @@ const TMDB_GENRE_MAP: Record<number, string> = {
 interface TmdbRawResult {
   id: number;
   title: string;
+  original_title?: string | null;
   release_date: string | null;
   genre_ids: number[];
   vote_average: number;
@@ -130,6 +131,83 @@ export interface TmdbSearchResult {
   pl_title?: string | null;
 }
 
+function normalizeSearchText(value: string): string {
+  return value
+    .normalize("NFKD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/['"`’]/g, "")
+    .replace(/[^\p{L}\p{N}]+/gu, " ")
+    .trim()
+    .toLowerCase();
+}
+
+function getSearchScore(
+  query: string,
+  result: TmdbRawResult,
+  year?: number | null,
+): number {
+  const normalizedQuery = normalizeSearchText(query);
+  if (!normalizedQuery) return 0;
+
+  const queryTokens = normalizedQuery.split(/\s+/).filter(Boolean);
+  const titleVariants = [result.title, result.original_title]
+    .filter((value): value is string => Boolean(value))
+    .map(normalizeSearchText);
+
+  let score = 0;
+
+  for (const title of titleVariants) {
+    if (title === normalizedQuery) {
+      score = Math.max(score, 1_000);
+      continue;
+    }
+    if (title.startsWith(normalizedQuery)) {
+      score = Math.max(score, 700);
+    } else if (title.includes(normalizedQuery)) {
+      score = Math.max(score, 450);
+    }
+
+    const matchedTokens = queryTokens.filter((token) => title.includes(token)).length;
+    score = Math.max(score, matchedTokens * 40);
+    if (matchedTokens === queryTokens.length) {
+      score = Math.max(score, 320 + matchedTokens * 10);
+    }
+  }
+
+  if (year && result.release_date) {
+    const resultYear = parseInt(result.release_date.substring(0, 4), 10);
+    if (Number.isFinite(resultYear)) {
+      score += Math.max(0, 30 - Math.abs(resultYear - year) * 10);
+    }
+  }
+
+  score += Math.min(result.vote_average || 0, 10);
+  return score;
+}
+
+function sortSearchResults(
+  query: string,
+  results: TmdbRawResult[],
+  year?: number | null,
+): TmdbRawResult[] {
+  return [...results].sort((a, b) => {
+    const scoreDiff = getSearchScore(query, b, year) - getSearchScore(query, a, year);
+    if (scoreDiff !== 0) return scoreDiff;
+
+    const aYear = a.release_date ? parseInt(a.release_date.substring(0, 4), 10) : null;
+    const bYear = b.release_date ? parseInt(b.release_date.substring(0, 4), 10) : null;
+    if (year && aYear && bYear && aYear !== bYear) {
+      return Math.abs(aYear - year) - Math.abs(bYear - year);
+    }
+
+    if (a.vote_average !== b.vote_average) {
+      return b.vote_average - a.vote_average;
+    }
+
+    return a.title.localeCompare(b.title);
+  });
+}
+
 // Shared pagination helper: fetch a pre-built list of URLs sequentially,
 // stopping on the first non-ok response.
 async function fetchDiscoverPages(
@@ -199,7 +277,7 @@ export async function searchTmdb(
       throw new Error(`tmdb_api_error:${res.status}`);
     }
     const data = (await res.json()) as { results?: TmdbRawResult[] };
-    return (data.results || []).slice(0, 10).map(mapResult);
+    return sortSearchResults(query, data.results || [], y).slice(0, 10).map(mapResult);
   }
 
   // Try original year first

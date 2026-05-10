@@ -1,6 +1,6 @@
 "use client";
 import { useState } from "react";
-import { shouldAutoSearchTmdb } from "@/lib/search";
+import { getCanonicalMatchingMovie, shouldAutoSearchTmdb } from "@/lib/search";
 import type { Movie } from "@/lib/types";
 import type { TmdbSearchResult } from "@/lib/tmdb";
 import { cleanTitle } from "@/lib/utils";
@@ -28,6 +28,114 @@ export function useSearch({
   const [tmdbAdded, setTmdbAdded] = useState<Set<number>>(new Set());
   const [tmdbError, setTmdbError] = useState<string | null>(null);
   const [tmdbSearched, setTmdbSearched] = useState(false);
+
+  function findExistingMovieMatch(
+    searchResult: TmdbSearchResult,
+    options?: { excludeId?: number },
+  ): Movie | undefined {
+    const cleanSearchTitle = cleanTitle(searchResult.title).toLowerCase();
+
+    return getCanonicalMatchingMovie(
+      movies,
+      (movie) =>
+        movie.id !== options?.excludeId &&
+        ((movie.tmdb_id != null && movie.tmdb_id === searchResult.tmdb_id) ||
+          (cleanTitle(movie.title).toLowerCase() === cleanSearchTitle &&
+            movie.year === searchResult.year)),
+    );
+  }
+
+  async function updateExistingMovie(
+    targetId: number,
+    searchResult: TmdbSearchResult,
+    options?: { setWishlist?: boolean; successMessage?: string },
+  ) {
+    const res = await fetch(`/api/movies/${targetId}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        title: searchResult.title,
+        year: searchResult.year,
+        genre: searchResult.genre,
+        rating: searchResult.rating,
+        poster_url: searchResult.poster_url,
+        tmdb_id: searchResult.tmdb_id,
+        imdb_id: searchResult.imdb_id,
+        source: "tmdb",
+        wishlist: options?.setWishlist ? 1 : undefined,
+      }),
+    });
+
+    if (res.ok) {
+      const updated = await res.json();
+      setMovies((prev) =>
+        prev.map((movie) => (movie.id === targetId ? { ...movie, ...updated } : movie)),
+      );
+      addToast(options?.successMessage ?? `Updated metadata for "${searchResult.title}"`);
+      if (selectedMovie && selectedMovie.id === targetId) {
+        setSelectedMovie({ ...selectedMovie, ...updated });
+      }
+    } else {
+      const error = await res.json();
+      if (
+        error.code === "SQLITE_CONSTRAINT_UNIQUE" ||
+        error.error?.includes("UNIQUE constraint failed")
+      ) {
+        const existing = findExistingMovieMatch(searchResult, {
+          excludeId: targetId,
+        });
+
+        if (existing) {
+          if (
+            confirm(
+              `"${searchResult.title}" already exists in your library as a separate entry. Do you want to merge these two records?`,
+            )
+          ) {
+            const mergeRes = await fetch("/api/movies/merge", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                sourceId: targetId,
+                targetId: existing.id,
+              }),
+            });
+
+            if (mergeRes.ok) {
+              addToast("Movies merged successfully");
+              const refreshedRes = await fetch(
+                `/api/movies/${existing.id}`,
+              );
+              if (refreshedRes.ok) {
+                const refreshed = await refreshedRes.json();
+                const updatedMovie = refreshed.movie || existing;
+                setMovies((prev) =>
+                  prev
+                    .filter((movie) => movie.id !== targetId)
+                    .map((movie) => (movie.id === existing.id ? updatedMovie : movie)),
+                );
+                setSelectedMovie(updatedMovie);
+              } else {
+                setMovies((prev) =>
+                  prev.filter((movie) => movie.id !== targetId),
+                );
+                setSelectedMovie(null);
+              }
+            } else {
+              addToast("Failed to merge movies");
+            }
+          }
+        } else {
+          addToast(
+            `Error updating metadata: ${error.error || "Conflict"}`,
+          );
+        }
+      } else {
+        addToast(`Error: ${error.error || "Failed to update metadata"}`);
+      }
+    }
+
+    setSearchOpen(false);
+  }
 
   async function runTmdbSearch(query: string) {
     const trimmedQuery = query.trim();
@@ -57,117 +165,38 @@ export function useSearch({
     isWishlist: boolean,
   ) {
     if (searchTargetId) {
-      const res = await fetch(`/api/movies/${searchTargetId}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          title: searchResult.title,
-          year: searchResult.year,
-          genre: searchResult.genre,
-          rating: searchResult.rating,
-          poster_url: searchResult.poster_url,
-          tmdb_id: searchResult.tmdb_id,
-          imdb_id: searchResult.imdb_id,
-          source: "tmdb",
-        }),
+      await updateExistingMovie(searchTargetId, searchResult, {
+        setWishlist: isWishlist,
       });
-
-      if (res.ok) {
-        const updated = await res.json();
-        setMovies((prev) =>
-          prev.map((m) => (m.id === searchTargetId ? { ...m, ...updated } : m)),
-        );
-        addToast(`Updated metadata for "${searchResult.title}"`);
-        if (selectedMovie && selectedMovie.id === searchTargetId) {
-          setSelectedMovie({ ...selectedMovie, ...updated });
-        }
-      } else {
-        const error = await res.json();
-        if (
-          error.code === "SQLITE_CONSTRAINT_UNIQUE" ||
-          error.error?.includes("UNIQUE constraint failed")
-        ) {
-          const cleanSearchTitle = cleanTitle(searchResult.title).toLowerCase();
-          const existing = movies.find(
-            (m) =>
-              m.id !== searchTargetId &&
-              ((m.tmdb_id && m.tmdb_id === searchResult.tmdb_id) ||
-                (cleanTitle(m.title).toLowerCase() === cleanSearchTitle &&
-                  m.year === searchResult.year)),
-          );
-
-          if (existing) {
-            if (
-              confirm(
-                `"${searchResult.title}" already exists in your library as a separate entry. Do you want to merge these two records?`,
-              )
-            ) {
-              const mergeRes = await fetch("/api/movies/merge", {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({
-                  sourceId: searchTargetId,
-                  targetId: existing.id,
-                }),
-              });
-
-              if (mergeRes.ok) {
-                addToast("Movies merged successfully");
-                const refreshedRes = await fetch(
-                  `/api/movies/${existing.id}`,
-                );
-                if (refreshedRes.ok) {
-                  const refreshed = await refreshedRes.json();
-                  const updatedMovie = refreshed.movie || existing;
-                  setMovies((prev) =>
-                    prev
-                      .filter((m) => m.id !== searchTargetId)
-                      .map((m) => (m.id === existing.id ? updatedMovie : m)),
-                  );
-                  setSelectedMovie(updatedMovie);
-                } else {
-                  setMovies((prev) =>
-                    prev.filter((m) => m.id !== searchTargetId),
-                  );
-                  setSelectedMovie(null);
-                }
-              } else {
-                addToast("Failed to merge movies");
-              }
-            }
-          } else {
-            addToast(
-              `Error updating metadata: ${error.error || "Conflict"}`,
-            );
-          }
-        } else {
-          addToast(`Error: ${error.error || "Failed to update metadata"}`);
-        }
-      }
-
-      setSearchOpen(false);
       setSearchTargetId(null);
       return;
     }
 
-    const cleanSearchTitle = cleanTitle(searchResult.title).toLowerCase();
-    const existing = movies.find(
-      (m) =>
-        (m.tmdb_id && m.tmdb_id === searchResult.tmdb_id) ||
-        (cleanTitle(m.title).toLowerCase() === cleanSearchTitle &&
-          m.year === searchResult.year),
-    );
+    const existing = findExistingMovieMatch(searchResult);
 
-    if (existing && !isWishlist) {
+    if (existing && isWishlist) {
+      if (existing.wishlist === 1) {
+        addToast(`"${searchResult.title}" is already in your watchlist`);
+        setSearchOpen(false);
+        return;
+      }
+
+      await updateExistingMovie(existing.id, searchResult, {
+        setWishlist: true,
+        successMessage: `Added "${searchResult.title}" to watchlist`,
+      });
+      return;
+    }
+
+    if (existing) {
       if (
         confirm(
           `"${searchResult.title}" is already in your library. Do you want to update its metadata instead?`,
         )
       ) {
-        setSearchTargetId(existing.id);
-        handleAddMovie(searchResult, false);
-        return;
+        await updateExistingMovie(existing.id, searchResult);
       }
+      return;
     }
 
     const res = await fetch("/api/movies", {

@@ -1,6 +1,16 @@
 import { describe, expect, it } from "vitest";
-import { getSearchMatches, shouldAutoSearchTmdb } from "@/lib/search";
+import {
+  buildTmdbMovieIndex,
+  getCanonicalMatchingMovie,
+  getCanonicalMovie,
+  getCanonicalMovieForTmdbId,
+  getSearchMatches,
+  getTmdbSearchMovieState,
+  shouldAutoSearchTmdb,
+  upsertCanonicalTmdbMovie,
+} from "@/lib/search";
 import type { Movie } from "@/lib/types";
+import { cleanTitle } from "@/lib/utils";
 
 function makeMovie(overrides: Partial<Movie>): Movie {
   return {
@@ -59,5 +69,150 @@ describe("search utils", () => {
     ];
 
     expect(shouldAutoSearchTmdb(movies, "blade runner")).toBe(true);
+  });
+
+  it("prefers a library row over watchlist duplicates for TMDb result state", () => {
+    const movies = [
+      makeMovie({
+        id: 1,
+        title: "Alien",
+        tmdb_id: 900,
+        wishlist: 1,
+        created_at: "2026-01-01T00:00:00.000Z",
+      }),
+      makeMovie({
+        id: 2,
+        title: "Alien",
+        tmdb_id: 900,
+        wishlist: 0,
+        created_at: "2025-01-01T00:00:00.000Z",
+      }),
+    ];
+
+    const state = getTmdbSearchMovieState(buildTmdbMovieIndex(movies), 900);
+
+    expect(state.existingLabel).toBe("In library");
+    expect(state.existingMovie?.id).toBe(2);
+  });
+
+  it("uses the same canonical TMDb row for hash-based movie lookup", () => {
+    const movies = [
+      makeMovie({
+        id: 3,
+        title: "Blade Runner",
+        tmdb_id: 901,
+        wishlist: 0,
+        file_path: null,
+        created_at: "2025-01-01T00:00:00.000Z",
+      }),
+      makeMovie({
+        id: 4,
+        title: "Blade Runner",
+        tmdb_id: 901,
+        wishlist: 0,
+        file_path: "/movies/blade-runner.mkv",
+        created_at: "2024-01-01T00:00:00.000Z",
+      }),
+    ];
+
+    expect(getCanonicalMovieForTmdbId(movies, 901)?.id).toBe(4);
+  });
+
+  it("chooses the canonical duplicate for TMDb-driven open flows", () => {
+    const candidates = [
+      makeMovie({
+        id: 5,
+        title: "Arrival",
+        tmdb_id: 902,
+        wishlist: 1,
+        created_at: "2026-01-01T00:00:00.000Z",
+      }),
+      makeMovie({
+        id: 6,
+        title: "Arrival",
+        tmdb_id: 902,
+        wishlist: 0,
+        user_rating: 9,
+        file_path: "/movies/arrival.mkv",
+        created_at: "2025-01-01T00:00:00.000Z",
+      }),
+    ];
+
+    expect(getCanonicalMovie(candidates)?.id).toBe(6);
+  });
+
+  it("finds the canonical match for TMDb add/update duplicate checks", () => {
+    const movies = [
+      makeMovie({
+        id: 7,
+        title: "Alien - Final Cut",
+        year: 1979,
+        tmdb_id: null,
+        wishlist: 1,
+        created_at: "2026-01-01T00:00:00.000Z",
+      }),
+      makeMovie({
+        id: 8,
+        title: "Alien: Final Cut",
+        year: 1979,
+        tmdb_id: null,
+        wishlist: 0,
+        file_path: "/movies/alien-final-cut.mkv",
+        created_at: "2025-01-01T00:00:00.000Z",
+      }),
+    ];
+
+    const normalizedTitle = cleanTitle("Alien: Final Cut").toLowerCase();
+    const match = getCanonicalMatchingMovie(
+      movies,
+      (movie) =>
+        cleanTitle(movie.title).toLowerCase() === normalizedTitle &&
+        movie.year === 1979,
+    );
+
+    expect(match?.id).toBe(8);
+  });
+
+  it("updates only the canonical TMDb duplicate during optimistic merges", () => {
+    const movies = [
+      makeMovie({
+        id: 9,
+        title: "Heat",
+        tmdb_id: 903,
+        wishlist: 1,
+        user_rating: null,
+        created_at: "2026-01-01T00:00:00.000Z",
+      }),
+      makeMovie({
+        id: 10,
+        title: "Heat",
+        tmdb_id: 903,
+        wishlist: 0,
+        user_rating: 7,
+        file_path: "/movies/heat.mkv",
+        created_at: "2025-01-01T00:00:00.000Z",
+      }),
+    ];
+
+    const insertedMovie = makeMovie({
+      id: 99,
+      title: "Heat",
+      tmdb_id: 903,
+      wishlist: 0,
+      user_rating: 8,
+      source: "tmdb",
+    });
+
+    const next = upsertCanonicalTmdbMovie(movies, 903, insertedMovie, {
+      title: "Heat",
+      user_rating: 8,
+      wishlist: 0,
+      source: "tmdb",
+    });
+
+    expect(next).toHaveLength(2);
+    expect(next.find((movie) => movie.id === 10)?.user_rating).toBe(8);
+    expect(next.find((movie) => movie.id === 9)?.user_rating).toBeNull();
+    expect(next.find((movie) => movie.id === 9)?.wishlist).toBe(1);
   });
 });
