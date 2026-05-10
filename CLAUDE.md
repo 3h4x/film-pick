@@ -255,6 +255,7 @@ TMDB_API_KEY=<your_key> docker run -p 4000:4000 -v $(pwd)/data:/app/data -e TMDB
 16. **Use the existing lint setup and let it auto-fix where possible.** Run `pnpm lint` for manual verification when touching multiple files or before pushing.
 17. **Keep imports direct and explicit.** Use `@/` aliases for project modules, avoid deep relative imports across directories, and do not introduce barrel files unless the repo already has them.
 18. **Log unexpected server-side failures with useful context** before returning a 500 so the failing route or operation is visible in stdout logs.
+19. **Treat `process.env.TMDB_API_KEY` / `bioenv` as the preferred secret source during development and automation.** The Config UI stores `tmdb_api_key` plaintext in SQLite; do not write or seed that setting from scripts, tests, fixtures, or docs unless the user explicitly asks for the less-secure path.
 
 ## Testing Rules
 
@@ -284,6 +285,7 @@ TMDB_API_KEY=<your_key> docker run -p 4000:4000 -v $(pwd)/data:/app/data -e TMDB
 10. **Caching belongs in the existing cache layers.** TMDb TTL logic stays in `lib/tmdb.ts`, recommendation cache logic stays in `lib/db.ts`/`recommendation_cache`, and EPG/CDA refresh behavior stays in their scheduler/fetch modules.
 11. **Keep filesystem-sensitive behavior inside the existing scanner/streaming/standardize modules and routes.** Do not duplicate path parsing, rename logic, or video-file detection in UI code.
 12. **Preserve the current standalone deployment contract** when touching build/runtime config: `next.config.ts` must keep `output: "standalone"` and `serverExternalPackages: ["better-sqlite3"]` unless every Docker/deployment path is re-verified.
+13. **Direct `new Database(...)` calls are an exception reserved for isolated backup/test code.** Production reads/writes should continue to go through `getDb()`; the current allowed non-singleton cases are `lib/backup.ts` (readonly backup handle) and Vitest DB setup/fixtures.
 
 ## Dependency & Supply-Chain Security
 
