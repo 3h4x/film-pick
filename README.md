@@ -51,6 +51,12 @@ pnpm install
 pnpm dev          # http://localhost:4000
 ```
 
+For containerized local development, use:
+
+```bash
+pnpm dev:docker   # Docker Compose dev server on http://localhost:4000
+```
+
 A TMDb API key is required for search and recommendations. Two options:
 
 **Option A: Config UI** — paste your key in the Config tab. Stored in plaintext in the local SQLite database. Quick to set up, but less secure.
