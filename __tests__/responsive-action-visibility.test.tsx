@@ -161,4 +161,19 @@ describe("responsive action visibility", () => {
     expect(CARD_ACTION_TOUCH_TARGET_CLASS).toBe("h-11 w-11 sm:h-9 sm:w-9");
     expect(CARD_ACTION_ICON_SIZE_CLASS).toBe("text-base sm:text-sm");
   });
+
+  it("keeps recommendation row reorder buttons touch-friendly on mobile", () => {
+    const html = renderToStaticMarkup(
+      <RecommendationRow
+        reason="Because you liked crime"
+        type="movie"
+        recommendations={[rec]}
+        onAction={vi.fn()}
+        onClickMovie={vi.fn()}
+      />,
+    );
+
+    expect(html).toContain("h-11 w-11 items-center justify-center");
+    expect(html).toContain("sm:h-8 sm:w-8");
+  });
 });

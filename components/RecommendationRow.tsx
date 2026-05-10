@@ -48,6 +48,9 @@ export default function RecommendationRow({
   isFirst,
   isLast,
 }: RecommendationRowProps) {
+  const reorderButtonClass =
+    "flex h-11 w-11 items-center justify-center rounded-lg border border-gray-800/80 bg-gray-900/70 transition-colors sm:h-8 sm:w-8 sm:border-transparent sm:bg-transparent";
+
   return (
     <div className="mb-10">
       <div className="flex items-center gap-3 mb-4">
@@ -55,11 +58,11 @@ export default function RecommendationRow({
           <button
             onClick={onMoveUp}
             disabled={isFirst}
-            className={`p-1.5 rounded transition-colors ${isFirst ? "text-gray-700 cursor-default" : "text-gray-500 hover:text-white hover:bg-gray-800/60"}`}
+            className={`${reorderButtonClass} ${isFirst ? "cursor-default text-gray-700" : "text-gray-500 hover:bg-gray-800/80 hover:text-white"}`}
             title="Move up"
           >
             <svg
-              className="w-3.5 h-3.5"
+              className="h-4 w-4 sm:h-3.5 sm:w-3.5"
               fill="none"
               viewBox="0 0 24 24"
               stroke="currentColor"
@@ -75,11 +78,11 @@ export default function RecommendationRow({
           <button
             onClick={onMoveDown}
             disabled={isLast}
-            className={`p-1.5 rounded transition-colors ${isLast ? "text-gray-700 cursor-default" : "text-gray-500 hover:text-white hover:bg-gray-800/60"}`}
+            className={`${reorderButtonClass} ${isLast ? "cursor-default text-gray-700" : "text-gray-500 hover:bg-gray-800/80 hover:text-white"}`}
             title="Move down"
           >
             <svg
-              className="w-3.5 h-3.5"
+              className="h-4 w-4 sm:h-3.5 sm:w-3.5"
               fill="none"
               viewBox="0 0 24 24"
               stroke="currentColor"
