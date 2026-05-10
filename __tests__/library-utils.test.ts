@@ -5,6 +5,7 @@ import {
   extractGenres,
   extractSources,
   extractYears,
+  getRatedMovieTmdbIds,
   filterRatedRecommendations,
   deduplicateRecommendations,
 } from "@/lib/utils";
@@ -400,6 +401,26 @@ describe("filterRatedRecommendations", () => {
     const groups = [makeGroup("By Genre", [makeRec(1), makeRec(2)])];
     filterRatedRecommendations(groups, ratedIds);
     expect(groups[0].recommendations).toHaveLength(2);
+  });
+});
+
+describe("getRatedMovieTmdbIds", () => {
+  it("collects only rated movie tmdb ids", () => {
+    const result = getRatedMovieTmdbIds([
+      makeMovie({ tmdb_id: 10, user_rating: 8, type: "movie" }),
+      makeMovie({ id: 2, tmdb_id: 20, user_rating: 7, type: "tv" }),
+      makeMovie({ id: 3, tmdb_id: 30, user_rating: null, type: "movie" }),
+    ]);
+    expect([...result]).toEqual([10]);
+  });
+
+  it("preserves movie recommendations when a rated tv row shares the tmdb_id", () => {
+    const ratedIds = getRatedMovieTmdbIds([
+      makeMovie({ tmdb_id: 10, user_rating: 9, type: "tv" }),
+    ]);
+    const groups = [makeGroup("By Genre", [makeRec(10), makeRec(20)])];
+    const result = filterRatedRecommendations(groups, ratedIds);
+    expect(result[0].recommendations.map((r) => r.tmdb_id)).toEqual([10, 20]);
   });
 });
 

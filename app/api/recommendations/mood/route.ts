@@ -1,5 +1,11 @@
 import { NextRequest } from "next/server";
-import { getDb, getMovies, getDismissedIds, getSetting } from "@/lib/db";
+import {
+  getDb,
+  getMovies,
+  getDismissedIds,
+  getRatedTmdbIds,
+  getSetting,
+} from "@/lib/db";
 import { buildContext, getCdaLookup, enrichWithCda, type RecConfig } from "@/lib/engines";
 import { moodEngine } from "@/lib/engines/mood";
 import { MOOD_PRESETS, type MoodKey } from "@/lib/mood-presets";
@@ -9,11 +15,13 @@ export async function GET(request: NextRequest) {
   if (!moodKey || !(moodKey in MOOD_PRESETS)) {
     return Response.json({ error: "invalid mood key" }, { status: 400 });
   }
+  const preset = MOOD_PRESETS[moodKey];
 
   const db = getDb();
   const allMovies = getMovies(db);
   const movies = allMovies.filter((m) => m.source !== "recommendation");
   const dismissedIds = getDismissedIds(db);
+  const ratedTmdbIds = getRatedTmdbIds(db, "movie");
   const cdaLookup = getCdaLookup();
 
   const configRaw = getSetting(db, "rec_config");
@@ -33,8 +41,11 @@ export async function GET(request: NextRequest) {
 
   const enriched = groups.map((g) => ({
     ...g,
-    recommendations: enrichWithCda(g.recommendations, cdaLookup),
-  }));
+    recommendations: enrichWithCda(g.recommendations, cdaLookup).filter((r) => {
+      if (preset.comfortRewatch) return true;
+      return !ratedTmdbIds.has(r.tmdb_id);
+    }),
+  })).filter((g) => g.recommendations.length > 0);
 
   return Response.json(enriched);
 }

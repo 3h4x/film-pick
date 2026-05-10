@@ -1,6 +1,6 @@
 import { describe, it, expect } from "vitest";
-import { cleanTitle, parseFilename, getErrorMessage, filterRatedRecommendations, deduplicateRecommendations } from "@/lib/utils";
-import type { RecommendationGroup, RecType } from "@/lib/types";
+import { cleanTitle, parseFilename, getErrorMessage, getRatedMovieTmdbIds, filterRatedRecommendations, deduplicateRecommendations } from "@/lib/utils";
+import type { Movie, RecommendationGroup, RecType } from "@/lib/types";
 import type { TmdbSearchResult } from "@/lib/tmdb";
 
 function makeRec(tmdb_id: number, title = `Film ${tmdb_id}`): TmdbSearchResult {
@@ -9,6 +9,27 @@ function makeRec(tmdb_id: number, title = `Film ${tmdb_id}`): TmdbSearchResult {
 
 function makeGroup(type: RecType, recs: TmdbSearchResult[]): RecommendationGroup {
   return { type, reason: `${type} picks`, recommendations: recs };
+}
+
+function makeMovie(overrides: Partial<Movie> = {}): Movie {
+  return {
+    id: 1,
+    title: "Test Movie",
+    year: 2020,
+    genre: "Drama",
+    director: null,
+    writer: null,
+    actors: null,
+    rating: 7.0,
+    user_rating: null,
+    poster_url: null,
+    source: "manual",
+    type: "movie",
+    tmdb_id: null,
+    rated_at: null,
+    created_at: "2024-01-01T00:00:00Z",
+    ...overrides,
+  };
 }
 
 describe("cleanTitle", () => {
@@ -272,6 +293,26 @@ describe("filterRatedRecommendations", () => {
     expect(result).toHaveLength(2);
     expect(result[0].recommendations.map((r) => r.tmdb_id)).toEqual([2]);
     expect(result[1].recommendations.map((r) => r.tmdb_id)).toEqual([4]);
+  });
+});
+
+describe("getRatedMovieTmdbIds", () => {
+  it("includes rated movie tmdb ids", () => {
+    const result = getRatedMovieTmdbIds([
+      makeMovie({ tmdb_id: 10, user_rating: 8, type: "movie" }),
+      makeMovie({ id: 2, tmdb_id: 20, user_rating: null, type: "movie" }),
+    ]);
+    expect(result.has(10)).toBe(true);
+    expect(result.has(20)).toBe(false);
+  });
+
+  it("ignores rated tv rows with colliding tmdb ids", () => {
+    const result = getRatedMovieTmdbIds([
+      makeMovie({ tmdb_id: 10, user_rating: 9, type: "tv" }),
+      makeMovie({ id: 2, tmdb_id: 11, user_rating: 8, type: "movie" }),
+    ]);
+    expect(result.has(10)).toBe(false);
+    expect(result.has(11)).toBe(true);
   });
 });
 
