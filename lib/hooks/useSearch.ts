@@ -1,5 +1,6 @@
 "use client";
 import { useState } from "react";
+import { shouldAutoSearchTmdb } from "@/lib/search";
 import type { Movie } from "@/lib/types";
 import type { TmdbSearchResult } from "@/lib/tmdb";
 import { cleanTitle } from "@/lib/utils";
@@ -26,6 +27,30 @@ export function useSearch({
   const [tmdbLoading, setTmdbLoading] = useState(false);
   const [tmdbAdded, setTmdbAdded] = useState<Set<number>>(new Set());
   const [tmdbError, setTmdbError] = useState<string | null>(null);
+  const [tmdbSearched, setTmdbSearched] = useState(false);
+
+  async function runTmdbSearch(query: string) {
+    const trimmedQuery = query.trim();
+    if (!trimmedQuery) return;
+
+    setTmdbLoading(true);
+    setTmdbError(null);
+    setTmdbSearched(true);
+
+    try {
+      const res = await fetch(`/api/search?q=${encodeURIComponent(trimmedQuery)}`);
+      if (res.ok) {
+        setTmdbResults(await res.json());
+      } else {
+        const body = await res.json().catch(() => ({}));
+        setTmdbError(body.error === "no_api_key" ? "no_api_key" : "error");
+      }
+    } catch {
+      setTmdbError("error");
+    } finally {
+      setTmdbLoading(false);
+    }
+  }
 
   async function handleAddMovie(
     searchResult: TmdbSearchResult,
@@ -191,46 +216,22 @@ export function useSearch({
     );
   }
 
-  async function handleNavSearch(query: string) {
+  async function handleNavSearch(
+    query: string,
+    options?: { forceTmdb?: boolean },
+  ) {
     setTmdbResults([]);
     setTmdbError(null);
     setTmdbAdded(new Set());
+    setTmdbSearched(false);
 
-    const q = query.trim().toLowerCase();
-    const libraryMatches = movies
-      .filter(
-        (m) =>
-          (m.source !== "recommendation" ||
-            (m.user_rating != null && (m.user_rating as number) > 0)) &&
-          !m.wishlist,
-      )
-      .filter(
-        (m) =>
-          m.title.toLowerCase().includes(q) ||
-          m.pl_title?.toLowerCase().includes(q),
-      );
-    const wishlistMatches = movies
-      .filter((m) => m.wishlist === 1)
-      .filter(
-        (m) =>
-          m.title.toLowerCase().includes(q) ||
-          m.pl_title?.toLowerCase().includes(q),
-      );
+    if (options?.forceTmdb) {
+      await runTmdbSearch(query);
+      return;
+    }
 
-    if (libraryMatches.length === 0 && wishlistMatches.length === 0) {
-      setTmdbLoading(true);
-      const res = await fetch(
-        `/api/search?q=${encodeURIComponent(query.trim())}`,
-      );
-      if (res.ok) {
-        setTmdbResults(await res.json());
-      } else {
-        const body = await res.json().catch(() => ({}));
-        setTmdbError(
-          body.error === "no_api_key" ? "no_api_key" : "error",
-        );
-      }
-      setTmdbLoading(false);
+    if (shouldAutoSearchTmdb(movies, query)) {
+      await runTmdbSearch(query);
     }
   }
 
@@ -245,6 +246,8 @@ export function useSearch({
     setTmdbAdded,
     tmdbError,
     setTmdbError,
+    tmdbSearched,
+    runTmdbSearch,
     handleAddMovie,
     handleNavSearch,
   };

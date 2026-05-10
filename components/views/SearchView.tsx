@@ -1,5 +1,6 @@
 "use client";
 import MovieCard from "@/components/MovieCard";
+import { getSearchMatches } from "@/lib/search";
 import type { Movie } from "@/lib/types";
 import type { TmdbSearchResult } from "@/lib/tmdb";
 
@@ -10,9 +11,11 @@ interface SearchViewProps {
   tmdbLoading: boolean;
   tmdbAdded: Set<number>;
   tmdbError: string | null;
+  tmdbSearched: boolean;
   onMovieClick: (movie: Movie) => void;
   onClear: () => void;
   onGoToConfig: () => void;
+  onSearchTmdb: () => Promise<void>;
   onAddToLibrary: (r: TmdbSearchResult) => Promise<void>;
   onAddToWatchlist: (r: TmdbSearchResult) => Promise<void>;
 }
@@ -24,32 +27,18 @@ export default function SearchView({
   tmdbLoading,
   tmdbAdded,
   tmdbError,
+  tmdbSearched,
   onMovieClick,
   onClear,
   onGoToConfig,
+  onSearchTmdb,
   onAddToLibrary,
   onAddToWatchlist,
 }: SearchViewProps) {
-  const q = searchQuery.toLowerCase();
-  const libraryMatches = movies
-    .filter(
-      (m) =>
-        (m.source !== "recommendation" ||
-          (m.user_rating != null && (m.user_rating as number) > 0)) &&
-        !m.wishlist,
-    )
-    .filter(
-      (m) =>
-        m.title.toLowerCase().includes(q) ||
-        m.pl_title?.toLowerCase().includes(q),
-    );
-  const wishlistMatches = movies
-    .filter((m) => m.wishlist === 1)
-    .filter(
-      (m) =>
-        m.title.toLowerCase().includes(q) ||
-        m.pl_title?.toLowerCase().includes(q),
-    );
+  const { libraryMatches, wishlistMatches } = getSearchMatches(
+    movies,
+    searchQuery,
+  );
   const tmdbOnly = tmdbResults.filter(
     (r) => !movies.some((m) => m.tmdb_id === r.tmdb_id),
   );
@@ -86,6 +75,21 @@ export default function SearchView({
             className="mt-5 px-5 py-2 rounded-lg bg-indigo-600 text-white text-sm hover:bg-indigo-500 transition-colors"
           >
             Go to Config
+          </button>
+        </div>
+      ) : tmdbError === "error" ? (
+        <div className="text-center py-24">
+          <p className="text-gray-400 text-lg font-medium">
+            TMDb search failed
+          </p>
+          <p className="text-gray-600 text-sm mt-2">
+            Try again in a moment
+          </p>
+          <button
+            onClick={onSearchTmdb}
+            className="mt-5 px-5 py-2 rounded-lg bg-indigo-600 text-white text-sm hover:bg-indigo-500 transition-colors"
+          >
+            Search TMDb
           </button>
         </div>
       ) : (
@@ -136,7 +140,27 @@ export default function SearchView({
             </div>
           )}
 
-          {tmdbOnly.length > 0 ? (
+          {!tmdbSearched ? (
+            <div className="rounded-2xl border border-white/8 bg-white/[0.03] p-5 sm:p-6">
+              <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                <div>
+                  <p className="text-xs font-semibold uppercase tracking-widest text-gray-500">
+                    Expand Search
+                  </p>
+                  <p className="mt-2 text-sm text-gray-400">
+                    Search TMDb for more matches beyond your library and
+                    watchlist.
+                  </p>
+                </div>
+                <button
+                  onClick={onSearchTmdb}
+                  className="rounded-xl bg-indigo-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-indigo-500"
+                >
+                  Search TMDb
+                </button>
+              </div>
+            </div>
+          ) : tmdbOnly.length > 0 ? (
             <div>
               <p className="text-xs font-semibold uppercase tracking-widest text-gray-500 mb-3">
                 From TMDb
@@ -183,16 +207,21 @@ export default function SearchView({
                 })}
               </div>
             </div>
-          ) : libraryMatches.length === 0 ? (
-            <div className="text-center py-16">
-              <p className="text-gray-400 text-lg font-medium">
-                No results for &ldquo;{searchQuery}&rdquo;
+          ) : (
+            <div>
+              <p className="text-xs font-semibold uppercase tracking-widest text-gray-500 mb-3">
+                From TMDb
               </p>
-              <p className="text-gray-600 text-sm mt-2">
-                Try a different title or check spelling
-              </p>
+              <div className="rounded-2xl border border-white/8 bg-white/[0.03] px-5 py-8 text-center">
+                <p className="text-gray-400 text-lg font-medium">
+                  No TMDb results for &ldquo;{searchQuery}&rdquo;
+                </p>
+                <p className="text-gray-600 text-sm mt-2">
+                  Try a different title or check spelling
+                </p>
+              </div>
             </div>
-          ) : null}
+          )}
         </div>
       )}
     </div>
