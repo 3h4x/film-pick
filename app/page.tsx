@@ -103,6 +103,12 @@ export default function Home() {
 
   const search = useSearch({ movies, setMovies, selectedMovie, setSelectedMovie, addToast, setSearchOpen });
 
+  function restoreSearchFromHash(query: string) {
+    setSearchQuery(query);
+    setActiveTab("search");
+    void search.handleNavSearch(query);
+  }
+
   useEffect(() => {
     fetchMovies();
     settings.fetchSettings();
@@ -123,7 +129,10 @@ export default function Home() {
       return;
     }
     const { tab, category, moodKey, invalidMoodKey } = parseHash();
-    if (tab === "search") return;
+    if (tab === "search") {
+      restoreSearchFromHash(category);
+      return;
+    }
     if (tab !== "recommendations") setActiveTab(tab);
     if (tab === "person") setPersonFilter(category);
     else if (tab === "recommendations") {
@@ -192,6 +201,10 @@ export default function Home() {
       }
       setSelectedMovie(null);
       const { tab, category, moodKey, invalidMoodKey } = parseHash();
+      if (tab === "search") {
+        restoreSearchFromHash(category);
+        return;
+      }
       setActiveTab(tab);
       if (tab === "person") setPersonFilter(category);
       else {
