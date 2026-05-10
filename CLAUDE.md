@@ -17,6 +17,7 @@ Personal movie discovery engine with a Next.js web UI and SQLite database.
 pnpm install
 eval "$(bioenv load)"    # Load TMDB_API_KEY
 pnpm dev                 # http://localhost:4000
+pnpm dev:docker          # Docker Compose dev server on http://localhost:4000
 pnpm type-check          # TypeScript check
 pnpm test                # Run vitest
 pnpm backup              # Backup SQLite DB
