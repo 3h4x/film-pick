@@ -4,7 +4,7 @@
   "private": true,
   "packageManager": "pnpm@10.33.2",
   "scripts": {
-    "dev": "next dev --port 4000",
+    "dev": "docker compose -f docker-compose.dev.yml up",
     "build": "next build",
     "start": "next start",
     "lint": "eslint",

@@ -1,0 +1,17 @@
+services:
+  filmpick-dev:
+    image: node:22-alpine
+    container_name: filmpick-dev
+    working_dir: /app
+    command: sh -c "corepack enable && corepack prepare pnpm@10.33.2 --activate && pnpm install --frozen-lockfile && pnpm exec next dev --port 4000"
+    ports:
+      - "4000:4000"
+    volumes:
+      - .:/app
+      - /app/node_modules
+      - /app/.next
+    environment:
+      - TMDB_API_KEY=${TMDB_API_KEY}
+      - NODE_ENV=development
+      - NEXT_TELEMETRY_DISABLED=1
+      - PNPM_HOME=/root/.local/share/pnpm
