@@ -382,6 +382,29 @@ describe("recommendations GET handler", () => {
     expect(data).toEqual([]);
   });
 
+  it("does not exclude a movie because of a rated tv row with the same tmdb_id", async () => {
+    const id = db
+      .prepare(
+        "INSERT INTO movies (title, year, genre, rating, source, tmdb_id, type) VALUES (?, ?, ?, ?, ?, ?, ?)",
+      )
+      .run("Dune: The Series", 2021, "Sci-Fi", 8.0, "tmdb", 438631, "tv").lastInsertRowid;
+    db.prepare("UPDATE movies SET user_rating = 8 WHERE id = ?").run(id);
+
+    mockGenreEngine.mockResolvedValue([
+      makeGroup(
+        { type: "genre", reason: "Top Sci-Fi" },
+        [makeRec({ tmdb_id: 438631, title: "Dune" })],
+      ),
+    ]);
+
+    const res = await GET(req({ engine: "genre" }));
+    const data = await res.json();
+
+    expect(data).toHaveLength(1);
+    expect(data[0].recommendations).toHaveLength(1);
+    expect(data[0].recommendations[0].title).toBe("Dune");
+  });
+
   // ── noCache engine (Surprise Me) — skipRated ─────────────────────────────
 
   it("noCache engine includes movies the user has already rated", async () => {

@@ -5,6 +5,7 @@ import { REC_CATEGORIES } from "@/lib/types";
 import type { MoodKey } from "@/lib/mood-presets";
 import type { TmdbSearchResult } from "@/lib/tmdb";
 import {
+  getRatedMovieTmdbIds,
   filterRatedRecommendations,
   deduplicateRecommendations,
 } from "@/lib/utils";
@@ -72,16 +73,7 @@ export function useRecommendations({
   }, [activeMood]);
 
   const recommendations = useMemo(() => {
-    const ratedTmdbIds = new Set(
-      movies
-        .filter(
-          (m) =>
-            m.user_rating != null &&
-            (m.user_rating as number) > 0 &&
-            m.tmdb_id,
-        )
-        .map((m) => m.tmdb_id),
-    );
+    const ratedTmdbIds = getRatedMovieTmdbIds(movies);
     if (recCategory === "all") {
       return deduplicateRecommendations(
         filterRatedRecommendations(
@@ -98,16 +90,7 @@ export function useRecommendations({
   }, [recGroups, recCategory, movies]);
 
   const categoryCounts = useMemo(() => {
-    const ratedTmdbIds = new Set(
-      movies
-        .filter(
-          (m) =>
-            m.user_rating != null &&
-            (m.user_rating as number) > 0 &&
-            m.tmdb_id,
-        )
-        .map((m) => m.tmdb_id),
-    );
+    const ratedTmdbIds = getRatedMovieTmdbIds(movies);
     const counts: Record<string, number> = {};
     for (const [key, groups] of Object.entries(recGroups)) {
       const count = groups.reduce(
@@ -289,6 +272,7 @@ export function useRecommendations({
         poster_url: rec.poster_url,
         source: rec.cda_url ? "cda" : "tmdb",
         type: "movie",
+        tmdb_id: rec.tmdb_id,
         rated_at: null,
         created_at: new Date().toISOString(),
         wishlist: isWishlist ? 1 : 0,

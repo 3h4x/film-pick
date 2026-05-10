@@ -98,6 +98,69 @@ describe("GET /api/recommendations/mood", () => {
     expect(body[0].recommendations[0].title).toBe("Funny Movie");
   });
 
+  it("filters out movies the user has already rated", async () => {
+    db.prepare(
+      "INSERT INTO movies (title, year, genre, rating, source, tmdb_id, type, user_rating) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+    ).run("Funny Movie", 2020, "Drama", 7.5, "tmdb", 1, "movie", 8);
+    const group: RecommendationGroup = {
+      reason: "Light & funny tonight",
+      type: "mood",
+      recommendations: [
+        makeRec({ tmdb_id: 1, title: "Funny Movie" }),
+        makeRec({ tmdb_id: 2, title: "Fresh Movie" }),
+      ],
+    };
+    mockMoodEngine.mockResolvedValue([group]);
+
+    const req = new NextRequest("http://localhost/api/recommendations/mood?key=light_funny");
+    const res = await GET(req);
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body).toHaveLength(1);
+    expect(body[0].recommendations).toHaveLength(1);
+    expect(body[0].recommendations[0].title).toBe("Fresh Movie");
+  });
+
+  it("does not filter out a movie because of a rated tv row with the same tmdb_id", async () => {
+    db.prepare(
+      "INSERT INTO movies (title, year, genre, rating, source, tmdb_id, type, user_rating) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+    ).run("Funny Show", 2020, "Drama", 7.5, "tmdb", 1, "tv", 8);
+    const group: RecommendationGroup = {
+      reason: "Light & funny tonight",
+      type: "mood",
+      recommendations: [makeRec({ tmdb_id: 1, title: "Funny Movie" })],
+    };
+    mockMoodEngine.mockResolvedValue([group]);
+
+    const req = new NextRequest("http://localhost/api/recommendations/mood?key=light_funny");
+    const res = await GET(req);
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body).toHaveLength(1);
+    expect(body[0].recommendations).toHaveLength(1);
+    expect(body[0].recommendations[0].title).toBe("Funny Movie");
+  });
+
+  it("keeps rated movies for the comfort_rewatch preset", async () => {
+    db.prepare(
+      "INSERT INTO movies (title, year, genre, rating, source, tmdb_id, type, user_rating) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+    ).run("Comfort Movie", 1999, "Drama", 7.5, "tmdb", 3, "movie", 9);
+    const group: RecommendationGroup = {
+      reason: "Comfort picks from your library",
+      type: "mood",
+      recommendations: [makeRec({ tmdb_id: 3, title: "Comfort Movie" })],
+    };
+    mockMoodEngine.mockResolvedValue([group]);
+
+    const req = new NextRequest("http://localhost/api/recommendations/mood?key=comfort_rewatch");
+    const res = await GET(req);
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body).toHaveLength(1);
+    expect(body[0].recommendations).toHaveLength(1);
+    expect(body[0].recommendations[0].title).toBe("Comfort Movie");
+  });
+
   it("calls moodEngine with the correct key", async () => {
     const req = new NextRequest("http://localhost/api/recommendations/mood?key=mind_bender");
     await GET(req);

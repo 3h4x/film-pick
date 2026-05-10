@@ -543,3 +543,20 @@ export function getDismissedIds(db: Database.Database): Set<number> {
     .all() as { tmdb_id: number }[];
   return new Set(rows.map((r) => r.tmdb_id));
 }
+
+export function getRatedTmdbIds(
+  db: Database.Database,
+  type = "movie",
+): Set<number> {
+  const rows = db
+    .prepare(`
+      SELECT DISTINCT tmdb_id
+      FROM movies
+      WHERE tmdb_id IS NOT NULL
+        AND user_rating IS NOT NULL
+        AND user_rating > 0
+        AND type = ?
+    `)
+    .all(type) as { tmdb_id: number }[];
+  return new Set(rows.map((r) => r.tmdb_id));
+}

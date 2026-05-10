@@ -149,6 +149,63 @@ describe("recommendations/count GET", () => {
     expect(data.total).toBe(1);
   });
 
+  it("excludes rated ids from the count (non-db-backed engine)", async () => {
+    const group: RecommendationGroup = {
+      type: "genre",
+      reason: "By genre",
+      recommendations: [
+        { tmdb_id: 10, title: "Film X", year: 2020, genre: "Action", rating: 7, poster_url: null, imdb_id: null },
+        { tmdb_id: 11, title: "Film Y", year: 2021, genre: "Action", rating: 8, poster_url: null, imdb_id: null },
+      ],
+    };
+    setCachedEngine(db, "genre", [group], 1);
+    insertMovie(db, {
+      title: "Film X",
+      year: 2020,
+      genre: "Action",
+      director: null,
+      rating: 7,
+      poster_url: null,
+      source: "tmdb",
+      imdb_id: null,
+      tmdb_id: 10,
+      type: "movie",
+    });
+    db.prepare("UPDATE movies SET user_rating = 8 WHERE tmdb_id = 10").run();
+
+    const res = await countGET();
+    const data = await res.json();
+    expect(data.total).toBe(1);
+  });
+
+  it("does not exclude a movie because of a rated tv row with the same tmdb_id", async () => {
+    const group: RecommendationGroup = {
+      type: "genre",
+      reason: "By genre",
+      recommendations: [
+        { tmdb_id: 10, title: "Film X", year: 2020, genre: "Action", rating: 7, poster_url: null, imdb_id: null },
+      ],
+    };
+    setCachedEngine(db, "genre", [group], 1);
+    insertMovie(db, {
+      title: "Series X",
+      year: 2020,
+      genre: "Action",
+      director: null,
+      rating: 7,
+      poster_url: null,
+      source: "tmdb",
+      imdb_id: null,
+      tmdb_id: 10,
+      type: "tv",
+    });
+    db.prepare("UPDATE movies SET user_rating = 8 WHERE tmdb_id = 10 AND type = 'tv'").run();
+
+    const res = await countGET();
+    const data = await res.json();
+    expect(data.total).toBe(1);
+  });
+
   it("counts non-dismissed recommendations from recommended_movies table (db-backed engine)", async () => {
     saveRecommendedMovies(db, "cda", "Available on CDA", [
       { tmdb_id: 20, title: "CDA Film 1", year: 2020, genre: "Drama", rating: 7, poster_url: null },
@@ -169,6 +226,30 @@ describe("recommendations/count GET", () => {
     db.prepare(
       "INSERT OR IGNORE INTO dismissed_recommendations (tmdb_id) VALUES (?)",
     ).run(30);
+
+    const res = await countGET();
+    const data = await res.json();
+    expect(data.total).toBe(1);
+  });
+
+  it("excludes rated ids from db-backed engine count", async () => {
+    saveRecommendedMovies(db, "cda", "CDA picks", [
+      { tmdb_id: 30, title: "CDA A", year: 2020, genre: "Action", rating: 7, poster_url: null },
+      { tmdb_id: 31, title: "CDA B", year: 2021, genre: "Action", rating: 8, poster_url: null },
+    ]);
+    insertMovie(db, {
+      title: "CDA A",
+      year: 2020,
+      genre: "Action",
+      director: null,
+      rating: 7,
+      poster_url: null,
+      source: "tmdb",
+      imdb_id: null,
+      tmdb_id: 30,
+      type: "movie",
+    });
+    db.prepare("UPDATE movies SET user_rating = 9 WHERE tmdb_id = 30").run();
 
     const res = await countGET();
     const data = await res.json();

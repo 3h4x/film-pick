@@ -3,6 +3,7 @@ import {
   getDb,
   getMovies,
   getDismissedIds,
+  getRatedTmdbIds,
   getCachedEngine,
   setCachedEngine,
   clearCachedEngine,
@@ -34,12 +35,7 @@ export async function GET(request: NextRequest) {
   );
   const movieCount = movies.length;
   const dismissedIds = getDismissedIds(db);
-  // Movies the user has rated — these should not appear in recommendations
-  const ratedTmdbIds = new Set(
-    allMovies
-      .filter((m) => m.user_rating != null && m.user_rating > 0 && m.tmdb_id)
-      .map((m) => m.tmdb_id as number),
-  );
+  const ratedTmdbIds = getRatedTmdbIds(db, "movie");
   const cdaLookup = getCdaLookup();
   const configRaw = getSetting(db, "rec_config");
   const config: RecConfig | undefined = configRaw

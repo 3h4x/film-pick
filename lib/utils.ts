@@ -190,6 +190,22 @@ export function extractYears(movies: Movie[]): number[] {
   return Array.from(all).sort((a, b) => b - a);
 }
 
+export function getRatedMovieTmdbIds(
+  movies: Movie[],
+): Set<number | null | undefined> {
+  return new Set(
+    movies
+      .filter(
+        (m) =>
+          m.type === "movie" &&
+          m.user_rating != null &&
+          (m.user_rating as number) > 0 &&
+          m.tmdb_id,
+      )
+      .map((m) => m.tmdb_id),
+  );
+}
+
 export function filterRatedRecommendations(
   groups: RecommendationGroup[],
   ratedTmdbIds: Set<number | null | undefined>,
