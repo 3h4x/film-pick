@@ -1,6 +1,6 @@
 "use client";
 import MovieCard from "@/components/MovieCard";
-import { getSearchMatches } from "@/lib/search";
+import { buildTmdbMovieIndex, getSearchMatches, getTmdbSearchMovieState } from "@/lib/search";
 import type { Movie } from "@/lib/types";
 import type { TmdbSearchResult } from "@/lib/tmdb";
 
@@ -39,9 +39,7 @@ export default function SearchView({
     movies,
     searchQuery,
   );
-  const tmdbOnly = tmdbResults.filter(
-    (r) => !movies.some((m) => m.tmdb_id === r.tmdb_id),
-  );
+  const movieIndex = buildTmdbMovieIndex(movies);
 
   return (
     <div>
@@ -160,13 +158,17 @@ export default function SearchView({
                 </button>
               </div>
             </div>
-          ) : tmdbOnly.length > 0 ? (
+          ) : tmdbResults.length > 0 ? (
             <div>
               <p className="text-xs font-semibold uppercase tracking-widest text-gray-500 mb-3">
                 From TMDb
               </p>
               <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 xl:grid-cols-7 gap-3">
-                {tmdbOnly.map((r) => {
+                {tmdbResults.map((r) => {
+                  const { existingMovie, existingLabel } = getTmdbSearchMovieState(
+                    movieIndex,
+                    r.tmdb_id,
+                  );
                   const justAdded = tmdbAdded.has(r.tmdb_id);
                   return (
                     <div key={r.tmdb_id} className="relative group/card">
@@ -178,11 +180,11 @@ export default function SearchView({
                         userRating={null}
                         posterUrl={r.poster_url}
                         source="tmdb"
-                        onClick={() => {}}
+                        onClick={existingMovie ? () => onMovieClick(existingMovie) : undefined}
                       />
-                      {justAdded ? (
+                      {justAdded || existingLabel ? (
                         <div className="absolute top-1.5 left-1.5 bg-green-600/90 text-white text-xs px-1.5 py-0.5 rounded font-medium">
-                          Added
+                          {justAdded ? "Added" : existingLabel}
                         </div>
                       ) : (
                         <div className="absolute bottom-14 right-1 flex flex-col gap-1 opacity-0 group-hover/card:opacity-100 transition-all duration-200">

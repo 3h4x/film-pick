@@ -60,6 +60,71 @@ describe("tmdb client", () => {
     );
   });
 
+  it("prefers exact title matches over looser TMDb matches", async () => {
+    mockFetch.mockResolvedValueOnce({
+      ok: true,
+      json: async () => ({
+        results: [
+          {
+            id: 999001,
+            title: "The Secret House",
+            original_title: "Secret House",
+            release_date: "2025-07-20",
+            genre_ids: [53, 27, 9648],
+            vote_average: 8.5,
+            poster_path: "/secret-house.jpg",
+          },
+          {
+            id: 999002,
+            title: "Marrowbone",
+            original_title: "Marrowbone",
+            release_date: "2017-10-27",
+            genre_ids: [53, 27, 9648],
+            vote_average: 7.1,
+            poster_path: "/marrowbone.jpg",
+          },
+        ],
+      }),
+    });
+
+    const results = await searchTmdb("marrowbone");
+    expect(results).toHaveLength(2);
+    expect(results[0].title).toBe("Marrowbone");
+    expect(results[1].title).toBe("The Secret House");
+  });
+
+  it("preserves literal title tokens that filename cleanup would strip", async () => {
+    mockFetch.mockResolvedValueOnce({
+      ok: true,
+      json: async () => ({
+        results: [
+          {
+            id: 777001,
+            title: "Neon City",
+            original_title: "Neon City",
+            release_date: "1991-03-01",
+            genre_ids: [878],
+            vote_average: 8.7,
+            poster_path: null,
+          },
+          {
+            id: 777002,
+            title: "Noir",
+            original_title: "Noir",
+            release_date: "2021-09-10",
+            genre_ids: [18],
+            vote_average: 5.4,
+            poster_path: null,
+          },
+        ],
+      }),
+    });
+
+    const results = await searchTmdb("Noir");
+    expect(results).toHaveLength(2);
+    expect(results[0].title).toBe("Noir");
+  });
+
   it("throws on API error", async () => {
     mockFetch.mockResolvedValueOnce({ ok: false, status: 401, statusText: "Unauthorized", text: async () => "" });
 
@@ -195,6 +260,70 @@ describe("searchTmdb year fallback", () => {
       expect.stringContaining("year=2020"),
       expect.any(Object),
     );
+  });
+
+  it("uses year proximity as a secondary ranking signal", async () => {
+    mockFetch.mockResolvedValueOnce({
+      ok: true,
+      json: async () => ({
+        results: [
+          {
+            id: 10,
+            title: "Film",
+            original_title: "Film",
+            release_date: "2021-05-01",
+            genre_ids: [],
+            vote_average: 8.0,
+            poster_path: null,
+          },
+          {
+            id: 11,
+            title: "Film",
+            original_title: "Film",
+            release_date: "2020-05-01",
+            genre_ids: [],
+            vote_average: 7.0,
+            poster_path: null,
+          },
+        ],
+      }),
+    });
+
+    const results = await searchTmdb("Film", 2020);
+    expect(results[0].year).toBe(2020);
+    expect(results[1].year).toBe(2021);
+  });
+
+  it("keeps the exact title first when unattended flows rely on the first search result", async () => {
+    mockFetch.mockResolvedValueOnce({
+      ok: true,
+      json: async () => ({
+        results: [
+          {
+            id: 20,
+            title: "Neo Noir",
+            original_title: "Neo Noir",
+            release_date: "2021-05-01",
+            genre_ids: [],
+            vote_average: 8.8,
+            poster_path: null,
+          },
+          {
+            id: 21,
+            title: "Noir",
+            original_title: "Noir",
+            release_date: "2021-10-01",
+            genre_ids: [],
+            vote_average: 6.2,
+            poster_path: null,
+          },
+        ],
+      }),
+    });
+
+    const results = await searchTmdb("Noir", 2021);
+    expect(results[0].title).toBe("Noir");
+    expect(results[1].title).toBe("Neo Noir");
   });
 
   it("tries year+1 when exact year returns no results", async () => {

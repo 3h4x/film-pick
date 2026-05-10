@@ -17,6 +17,7 @@ import ConfigView from "@/components/views/ConfigView";
 import { useLibrary } from "@/lib/hooks/useLibrary";
 import { useRecommendations } from "@/lib/hooks/useRecommendations";
 import { useSearch } from "@/lib/hooks/useSearch";
+import { getCanonicalMovieForTmdbId } from "@/lib/search";
 import { useSettings } from "@/lib/hooks/useSettings";
 import type { AppTab, ToastItem, Movie, RecConfig } from "@/lib/types";
 import { MOOD_PRESETS, type MoodKey } from "@/lib/mood-presets";
@@ -28,7 +29,9 @@ function findMovieFromHashRef(movies: Movie[], ref: string): Movie | undefined {
   }
 
   const tmdbId = parseInt(ref, 10);
-  return Number.isNaN(tmdbId) ? undefined : movies.find((m) => m.tmdb_id === tmdbId);
+  return Number.isNaN(tmdbId)
+    ? undefined
+    : getCanonicalMovieForTmdbId(movies, tmdbId);
 }
 
 function parseHash(): {
