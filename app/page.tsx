@@ -222,9 +222,11 @@ export default function Home() {
           <SearchView searchQuery={searchQuery} movies={movies}
             tmdbResults={search.tmdbResults} tmdbLoading={search.tmdbLoading}
             tmdbAdded={search.tmdbAdded} tmdbError={search.tmdbError}
+            tmdbSearched={search.tmdbSearched}
             onMovieClick={setSelectedMovie}
             onClear={() => { setSearchQuery(""); setActiveTab("library"); }}
             onGoToConfig={() => { setSearchQuery(""); setActiveTab("config"); }}
+            onSearchTmdb={() => search.handleNavSearch(searchQuery, { forceTmdb: true })}
             onAddToLibrary={async (r) => { await search.handleAddMovie(r, false); search.setTmdbAdded((prev) => new Set(prev).add(r.tmdb_id)); }}
             onAddToWatchlist={async (r) => { await search.handleAddMovie(r, true); search.setTmdbAdded((prev) => new Set(prev).add(r.tmdb_id)); }}
           />
@@ -232,7 +234,7 @@ export default function Home() {
         {activeTab === "library" && (
           <LibraryView library={library} onMovieClick={setSelectedMovie} onImport={() => setImportOpen(true)}
             onOpenSearch={() => setSearchOpen(true)}
-            onSearchInTMDb={(q) => { setActiveTab("search"); search.handleNavSearch(q); }}
+            onSearchInTMDb={(q) => { setActiveTab("search"); search.handleNavSearch(q, { forceTmdb: true }); }}
           />
         )}
         {activeTab === "recommendations" && (
