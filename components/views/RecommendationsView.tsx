@@ -1,4 +1,5 @@
 "use client";
+import { useMemo } from "react";
 import CardActionStack from "@/components/CardActionStack";
 import MovieCard from "@/components/MovieCard";
 import {
@@ -7,6 +8,7 @@ import {
 } from "@/components/card-action-styles";
 import RecommendationRow from "@/components/RecommendationRow";
 import RecommendationSkeleton from "@/components/RecommendationSkeleton";
+import { getUniqueRecommendations } from "@/lib/utils";
 import type { RecommendationGroup } from "@/lib/types";
 import { REC_CATEGORIES } from "@/lib/types";
 import type { TmdbSearchResult } from "@/lib/tmdb";
@@ -75,6 +77,14 @@ export default function RecommendationsView({
     handleRecClick,
   } = recs;
 
+  const moodPicks = useMemo(() => {
+    return getUniqueRecommendations(moodGroups);
+  }, [moodGroups]);
+
+  const allRecommendations = useMemo(() => {
+    return getUniqueRecommendations(recommendations);
+  }, [recommendations]);
+
   if (!hasMovies) {
     return (
       <div className="text-center py-24">
@@ -139,13 +149,6 @@ export default function RecommendationsView({
       />
     );
   }
-
-  const moodPicks = (() => {
-    const seen = new Set<number>();
-    return moodGroups
-      .flatMap((g) => g.recommendations)
-      .filter((r) => { if (seen.has(r.tmdb_id)) return false; seen.add(r.tmdb_id); return true; });
-  })();
 
   return (
     <>
@@ -289,7 +292,7 @@ export default function RecommendationsView({
         </div>
       ) : recCategory === "all" ? (
         <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4">
-          {(() => { const seen = new Set<number>(); return recommendations.flatMap((g) => g.recommendations).filter((r) => { if (seen.has(r.tmdb_id)) return false; seen.add(r.tmdb_id); return true; }); })().map((r) => (
+          {allRecommendations.map((r) => (
             <div key={r.tmdb_id} className="relative group/rec">
               <MovieCard title={r.title} year={r.year} genre={r.genre} rating={r.rating} userRating={null} posterUrl={r.poster_url} source="tmdb" cdaUrl={r.cda_url} onClick={() => handleRecClick(r)} />
               {recActionButtons(r)}

@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { cleanTitle, parseFilename, getErrorMessage, getRatedMovieTmdbIds, filterRatedRecommendations, deduplicateRecommendations } from "@/lib/utils";
+import { cleanTitle, parseFilename, getErrorMessage, getRatedMovieTmdbIds, filterRatedRecommendations, deduplicateRecommendations, getUniqueRecommendations } from "@/lib/utils";
 import type { Movie, RecommendationGroup, RecType } from "@/lib/types";
 import type { TmdbSearchResult } from "@/lib/tmdb";
 
@@ -356,5 +356,40 @@ describe("deduplicateRecommendations", () => {
     expect(result).toHaveLength(2);
     expect(result[0].recommendations).toHaveLength(2);
     expect(result[1].recommendations).toHaveLength(1);
+  });
+});
+
+describe("getUniqueRecommendations", () => {
+  it("preserves first-seen order across groups", () => {
+    const groups = [
+      makeGroup("genre", [makeRec(3), makeRec(1)]),
+      makeGroup("director", [makeRec(1), makeRec(2)]),
+    ];
+
+    const result = getUniqueRecommendations(groups);
+
+    expect(result.map((rec) => rec.tmdb_id)).toEqual([3, 1, 2]);
+  });
+
+  it("keeps the remaining order stable after a recommendation is removed", () => {
+    const groups = [
+      makeGroup("genre", [makeRec(10), makeRec(20), makeRec(30)]),
+      makeGroup("director", [makeRec(20), makeRec(40)]),
+    ];
+
+    const originalOrder = getUniqueRecommendations(groups).map((rec) => rec.tmdb_id);
+    const updatedGroups = groups.map((group) => ({
+      ...group,
+      recommendations: group.recommendations.filter((rec) => rec.tmdb_id !== 20),
+    }));
+
+    const updatedOrder = getUniqueRecommendations(updatedGroups).map((rec) => rec.tmdb_id);
+
+    expect(originalOrder).toEqual([10, 20, 30, 40]);
+    expect(updatedOrder).toEqual([10, 30, 40]);
+  });
+
+  it("returns an empty array when there are no groups", () => {
+    expect(getUniqueRecommendations([])).toEqual([]);
   });
 });

@@ -236,3 +236,17 @@ export function deduplicateRecommendations(
     }))
     .filter((g) => g.recommendations.length > 0);
 }
+
+export function getUniqueRecommendations(
+  groups: RecommendationGroup[],
+): TmdbSearchResult[] {
+  const seen = new Set<number>();
+
+  return groups.flatMap((group) =>
+    group.recommendations.filter((recommendation) => {
+      if (seen.has(recommendation.tmdb_id)) return false;
+      seen.add(recommendation.tmdb_id);
+      return true;
+    }),
+  );
+}
