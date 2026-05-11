@@ -40,6 +40,8 @@ export default function SearchView({
     searchQuery,
   );
   const movieIndex = buildTmdbMovieIndex(movies);
+  const resultsGridClassName =
+    "grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6";
 
   return (
     <div>
@@ -97,7 +99,7 @@ export default function SearchView({
               <p className="text-xs font-semibold uppercase tracking-widest text-gray-500 mb-3">
                 In your library
               </p>
-              <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 xl:grid-cols-7 gap-3">
+              <div className={resultsGridClassName}>
                 {libraryMatches.map((m) => (
                   <MovieCard
                     key={m.id}
@@ -120,7 +122,7 @@ export default function SearchView({
               <p className="text-xs font-semibold uppercase tracking-widest text-gray-500 mb-3">
                 In your watchlist
               </p>
-              <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 xl:grid-cols-7 gap-3">
+              <div className={resultsGridClassName}>
                 {wishlistMatches.map((m) => (
                   <MovieCard
                     key={m.id}
@@ -163,7 +165,7 @@ export default function SearchView({
               <p className="text-xs font-semibold uppercase tracking-widest text-gray-500 mb-3">
                 From TMDb
               </p>
-              <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 xl:grid-cols-7 gap-3">
+              <div className={resultsGridClassName}>
                 {tmdbResults.map((r) => {
                   const { existingMovie, existingLabel } = getTmdbSearchMovieState(
                     movieIndex,
@@ -187,10 +189,10 @@ export default function SearchView({
                           {justAdded ? "Added" : existingLabel}
                         </div>
                       ) : (
-                        <div className="absolute bottom-14 right-1 flex flex-col gap-1 opacity-0 group-hover/card:opacity-100 transition-all duration-200">
+                        <div className="absolute bottom-14 right-1 z-10 flex flex-col gap-1 rounded-xl border border-gray-800/70 bg-black/35 p-1 opacity-100 shadow-lg backdrop-blur-sm transition-all duration-200 sm:bottom-14 sm:right-1 sm:border-transparent sm:bg-transparent sm:p-0 sm:opacity-0 sm:shadow-none sm:backdrop-blur-0 sm:group-hover/card:opacity-100">
                           <button
                             onClick={() => onAddToLibrary(r)}
-                            className="bg-indigo-600/90 backdrop-blur-sm text-white rounded-lg w-7 h-7 text-sm flex items-center justify-center hover:bg-indigo-500 transition-colors"
+                            className="flex h-8 w-8 items-center justify-center rounded-lg bg-indigo-600/95 text-sm text-white transition-colors hover:bg-indigo-500 sm:h-7 sm:w-7"
                             aria-label={`Add ${r.title} to library`}
                             title="Add to library"
                           >
@@ -198,7 +200,7 @@ export default function SearchView({
                           </button>
                           <button
                             onClick={() => onAddToWatchlist(r)}
-                            className="bg-blue-600/90 backdrop-blur-sm text-white rounded-lg w-7 h-7 text-sm flex items-center justify-center hover:bg-blue-500 transition-colors"
+                            className="flex h-8 w-8 items-center justify-center rounded-lg bg-blue-600/95 text-sm text-white transition-colors hover:bg-blue-500 sm:h-7 sm:w-7"
                             aria-label={`Add ${r.title} to watchlist`}
                             title="Add to watchlist"
                           >
