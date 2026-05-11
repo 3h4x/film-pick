@@ -221,6 +221,11 @@ export default function Home() {
     if (activeTab === "search" && !searchQuery.trim()) setActiveTab("library");
   }, [searchQuery, activeTab]);
 
+  useEffect(() => {
+    if (activeTab === "library" || activeTab === "search") return;
+    if (searchQuery) setSearchQuery("");
+  }, [activeTab, searchQuery, setSearchQuery]);
+
   return (
     <main className="max-w-7xl w-full mx-auto px-4 sm:px-6 flex-1">
       <AppNav
