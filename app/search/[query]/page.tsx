@@ -124,6 +124,7 @@ export default function SearchPage({
                     <div className="absolute bottom-14 right-1 flex flex-col gap-1 opacity-0 group-hover/card:opacity-100 transition-all duration-200">
                       <button
                         onClick={() => addMovie(r, false)}
+                        aria-label={`Add ${r.title} to library`}
                         className="bg-indigo-600/90 backdrop-blur-sm text-white rounded-lg w-7 h-7 text-sm flex items-center justify-center hover:bg-indigo-500 transition-colors"
                         title="Add to library"
                       >
@@ -131,6 +132,7 @@ export default function SearchPage({
                       </button>
                       <button
                         onClick={() => addMovie(r, true)}
+                        aria-label={`Add ${r.title} to watchlist`}
                         className="bg-blue-600/90 backdrop-blur-sm text-white rounded-lg w-7 h-7 text-sm flex items-center justify-center hover:bg-blue-500 transition-colors"
                         title="Add to watchlist"
                       >
