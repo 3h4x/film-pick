@@ -271,6 +271,7 @@ TMDB_API_KEY=<your_key> docker run -p 4000:4000 -v $(pwd)/data:/app/data -e TMDB
 9. **Playwright uses `http://localhost:4000`** and starts `pnpm dev` automatically when needed. Keep new e2e flows compatible with that port and dev-server startup model.
 10. **Mock network boundaries, not parsing/business logic.** For TMDb/CDA/EPG tests, stub `fetch` inputs/outputs and exercise the real route/helper code around them.
 11. **Vitest runs in `environment: "node"`**, not `jsdom`. For component tests, prefer `renderToStaticMarkup`, pure helper extraction, or targeted module tests over introducing browser-only test infrastructure.
+12. **Restore test-global mutations in `afterEach`.** If a test changes `global.fetch`, fake timers, `process.env`, module-level caches, or singleton DB state, clean it up before the next test so Vitest file order does not affect results.
 
 ## Architecture Patterns
 
@@ -288,6 +289,7 @@ TMDB_API_KEY=<your_key> docker run -p 4000:4000 -v $(pwd)/data:/app/data -e TMDB
 12. **Preserve the current standalone deployment contract** when touching build/runtime config: `next.config.ts` must keep `output: "standalone"` and `serverExternalPackages: ["better-sqlite3"]` unless every Docker/deployment path is re-verified.
 13. **Direct `new Database(...)` calls are an exception reserved for isolated backup/test code.** Production reads/writes should continue to go through `getDb()`; the current allowed non-singleton cases are `lib/backup.ts` (readonly backup handle) and Vitest DB setup/fixtures.
 14. **Standalone maintenance/import scripts under `scripts/` may also open their own `new Database(dbPath)` handle** because they run as one-off Node processes outside the app singleton lifecycle. Keep that exception scoped to `scripts/`; do not copy it into `app/`, `components/`, or long-lived `lib/` runtime code.
+15. **App startup side effects belong in `instrumentation.ts`.** Background jobs such as backups and scheduler initialization should start from `register()` behind the existing `NEXT_RUNTIME === "nodejs"` guard, not from route handlers, components, or ad-hoc module top-level code.
 
 ## Dependency & Supply-Chain Security
 
