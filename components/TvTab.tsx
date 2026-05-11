@@ -324,6 +324,7 @@ export default function TvTab() {
       <button
         onClick={() => load(true)}
         title="Refresh EPG cache"
+        aria-label="Refresh TV guide"
         className="text-gray-600 hover:text-gray-300 transition-colors"
       >
         <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
@@ -443,6 +444,7 @@ export default function TvTab() {
               <button
                 onClick={() => blacklistChannel(p.channel)}
                 title={`Hide ${channelLabel(ch?.name ?? p.channel)}`}
+                aria-label={`Hide channel ${channelLabel(ch?.name ?? p.channel)}`}
                 className="w-8 h-8 flex shrink-0 items-center justify-center rounded-lg text-gray-600 hover:text-gray-300 hover:bg-white/[0.06] transition-all"
               >
                 ×
@@ -535,6 +537,7 @@ export default function TvTab() {
               <button
                 onClick={() => blacklistChannel(p.channel)}
                 title={`Hide ${channelLabel(ch?.name ?? p.channel)}`}
+                aria-label={`Hide channel ${channelLabel(ch?.name ?? p.channel)}`}
                 className="w-5 h-5 flex items-center justify-center rounded text-gray-700 opacity-0 group-hover:opacity-100 hover:text-gray-300 hover:bg-white/[0.06] transition-all"
               >
                 ×
