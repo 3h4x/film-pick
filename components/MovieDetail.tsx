@@ -685,6 +685,9 @@ export default function MovieDetail({
       <div
         className="bg-gray-900 border border-gray-700/50 rounded-2xl w-[calc(100vw-1rem)] sm:w-full max-w-5xl max-h-[90vh] shadow-2xl relative flex flex-col"
         onClick={(e) => e.stopPropagation()}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="movie-detail-title"
       >
         <div className="shrink-0 flex items-center justify-end gap-2 px-3 sm:px-6 pt-3 pb-3">
           {filePath && (
@@ -694,6 +697,7 @@ export default function MovieDetail({
                 disabled={isPlaying}
                 className="flex items-center gap-2 bg-indigo-500 hover:bg-indigo-600 text-white px-3.5 py-2 rounded-xl font-bold transition-all shadow-lg shadow-indigo-500/20 disabled:opacity-50 group min-h-11"
                 title="Play Movie"
+                aria-label="Play movie"
               >
                 <span className="text-base group-hover:scale-110 transition-transform">
                   {isPlaying ? "⏳" : "▶️"}
@@ -706,6 +710,7 @@ export default function MovieDetail({
                 onClick={() => handlePlay("folder")}
                 className="flex items-center justify-center w-11 h-11 bg-gray-800 hover:bg-gray-700 text-gray-400 hover:text-white rounded-xl transition-all border border-gray-700/50 group"
                 title="Open in Finder"
+                aria-label="Open in Finder"
               >
                 <span className="text-lg group-hover:scale-110 transition-transform">
                   📂
@@ -724,6 +729,7 @@ export default function MovieDetail({
                 : "bg-gray-800/80 text-gray-500 hover:text-white hover:bg-gray-800"
             }`}
             title="Management Menu"
+            aria-label={isMenuOpen ? "Close management menu" : "Open management menu"}
           >
             <span className="text-xl">⋮</span>
           </button>
@@ -1174,7 +1180,10 @@ export default function MovieDetail({
 
             {/* Title & Actions */}
             <div className="space-y-2 sm:space-y-1">
-              <h2 className="text-xl leading-tight sm:text-3xl lg:text-4xl font-black text-white tracking-tight">
+              <h2
+                id="movie-detail-title"
+                className="text-xl leading-tight sm:text-3xl lg:text-4xl font-black text-white tracking-tight"
+              >
                 {movieTitle}
               </h2>
               {plTitle && plTitle !== movieTitle && (
