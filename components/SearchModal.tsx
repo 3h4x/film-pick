@@ -158,6 +158,11 @@ export default function SearchModal({
                       onAdd(r, false);
                     }}
                     className={`bg-indigo-600/90 backdrop-blur-sm text-white rounded-lg ${CARD_ACTION_TOUCH_TARGET_CLASS} ${CARD_ACTION_ICON_SIZE_CLASS} flex items-center justify-center hover:bg-indigo-500 transition-colors`}
+                    aria-label={
+                      targetMovieId
+                        ? `Update existing movie with ${r.title}`
+                        : `Add ${r.title} to library`
+                    }
                     title={
                       targetMovieId ? "Update existing movie" : "Add to library"
                     }
@@ -170,6 +175,7 @@ export default function SearchModal({
                       onAdd(r, true);
                     }}
                     className={`bg-blue-600/90 backdrop-blur-sm text-white rounded-lg ${CARD_ACTION_TOUCH_TARGET_CLASS} ${CARD_ACTION_ICON_SIZE_CLASS} flex items-center justify-center hover:bg-blue-500 transition-colors`}
+                    aria-label={`Add ${r.title} to watchlist`}
                     title="Add to watchlist"
                   >
                     🔖
