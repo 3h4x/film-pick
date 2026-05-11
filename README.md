@@ -137,7 +137,7 @@ docker run -p 4000:4000 \
   filmpick
 ```
 
-The Dockerfile uses a multi-stage build: Node 22 Alpine for building, minimal Alpine runtime with ffmpeg for the final image. Next.js standalone output keeps the image small.
+The Dockerfile uses a multi-stage build: Node 24 Alpine for building, minimal Alpine runtime with ffmpeg for the final image. Next.js standalone output keeps the image small.
 
 ## Tech Stack
 

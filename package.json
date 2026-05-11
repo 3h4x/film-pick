@@ -11,6 +11,7 @@
     "lint": "eslint",
     "type-check": "tsc --noEmit",
     "backup": "bash scripts/backup-db.sh",
+    "pretest": "node scripts/ensure-native-abi.mjs",
     "test": "vitest run",
     "test:watch": "vitest",
     "test:e2e": "playwright test",
@@ -23,6 +24,9 @@
     "qrcode": "^1.5.4",
     "react": "19.2.5",
     "react-dom": "19.2.5"
+  },
+  "engines": {
+    "node": "24.x"
   },
   "pnpm": {
     "onlyBuiltDependencies": [

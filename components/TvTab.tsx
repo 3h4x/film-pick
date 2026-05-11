@@ -307,6 +307,7 @@ export default function TvTab() {
           value={filter}
           onChange={(e) => setFilter(e.target.value)}
           placeholder="Filter channels..."
+          aria-label="Filter TV channels"
           className="bg-gray-800/40 text-white text-sm pl-8 pr-3 py-1.5 rounded-lg border border-gray-700/50 focus:outline-none focus:border-indigo-500/50 placeholder-gray-600 w-44"
         />
       </div>
