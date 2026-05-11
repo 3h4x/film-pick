@@ -166,6 +166,7 @@ export default function AppNav({
             <div className="relative group transition-all sm:max-w-xs">
               <div className="absolute inset-y-0 left-3 flex items-center pointer-events-none">
                 <svg
+                  aria-hidden="true"
                   className="w-3.5 h-3.5 text-gray-500"
                   fill="none"
                   viewBox="0 0 24 24"
@@ -238,6 +239,7 @@ export default function AppNav({
                   key={tab.key}
                   data-active={active}
                   onClick={() => setActiveTab(tab.key)}
+                  aria-label={tab.count >= 0 ? `${tab.label} (${tab.count})` : tab.label}
                   className={`relative shrink-0 px-2.5 py-2 pb-2.5 text-[13px] font-medium transition-all sm:px-3.5 sm:text-sm ${
                     active
                       ? "text-white"
@@ -247,6 +249,7 @@ export default function AppNav({
                   {tab.label}
                   {tab.count >= 0 && (
                     <span
+                      aria-hidden="true"
                       className={`ml-1 text-[10px] tabular-nums sm:ml-1.5 sm:text-[11px] ${
                         active ? "text-indigo-400" : "text-gray-600"
                       }`}
