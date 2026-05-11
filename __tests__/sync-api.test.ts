@@ -81,7 +81,7 @@ describe("sync API route", () => {
     const complete = events.find((e) => e.type === "complete");
     expect(complete).toBeDefined();
     expect(complete!.added).toBe(0);
-    expect(complete!.removed).toBe(0);
+    expect(complete!.detached).toBe(0);
     expect(complete!.total).toBe(0);
   });
 
@@ -209,20 +209,27 @@ describe("sync API route", () => {
     expect(complete!.failed).toBe(1);
   });
 
-  it("removes movies whose file_path no longer exists on disk", async () => {
+  it("detaches missing files while preserving ratings and metadata", async () => {
     setSetting(db as unknown as ReturnType<typeof getDb>, 'library_path', '/movies');
     insertMovie(db as unknown as ReturnType<typeof getDb>, {
       title: "Old Film",
       year: 1999,
-      genre: null,
+      genre: "Drama",
       director: null,
-      rating: null,
+      rating: 7.4,
       poster_url: null,
-      source: "local",
+      source: "filmweb",
       imdb_id: null,
-      tmdb_id: null,
+      tmdb_id: 1234,
       type: "movie",
       file_path: "/movies/OldFilm.1999.mkv",
+      user_rating: 9,
+      wishlist: 1,
+      filmweb_id: 5678,
+      filmweb_url: "https://filmweb.example/old-film",
+      cda_url: "https://cda.example/old-film",
+      pl_title: "Stary Film",
+      description: "Preserve me",
     });
 
     // Scanner finds no files — the old file is gone
@@ -232,10 +239,41 @@ describe("sync API route", () => {
     const events = await readNDJSON(res);
 
     const complete = events.find((e) => e.type === "complete");
-    expect(complete!.removed).toBe(1);
+    expect(complete!.detached).toBe(1);
 
-    const movies = db.prepare("SELECT * FROM movies").all();
-    expect(movies).toHaveLength(0);
+    const movies = db.prepare(
+      "SELECT title, file_path, extra_files, video_metadata, user_rating, rating, wishlist, tmdb_id, filmweb_id, filmweb_url, cda_url, pl_title, description FROM movies",
+    ).all() as Array<{
+      title: string;
+      file_path: string | null;
+      extra_files: string | null;
+      video_metadata: string | null;
+      user_rating: number | null;
+      rating: number | null;
+      wishlist: number;
+      tmdb_id: number | null;
+      filmweb_id: number | null;
+      filmweb_url: string | null;
+      cda_url: string | null;
+      pl_title: string | null;
+      description: string | null;
+    }>;
+    expect(movies).toHaveLength(1);
+    expect(movies[0]).toMatchObject({
+      title: "Old Film",
+      file_path: null,
+      extra_files: null,
+      video_metadata: null,
+      user_rating: 9,
+      rating: 7.4,
+      wishlist: 1,
+      tmdb_id: 1234,
+      filmweb_id: 5678,
+      filmweb_url: "https://filmweb.example/old-film",
+      cda_url: "https://cda.example/old-film",
+      pl_title: "Stary Film",
+      description: "Preserve me",
+    });
   });
 
   it("does not remove movies already in extra_files on rescan", async () => {
@@ -261,7 +299,118 @@ describe("sync API route", () => {
 
     const complete = events.find((e) => e.type === "complete");
     // Primary file exists — movie should NOT be removed
-    expect(complete!.removed).toBe(0);
+    expect(complete!.detached).toBe(0);
+  });
+
+  it("prunes missing extra files and invalidates cached video metadata", async () => {
+    setSetting(db as unknown as ReturnType<typeof getDb>, 'library_path', '/movies');
+    db.prepare(
+      "INSERT INTO movies (title, year, source, type, file_path, extra_files, video_metadata) VALUES (?, ?, ?, ?, ?, ?, ?)",
+    ).run(
+      "Matrix",
+      1999,
+      "tmdb",
+      "movie",
+      "/movies/Matrix.mkv",
+      JSON.stringify(["/movies/Matrix.alt.mkv", "/movies/Matrix.deleted.mkv"]),
+      JSON.stringify({
+        duration: 8000,
+        extra_files: [
+          { path: "/movies/Matrix.alt.mkv", duration: 8001 },
+          { path: "/movies/Matrix.deleted.mkv", duration: 8002 },
+        ],
+      }),
+    );
+
+    vi.mocked(scanDirectoryGenerator).mockReturnValue(
+      (function* () {
+        yield {
+          filename: "Matrix.mkv",
+          filePath: "/movies/Matrix.mkv",
+          parsedTitle: "Matrix",
+          parsedYear: 1999,
+        };
+        yield {
+          filename: "Matrix.alt.mkv",
+          filePath: "/movies/Matrix.alt.mkv",
+          parsedTitle: "Matrix",
+          parsedYear: 1999,
+        };
+      })(),
+    );
+
+    const res = await POST();
+    const events = await readNDJSON(res);
+
+    const complete = events.find((e) => e.type === "complete");
+    expect(complete!.detached).toBe(0);
+
+    const row = db.prepare(
+      "SELECT extra_files, video_metadata FROM movies",
+    ).get() as {
+      extra_files: string | null;
+      video_metadata: string | null;
+    };
+    expect(JSON.parse(row.extra_files ?? "[]")).toEqual([
+      "/movies/Matrix.alt.mkv",
+    ]);
+    expect(row.video_metadata).toBeNull();
+  });
+
+  it("promotes an existing extra file when the primary path is missing", async () => {
+    setSetting(db as unknown as ReturnType<typeof getDb>, 'library_path', '/movies');
+    db.prepare(
+      "INSERT INTO movies (title, year, source, type, file_path, extra_files, video_metadata) VALUES (?, ?, ?, ?, ?, ?, ?)",
+    ).run(
+      "Matrix",
+      1999,
+      "tmdb",
+      "movie",
+      "/movies/Matrix.mkv",
+      JSON.stringify(["/movies/Matrix.alt.mkv"]),
+      '{"duration":8000}',
+    );
+
+    vi.mocked(scanDirectoryGenerator).mockImplementation(
+      () =>
+        (function* () {
+          yield {
+            filename: "Matrix.alt.mkv",
+            filePath: "/movies/Matrix.alt.mkv",
+            parsedTitle: "Matrix",
+            parsedYear: 1999,
+          };
+        })(),
+    );
+
+    const firstRes = await POST();
+    const firstEvents = await readNDJSON(firstRes);
+    const firstComplete = firstEvents.find((e) => e.type === "complete");
+    expect(firstComplete!.detached).toBe(0);
+
+    const promoted = db.prepare(
+      "SELECT file_path, extra_files, video_metadata FROM movies",
+    ).all() as Array<{
+      file_path: string | null;
+      extra_files: string | null;
+      video_metadata: string | null;
+    }>;
+    expect(promoted).toHaveLength(1);
+    expect(promoted[0]).toMatchObject({
+      file_path: "/movies/Matrix.alt.mkv",
+      extra_files: null,
+      video_metadata: null,
+    });
+
+    const secondRes = await POST();
+    const secondEvents = await readNDJSON(secondRes);
+    const secondComplete = secondEvents.find((e) => e.type === "complete");
+    expect(secondComplete!.detached).toBe(0);
+    expect(secondComplete!.added).toBe(0);
+    expect(searchTmdb).not.toHaveBeenCalled();
+
+    const movies = db.prepare("SELECT id FROM movies").all();
+    expect(movies).toHaveLength(1);
   });
 
   it("links to existing pathless row with year=NULL (year IS ? handles NULL)", async () => {
