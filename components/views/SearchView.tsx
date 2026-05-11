@@ -191,6 +191,7 @@ export default function SearchView({
                           <button
                             onClick={() => onAddToLibrary(r)}
                             className="bg-indigo-600/90 backdrop-blur-sm text-white rounded-lg w-7 h-7 text-sm flex items-center justify-center hover:bg-indigo-500 transition-colors"
+                            aria-label={`Add ${r.title} to library`}
                             title="Add to library"
                           >
                             +
@@ -198,6 +199,7 @@ export default function SearchView({
                           <button
                             onClick={() => onAddToWatchlist(r)}
                             className="bg-blue-600/90 backdrop-blur-sm text-white rounded-lg w-7 h-7 text-sm flex items-center justify-center hover:bg-blue-500 transition-colors"
+                            aria-label={`Add ${r.title} to watchlist`}
                             title="Add to watchlist"
                           >
                             🔖
