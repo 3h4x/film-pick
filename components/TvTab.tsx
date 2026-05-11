@@ -198,13 +198,19 @@ export default function TvTab() {
       ),
     ];
     if (titles.length === 0) return;
-    fetch("/api/tv/enrich", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ titles }),
-    })
-      .then((r) => r.json())
-      .then((d: Record<string, EnrichResult>) => setEnrich(d))
+    const BATCH = 500;
+    const chunks: string[][] = [];
+    for (let i = 0; i < titles.length; i += BATCH) chunks.push(titles.slice(i, i + BATCH));
+    Promise.all(
+      chunks.map((batch) =>
+        fetch("/api/tv/enrich", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ titles: batch }),
+        }).then((r) => r.json() as Promise<Record<string, EnrichResult>>),
+      ),
+    )
+      .then((results) => setEnrich(Object.assign({}, ...results)))
       .catch(() => {});
   }, [data]);
 
