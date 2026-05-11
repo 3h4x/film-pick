@@ -15,7 +15,12 @@ import { getDb } from "@/lib/db";
 const TEST_DB = path.join(__dirname, "test-tv-blacklist.db");
 
 describe("TV blacklist API", () => {
-  let db: Database.Database;
+  let db: Database.Database | undefined;
+
+  function currentDb(): Database.Database {
+    if (!db) throw new Error("test database was not initialized");
+    return db;
+  }
 
   beforeEach(() => {
     db = new Database(TEST_DB);
@@ -24,7 +29,8 @@ describe("TV blacklist API", () => {
   });
 
   afterEach(() => {
-    db.close();
+    db?.close();
+    db = undefined;
     if (fs.existsSync(TEST_DB)) fs.unlinkSync(TEST_DB);
     vi.clearAllMocks();
   });
@@ -37,14 +43,14 @@ describe("TV blacklist API", () => {
     });
 
     it("returns the stored blacklist", async () => {
-      setSetting(db, "tv_channel_blacklist", JSON.stringify(["ch1", "ch2", "ch3"]));
+      setSetting(currentDb(), "tv_channel_blacklist", JSON.stringify(["ch1", "ch2", "ch3"]));
       const res = await GET();
       const data = await res.json();
       expect(data).toEqual(["ch1", "ch2", "ch3"]);
     });
 
     it("returns array with single entry", async () => {
-      setSetting(db, "tv_channel_blacklist", JSON.stringify(["rtl2.de"]));
+      setSetting(currentDb(), "tv_channel_blacklist", JSON.stringify(["rtl2.de"]));
       const res = await GET();
       const data = await res.json();
       expect(data).toEqual(["rtl2.de"]);
@@ -68,21 +74,21 @@ describe("TV blacklist API", () => {
 
     it("saves a list of channel IDs to DB", async () => {
       await PUT(makeRequest(["tvn7", "polsat"]));
-      const stored = getSetting(db, "tv_channel_blacklist");
+      const stored = getSetting(currentDb(), "tv_channel_blacklist");
       expect(JSON.parse(stored!)).toEqual(["tvn7", "polsat"]);
     });
 
     it("saves an empty array (clear blacklist)", async () => {
-      setSetting(db, "tv_channel_blacklist", JSON.stringify(["tvn7"]));
+      setSetting(currentDb(), "tv_channel_blacklist", JSON.stringify(["tvn7"]));
       await PUT(makeRequest([]));
-      const stored = getSetting(db, "tv_channel_blacklist");
+      const stored = getSetting(currentDb(), "tv_channel_blacklist");
       expect(JSON.parse(stored!)).toEqual([]);
     });
 
     it("replaces existing blacklist entirely", async () => {
-      setSetting(db, "tv_channel_blacklist", JSON.stringify(["old1", "old2"]));
+      setSetting(currentDb(), "tv_channel_blacklist", JSON.stringify(["old1", "old2"]));
       await PUT(makeRequest(["new1"]));
-      const stored = getSetting(db, "tv_channel_blacklist");
+      const stored = getSetting(currentDb(), "tv_channel_blacklist");
       expect(JSON.parse(stored!)).toEqual(["new1"]);
     });
 

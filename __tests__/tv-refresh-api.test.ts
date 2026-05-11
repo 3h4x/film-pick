@@ -25,7 +25,12 @@ import { invalidateMemCache } from "@/lib/epg-fetch";
 const TEST_DB = path.join(__dirname, "test-tv-refresh-api.db");
 
 describe("POST /api/tv/refresh", () => {
-  let db: Database.Database;
+  let db: Database.Database | undefined;
+
+  function currentDb(): Database.Database {
+    if (!db) throw new Error("test database was not initialized");
+    return db;
+  }
 
   beforeEach(() => {
     db = new Database(TEST_DB);
@@ -34,7 +39,8 @@ describe("POST /api/tv/refresh", () => {
   });
 
   afterEach(() => {
-    db.close();
+    db?.close();
+    db = undefined;
     if (fs.existsSync(TEST_DB)) fs.unlinkSync(TEST_DB);
     vi.clearAllMocks();
   });
@@ -62,12 +68,13 @@ describe("POST /api/tv/refresh", () => {
   });
 
   it("passes the db instance to runEpgRefreshNow", async () => {
+    const testDb = currentDb();
     await POST();
-    expect(runEpgRefreshNow).toHaveBeenCalledWith(db);
+    expect(runEpgRefreshNow).toHaveBeenCalledWith(testDb);
   });
 
   it("returns 409 when epg_status is 'running'", async () => {
-    setSetting(db, "epg_status", "running");
+    setSetting(currentDb(), "epg_status", "running");
 
     const res = await POST();
     const data = await res.json();
@@ -77,7 +84,7 @@ describe("POST /api/tv/refresh", () => {
   });
 
   it("does not call runEpgRefreshNow when already running", async () => {
-    setSetting(db, "epg_status", "running");
+    setSetting(currentDb(), "epg_status", "running");
 
     await POST();
 
@@ -85,7 +92,7 @@ describe("POST /api/tv/refresh", () => {
   });
 
   it("does not call invalidateMemCache when already running", async () => {
-    setSetting(db, "epg_status", "running");
+    setSetting(currentDb(), "epg_status", "running");
 
     await POST();
 
@@ -93,7 +100,7 @@ describe("POST /api/tv/refresh", () => {
   });
 
   it("starts successfully when epg_status is 'idle'", async () => {
-    setSetting(db, "epg_status", "idle");
+    setSetting(currentDb(), "epg_status", "idle");
 
     const res = await POST();
     expect(res.status).toBe(200);
@@ -101,7 +108,7 @@ describe("POST /api/tv/refresh", () => {
   });
 
   it("starts successfully when epg_status is 'error'", async () => {
-    setSetting(db, "epg_status", "error");
+    setSetting(currentDb(), "epg_status", "error");
 
     const res = await POST();
     expect(res.status).toBe(200);

@@ -94,21 +94,25 @@ export default function AppNav({
         {/* Row 1: Logo + Actions */}
         <div className="mb-3 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <div className="flex items-center justify-between gap-3 sm:justify-start sm:gap-4">
-            <h1
-              className="text-lg font-bold text-white tracking-tight flex items-center gap-2 cursor-pointer hover:opacity-80 transition-opacity"
-              onClick={() => router.push("/")}
-            >
-              <img
-                src="/icon-192.png"
-                alt="FilmPick"
-                className="w-7 h-7 rounded-lg"
-              />
-              <span className="bg-gradient-to-r from-white to-gray-300 bg-clip-text text-transparent">
-                FilmPick
-              </span>
-              <span className="text-[10px] font-medium px-1.5 py-0.5 rounded-md bg-indigo-500/15 text-indigo-400/80 border border-indigo-500/20">
-                {process.env.NEXT_PUBLIC_APP_VERSION || "dev"}
-              </span>
+            <h1 className="text-lg font-bold tracking-tight">
+              <button
+                type="button"
+                onClick={() => router.push("/")}
+                className="flex items-center gap-2 text-white hover:opacity-80 transition-opacity focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-400/70 rounded-lg"
+                aria-label="Go to FilmPick home"
+              >
+                <img
+                  src="/icon-192.png"
+                  alt="FilmPick"
+                  className="w-7 h-7 rounded-lg"
+                />
+                <span className="bg-gradient-to-r from-white to-gray-300 bg-clip-text text-transparent">
+                  FilmPick
+                </span>
+                <span className="text-[10px] font-medium px-1.5 py-0.5 rounded-md bg-indigo-500/15 text-indigo-400/80 border border-indigo-500/20">
+                  {process.env.NEXT_PUBLIC_APP_VERSION || "dev"}
+                </span>
+              </button>
             </h1>
           </div>
           {!initialLoad && (
@@ -195,6 +199,7 @@ export default function AppNav({
                   }
                 }}
                 placeholder="Search library..."
+                aria-label="Search library"
                 className="w-full bg-gray-800/40 text-white text-xs pl-8 pr-8 py-2 rounded-lg border border-gray-700/50 focus:border-indigo-500/50 focus:ring-1 focus:ring-indigo-500/20 focus:outline-none placeholder-gray-600 transition-all"
               />
               {searchQuery && (

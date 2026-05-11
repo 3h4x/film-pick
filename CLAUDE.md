@@ -234,7 +234,7 @@ TMDB_API_KEY=<your_key> docker run -p 4000:4000 -v $(pwd)/data:/app/data -e TMDB
 - Use `pnpm` exclusively (not npm)
 - Conventional commits are enforced (see Scope & Safety Rules §1)
 - Type check with `pnpm type-check` before committing
-- Target the versions already in the repo: Next.js 16, React 19, TypeScript 6, Tailwind CSS 4, Node 22 (see Dockerfile). Follow current framework patterns instead of introducing legacy APIs.
+- Target the versions already in the repo: Next.js 16, React 19, TypeScript 6, Tailwind CSS 4, Node 24 (see Dockerfile). Follow current framework patterns instead of introducing legacy APIs.
 
 ## Coding Conventions
 

@@ -41,7 +41,12 @@ const MOCK_CACHE = {
 };
 
 describe("GET /api/tv", () => {
-  let db: Database.Database;
+  let db: Database.Database | undefined;
+
+  function currentDb(): Database.Database {
+    if (!db) throw new Error("test database was not initialized");
+    return db;
+  }
 
   beforeEach(() => {
     db = new Database(TEST_DB);
@@ -51,13 +56,14 @@ describe("GET /api/tv", () => {
   });
 
   afterEach(() => {
-    db.close();
+    db?.close();
+    db = undefined;
     if (fs.existsSync(TEST_DB)) fs.unlinkSync(TEST_DB);
     vi.clearAllMocks();
   });
 
   it("returns 403 when EPG is disabled", async () => {
-    setSetting(db, "epg_enabled", "false");
+    setSetting(currentDb(), "epg_enabled", "false");
     const req = new Request("http://localhost/api/tv");
     const res = await GET(req);
     expect(res.status).toBe(403);
@@ -207,7 +213,12 @@ describe("GET /api/tv", () => {
 });
 
 describe("POST /api/tv/refresh", () => {
-  let db: Database.Database;
+  let db: Database.Database | undefined;
+
+  function currentDb(): Database.Database {
+    if (!db) throw new Error("test database was not initialized");
+    return db;
+  }
 
   beforeEach(() => {
     db = new Database(TEST_DB);
@@ -216,7 +227,8 @@ describe("POST /api/tv/refresh", () => {
   });
 
   afterEach(() => {
-    db.close();
+    db?.close();
+    db = undefined;
     if (fs.existsSync(TEST_DB)) fs.unlinkSync(TEST_DB);
     vi.clearAllMocks();
   });
@@ -230,7 +242,7 @@ describe("POST /api/tv/refresh", () => {
   });
 
   it("returns 409 when refresh is already running", async () => {
-    setSetting(db, "epg_status", "running");
+    setSetting(currentDb(), "epg_status", "running");
     const res = await REFRESH();
     expect(res.status).toBe(409);
     expect(runEpgRefreshNow).not.toHaveBeenCalled();
