@@ -58,7 +58,7 @@ export default function MovieCard({
     onDelete
       ? {
           key: "delete",
-          label: "Remove",
+          label: `Remove ${title}`,
           className:
             `bg-red-500/80 backdrop-blur-sm text-white rounded-lg ${CARD_ACTION_TOUCH_TARGET_CLASS} text-sm font-bold hover:bg-red-400 flex items-center justify-center shadow-lg sm:text-xs`,
           icon: "✕",

@@ -41,6 +41,12 @@ const SORT_LABELS: Record<SortOption, string> = {
   rated_at: "Date Rated",
 };
 
+function getSortDirToggleLabel(sortDir: "asc" | "desc") {
+  return sortDir === "desc"
+    ? "Switch to ascending sort"
+    : "Switch to descending sort";
+}
+
 export function scrollActiveSortChipIntoView(
   container: HTMLDivElement,
   viewportWidth: number,
@@ -174,6 +180,7 @@ export default function SortFilterBar({
               onClick={onSortDirChange}
               className="px-2 py-1.5 text-xs text-gray-400 hover:text-white rounded-lg hover:bg-gray-700/30 transition-all flex-shrink-0"
               title={sortDir === "desc" ? "Descending" : "Ascending"}
+              aria-label={getSortDirToggleLabel(sortDir)}
             >
               {sortDir === "desc" ? "↓" : "↑"}
             </button>
