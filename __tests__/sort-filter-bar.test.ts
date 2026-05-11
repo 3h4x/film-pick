@@ -1,5 +1,9 @@
+import { createElement } from "react";
+import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it, vi } from "vitest";
-import { scrollActiveSortChipIntoView } from "@/components/SortFilterBar";
+import SortFilterBar, {
+  scrollActiveSortChipIntoView,
+} from "@/components/SortFilterBar";
 
 type FakeButton = Pick<HTMLButtonElement, "offsetLeft" | "offsetWidth">;
 
@@ -51,6 +55,48 @@ function createContainer({
     scrollTo,
   };
 }
+
+function renderSortFilterBar(sortDir: "asc" | "desc") {
+  return renderToStaticMarkup(
+    createElement(SortFilterBar, {
+      sort: "created_at",
+      sortDir,
+      genre: "",
+      genres: [],
+      source: "",
+      sources: [],
+      year: "",
+      years: [],
+      unratedOnly: false,
+      hasFileOnly: false,
+      searchQuery: "",
+      onSortChange: vi.fn(),
+      onSortDirChange: vi.fn(),
+      onGenreChange: vi.fn(),
+      onSourceChange: vi.fn(),
+      onYearChange: vi.fn(),
+      onUnratedChange: vi.fn(),
+      onHasFileChange: vi.fn(),
+      onSearchChange: vi.fn(),
+    }),
+  );
+}
+
+describe("SortFilterBar accessibility", () => {
+  it("labels the descending state toggle with the ascending action", () => {
+    const html = renderSortFilterBar("desc");
+
+    expect(html).toContain('aria-label="Switch to ascending sort"');
+    expect(html).not.toContain('aria-label="Sort in descending order"');
+  });
+
+  it("labels the ascending state toggle with the descending action", () => {
+    const html = renderSortFilterBar("asc");
+
+    expect(html).toContain('aria-label="Switch to descending sort"');
+    expect(html).not.toContain('aria-label="Sort in ascending order"');
+  });
+});
 
 describe("scrollActiveSortChipIntoView", () => {
   it("snaps rightward far enough to clear the trailing mobile controls", () => {
