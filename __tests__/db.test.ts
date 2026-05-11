@@ -292,19 +292,24 @@ describe("insertMovie deduplication", () => {
   };
 
   it("returns existing id without overwriting file_path when tmdb_id matches and entry already has a file", () => {
-    const id1 = insertMovie(db, { ...base, file_path: "/movies/gits-original.mkv" });
+    const id1 = insertMovie(db, {
+      ...base,
+      file_path: "/movies/gits-original.mkv",
+      video_metadata: '{"duration":8000}',
+    });
     const id2 = insertMovie(db, { ...base, file_path: "/movies/gits-remaster.mkv" });
 
     // Should point to the same DB entry
     expect(id2).toBe(id1);
 
     // Primary file_path must NOT have been overwritten
-    const row = db.prepare("SELECT file_path, extra_files FROM movies WHERE id = ?").get(id1) as { file_path: string; extra_files: string };
+    const row = db.prepare("SELECT file_path, extra_files, video_metadata FROM movies WHERE id = ?").get(id1) as { file_path: string; extra_files: string; video_metadata: string | null };
     expect(row.file_path).toBe("/movies/gits-original.mkv");
 
     // Second path goes to extra_files
     const extras = JSON.parse(row.extra_files);
     expect(extras).toContain("/movies/gits-remaster.mkv");
+    expect(row.video_metadata).toBeNull();
   });
 
   it("does not create duplicate entries — same tmdb_id returns single row", () => {
@@ -335,15 +340,20 @@ describe("insertMovie deduplication", () => {
 
   it("deduplicates by title+year when no tmdb_id, adds extra_files instead of overwriting", () => {
     const noTmdb = { ...base, tmdb_id: null };
-    const id1 = insertMovie(db, { ...noTmdb, file_path: "/movies/gits-a.mkv" });
+    const id1 = insertMovie(db, {
+      ...noTmdb,
+      file_path: "/movies/gits-a.mkv",
+      video_metadata: '{"duration":8000}',
+    });
     const id2 = insertMovie(db, { ...noTmdb, file_path: "/movies/gits-b.mkv" });
 
     expect(id2).toBe(id1);
 
-    const row = db.prepare("SELECT file_path, extra_files FROM movies WHERE id = ?").get(id1) as { file_path: string; extra_files: string };
+    const row = db.prepare("SELECT file_path, extra_files, video_metadata FROM movies WHERE id = ?").get(id1) as { file_path: string; extra_files: string; video_metadata: string | null };
     expect(row.file_path).toBe("/movies/gits-a.mkv");
     const extras = JSON.parse(row.extra_files);
     expect(extras).toContain("/movies/gits-b.mkv");
+    expect(row.video_metadata).toBeNull();
   });
 
   it("enriches missing genre when tmdb_id match finds entry without genre", () => {
