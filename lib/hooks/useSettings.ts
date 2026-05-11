@@ -26,7 +26,7 @@ export function useSettings({
     setEpgEnabled(data.epg_enabled ?? true);
     if (data.rec_group_order?.length) onGroupOrderLoaded(data.rec_group_order);
     if (data.rec_config) onConfigLoaded(data.rec_config);
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  }, []);
 
   return { libraryPath, setLibraryPath, tmdbKeySource, epgEnabled, fetchSettings };
 }

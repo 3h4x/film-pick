@@ -346,7 +346,6 @@ describe("POST /api/movies/merge", () => {
         return () => {
           throw new Error("SQLITE_READONLY: attempt to write a readonly database");
         };
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
       }) as any,
     );
 
