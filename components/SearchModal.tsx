@@ -92,14 +92,20 @@ export default function SearchModal({
     <div className="fixed inset-0 z-[90]">
       <div className="absolute inset-0 bg-black/70 backdrop-blur-sm" onClick={onClose} />
       <div className="relative flex items-start justify-center pt-[10vh] h-full pointer-events-none">
-        <div className="bg-gray-900 border border-gray-700/50 rounded-2xl p-6 w-full max-w-2xl max-h-[75vh] overflow-y-auto shadow-2xl shadow-black/50 pointer-events-auto mx-4">
+        <div
+          className="bg-gray-900 border border-gray-700/50 rounded-2xl p-6 w-full max-w-2xl max-h-[75vh] overflow-y-auto shadow-2xl shadow-black/50 pointer-events-auto mx-4"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="search-modal-title"
+        >
         <div className="flex justify-between items-center mb-5">
-          <h2 className="text-white text-lg font-semibold">
+          <h2 id="search-modal-title" className="text-white text-lg font-semibold">
             {targetMovieId ? "Relink Metadata" : "Add to Library"}
           </h2>
           <button
             onClick={onClose}
             className="text-gray-500 hover:text-white transition-colors w-10 h-10 rounded-lg hover:bg-gray-800 flex items-center justify-center"
+            aria-label="Close search modal"
           >
             ✕
           </button>
