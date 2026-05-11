@@ -643,6 +643,14 @@ export default function MovieDetail({
         .catch(() => {});
     }
   }, [movie.tmdb_id, plTitle, description]);
+
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") onClose();
+    };
+    document.addEventListener("keydown", handleKeyDown);
+    return () => document.removeEventListener("keydown", handleKeyDown);
+  }, [onClose]);
   const safeTitle = movieTitle.replace(/[\\/:*?"<>|]/g, " ");
 
   // Standard format: Title [Year]/Title.ext
@@ -723,6 +731,7 @@ export default function MovieDetail({
             onClick={onClose}
             className="w-11 h-11 bg-gray-800/80 hover:bg-gray-800 text-gray-500 hover:text-white rounded-xl flex items-center justify-center transition-all text-xl"
             title="Close"
+            aria-label="Close"
           >
             ✕
           </button>
