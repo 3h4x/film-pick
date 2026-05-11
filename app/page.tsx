@@ -119,7 +119,7 @@ export default function Home() {
         recs.setTotalRecsCount(d.total);
       } catch {}
     })();
-  }, [fetchMovies, settings.fetchSettings]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [fetchMovies, settings.fetchSettings]);
 
   // Restore tab from URL hash on mount (or queue a movie to open once library loads)
   useEffect(() => {
@@ -143,7 +143,7 @@ export default function Home() {
         recs.setRecCategory(category);
       }
     }
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  }, []);
 
   // After movies load, open movie referenced in URL (e.g. shared link)
   useEffect(() => {
@@ -159,7 +159,7 @@ export default function Home() {
 
     // Keep the pending hash until the library actually has rows to search.
     if (movies.length > 0) pendingMovieRef.current = null;
-  }, [movies, initialLoad]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [movies, initialLoad]);
 
   // Sync URL hash with state (movie modal takes precedence over tab hash)
   useEffect(() => {
@@ -215,7 +215,7 @@ export default function Home() {
     }
     window.addEventListener("hashchange", onHashChange);
     return () => window.removeEventListener("hashchange", onHashChange);
-  }, [movies]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [movies]);
 
   useEffect(() => {
     if (activeTab === "search" && !searchQuery.trim()) setActiveTab("library");
