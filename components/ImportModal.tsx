@@ -41,6 +41,7 @@ export default function ImportModal({
   onComplete,
   currentPath,
 }: ImportModalProps) {
+  const pathInputId = "import-folder-path";
   const [path, setPath] = useState(currentPath || "");
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState<ImportResult | null>(null);
@@ -134,6 +135,7 @@ export default function ImportModal({
           </h2>
           <button
             onClick={onClose}
+            aria-label="Close import modal"
             className="text-gray-500 hover:text-white transition-colors w-10 h-10 rounded-lg hover:bg-gray-800 flex items-center justify-center"
           >
             ✕
@@ -153,27 +155,36 @@ export default function ImportModal({
           </span>
         </p>
 
-        <div className="flex gap-2 mb-4">
-          <input
-            type="text"
-            value={path}
-            onChange={(e) => setPath(e.target.value)}
-            onKeyDown={handleKeyDown}
-            placeholder="/Volumes/video/Movies"
-            className="flex-1 bg-gray-800/80 text-white px-4 py-2.5 rounded-xl border border-gray-700/50 focus:border-indigo-500/50 focus:ring-1 focus:ring-indigo-500/20 focus:outline-none placeholder-gray-600 text-sm font-mono"
-            autoFocus
-          />
-          <button
-            onClick={handleImport}
-            disabled={loading || !path.trim()}
-            className="bg-indigo-500 text-white px-5 py-2.5 rounded-xl hover:bg-indigo-400 disabled:opacity-50 transition-all font-medium text-sm min-w-[80px]"
+        <div className="mb-4">
+          <label
+            htmlFor={pathInputId}
+            className="mb-2 block text-xs font-medium uppercase tracking-[0.2em] text-gray-400"
           >
-            {loading ? (
-              <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin mx-auto" />
-            ) : (
-              "Import"
-            )}
-          </button>
+            Folder path
+          </label>
+          <div className="flex gap-2">
+            <input
+              id={pathInputId}
+              type="text"
+              value={path}
+              onChange={(e) => setPath(e.target.value)}
+              onKeyDown={handleKeyDown}
+              placeholder="/Volumes/video/Movies"
+              className="flex-1 bg-gray-800/80 text-white px-4 py-2.5 rounded-xl border border-gray-700/50 focus:border-indigo-500/50 focus:ring-1 focus:ring-indigo-500/20 focus:outline-none placeholder-gray-600 text-sm font-mono"
+              autoFocus
+            />
+            <button
+              onClick={handleImport}
+              disabled={loading || !path.trim()}
+              className="bg-indigo-500 text-white px-5 py-2.5 rounded-xl hover:bg-indigo-400 disabled:opacity-50 transition-all font-medium text-sm min-w-[80px]"
+            >
+              {loading ? (
+                <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin mx-auto" />
+              ) : (
+                "Import"
+              )}
+            </button>
+          </div>
         </div>
 
         {loading && (

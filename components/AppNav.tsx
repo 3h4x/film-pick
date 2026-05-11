@@ -116,6 +116,7 @@ export default function AppNav({
               {activeTab === "library" && libraryPath && (
                 <button
                   onClick={onSync}
+                  aria-label="Sync library"
                   className="text-gray-500 hover:text-white p-2 rounded-lg hover:bg-gray-800/60 transition-all"
                   title="Sync library"
                 >
@@ -137,6 +138,7 @@ export default function AppNav({
               {activeTab === "library" && (
                 <button
                   onClick={onImport}
+                  aria-label="Import folder"
                   className="text-gray-500 hover:text-white p-2 rounded-lg hover:bg-gray-800/60 transition-all"
                   title="Import folder"
                 >
@@ -200,6 +202,7 @@ export default function AppNav({
                     setSearchQuery("");
                     if (activeTab === "search") setActiveTab("library");
                   }}
+                  aria-label="Clear search"
                   className="absolute inset-y-0 right-2 flex items-center px-1 text-gray-500 hover:text-white"
                 >
                   <svg
