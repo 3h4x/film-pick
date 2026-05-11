@@ -157,6 +157,30 @@ describe("responsive action visibility", () => {
     expect(html).not.toContain("md:[@media(hover:hover)]");
   });
 
+  it("keeps the movie opener separate from card action buttons", () => {
+    const html = renderToStaticMarkup(
+      <MovieCard
+        title="Heat"
+        year={1995}
+        genre="Crime"
+        rating={8.3}
+        userRating={null}
+        posterUrl={null}
+        source="tmdb"
+        onClick={vi.fn()}
+        onAddToWatchlist={vi.fn()}
+        onDelete={vi.fn()}
+      />,
+    );
+
+    expect(html).toContain('type="button"');
+    expect(html).toContain('aria-label="Open Heat"');
+    expect(html).toContain('aria-label="Add to Watchlist"');
+    expect(html).toContain('aria-label="Remove Heat"');
+    expect(html).not.toContain('role="button"');
+    expect(html).not.toContain("tabindex=");
+  });
+
   it("shares the mobile touch-target classes across card action entrypoints", () => {
     expect(CARD_ACTION_TOUCH_TARGET_CLASS).toBe("h-11 w-11 sm:h-9 sm:w-9");
     expect(CARD_ACTION_ICON_SIZE_CLASS).toBe("text-base sm:text-sm");

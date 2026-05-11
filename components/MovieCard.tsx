@@ -43,6 +43,7 @@ export default function MovieCard({
   onClick,
 }: MovieCardProps) {
   const [mobileActionsOpen, setMobileActionsOpen] = useState(false);
+  const isInteractive = Boolean(onClick);
 
   const actionButtons = [
     onAddToWatchlist
@@ -75,8 +76,15 @@ export default function MovieCard({
   return (
     <div
       className={`group relative rounded-xl overflow-hidden bg-gray-800/60 backdrop-blur-sm border border-gray-700/30 hover:border-indigo-500/40 transition-all duration-300 hover:shadow-xl hover:shadow-indigo-500/5 hover:-translate-y-1 ${onClick ? "cursor-pointer" : ""}`}
-      onClick={onClick}
     >
+      {isInteractive && (
+        <button
+          type="button"
+          className="absolute inset-0 z-[1] rounded-xl focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-400 focus-visible:ring-offset-2 focus-visible:ring-offset-gray-950"
+          aria-label={`Open ${title}`}
+          onClick={onClick}
+        />
+      )}
       <div className="aspect-[2/3] bg-gray-800 relative overflow-hidden">
         {posterUrl ? (
           <img

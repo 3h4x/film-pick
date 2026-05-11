@@ -193,6 +193,7 @@ export default function SortFilterBar({
           {/* Genre filter */}
           {genres.length > 0 && (
             <select
+              aria-label="Filter by genre"
               value={genre}
               onChange={(e) => onGenreChange(e.target.value)}
               className="bg-gray-800/60 text-gray-300 text-xs px-3 py-2 rounded-xl border border-gray-700/50 focus:border-indigo-500/50 focus:outline-none appearance-none cursor-pointer"
@@ -209,6 +210,7 @@ export default function SortFilterBar({
           {/* Source filter */}
           {sources.length > 0 && (
             <select
+              aria-label="Filter by source"
               value={source}
               onChange={(e) => onSourceChange(e.target.value)}
               className="bg-gray-800/60 text-gray-300 text-xs px-3 py-2 rounded-xl border border-gray-700/50 focus:border-indigo-500/50 focus:outline-none appearance-none cursor-pointer"
@@ -225,6 +227,7 @@ export default function SortFilterBar({
           {/* Year filter */}
           {years.length > 0 && (
             <select
+              aria-label="Filter by year"
               value={year}
               onChange={(e) => onYearChange(e.target.value)}
               className="bg-gray-800/60 text-gray-300 text-xs px-3 py-2 rounded-xl border border-gray-700/50 focus:border-indigo-500/50 focus:outline-none appearance-none cursor-pointer"
