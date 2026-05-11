@@ -245,7 +245,7 @@ TMDB_API_KEY=<your_key> docker run -p 4000:4000 -v $(pwd)/data:/app/data -e TMDB
 5. **All TMDb API calls go through `lib/tmdb.ts`.** Never call `fetch("https://api.themoviedb.org/...")` directly outside that module.
 6. **Async/await only.** No raw `.then()` chains.
 7. **ESLint + lint-staged run automatically** on `git commit` (ESLint `--fix` + type-check + full test suite). Do not skip hooks with `--no-verify`.
-8. **Pre-push hook runs `pnpm lint && pnpm test`.** Ensure both pass before pushing.
+8. **Pre-push hook runs `pnpm type-check && pnpm lint && pnpm test`.** Ensure all pass before pushing.
 9. **File naming:** React components and view files use PascalCase (`MovieCard.tsx`). Library modules and hooks use kebab-case (`cda-fetch.ts`, `useLibrary.ts`).
 10. **Keep TypeScript identifiers camelCase unless mirroring persisted schema fields.** SQLite column names and raw row fields stay snake_case (`user_rating`, `file_path`, `created_at`), but local variables, helper return shapes, and component props should be camelCase unless they intentionally match the database/API contract.
 11. **API error responses** always use `Response.json({ error: "..." }, { status: N })`. Use 400 for bad input, 404 for missing resources, 500 for unexpected failures. Never throw unhandled errors from route handlers — catch and return a 500.
