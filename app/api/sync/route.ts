@@ -17,6 +17,17 @@ interface PathlessRow {
   tmdb_id: number | null;
 }
 
+function parseExtraFiles(extraFiles: string | null): string[] {
+  if (!extraFiles) return [];
+  try {
+    const parsed = JSON.parse(extraFiles) as unknown;
+    if (!Array.isArray(parsed)) return [];
+    return parsed.filter((path): path is string => typeof path === "string");
+  } catch {
+    return [];
+  }
+}
+
 // Try to attach a scanned file to an existing pathless DB row before
 // inserting a new one. Returns true if a row was linked.
 //
@@ -34,7 +45,7 @@ function linkToExistingPathlessRow(
 ): boolean {
   const link = (id: number) => {
     db.prepare(
-      "UPDATE movies SET file_path = ?, created_at = CURRENT_TIMESTAMP WHERE id = ?",
+      "UPDATE movies SET file_path = ?, video_metadata = NULL, created_at = CURRENT_TIMESTAMP WHERE id = ?",
     ).run(file.filePath, id);
   };
 
@@ -128,12 +139,7 @@ export async function POST() {
         .all() as { file_path: string; extra_files: string | null }[];
       for (const m of moviesWithPaths) {
         knownPaths.add(m.file_path);
-        if (m.extra_files) {
-          try {
-            const extras = JSON.parse(m.extra_files) as string[];
-            for (const e of extras) knownPaths.add(e);
-          } catch {}
-        }
+        for (const e of parseExtraFiles(m.extra_files)) knownPaths.add(e);
       }
 
       // Separate new files from existing
@@ -240,27 +246,54 @@ export async function POST() {
         }
       }
 
-      // Phase 3: Cleanup — remove movies whose files no longer exist.
-      // Query DB fresh (after Phase 2 updates) so we don't delete movies whose
+      // Phase 3: Cleanup — detach files that no longer exist from their movie rows.
+      // Query DB fresh (after Phase 2 updates) so we don't detach movies whose
       // file_path was just updated in Phase 2 from an old/wrong path.
-      let removed = 0;
+      let detached = 0;
       const currentMovies = db
         .prepare(
-          "SELECT id, file_path FROM movies WHERE file_path IS NOT NULL AND file_path != ''",
+          "SELECT id, file_path, extra_files FROM movies WHERE file_path IS NOT NULL AND file_path != ''",
         )
-        .all() as { id: number; file_path: string }[];
+        .all() as { id: number; file_path: string; extra_files: string | null }[];
       for (const movie of currentMovies) {
-        if (!filePathSet.has(movie.file_path)) {
-          db.prepare("DELETE FROM movies WHERE id = ?").run(movie.id);
-          removed++;
+        const existingExtras = parseExtraFiles(movie.extra_files).filter(
+          (extraPath) => filePathSet.has(extraPath),
+        );
+
+        if (filePathSet.has(movie.file_path)) {
+          const nextExtraFiles =
+            existingExtras.length > 0 ? JSON.stringify(existingExtras) : null;
+          if (nextExtraFiles !== movie.extra_files) {
+            db.prepare(
+              "UPDATE movies SET extra_files = ?, video_metadata = NULL WHERE id = ?",
+            ).run(nextExtraFiles, movie.id);
+          }
+          continue;
         }
+
+        if (existingExtras.length > 0) {
+          const [promotedPath, ...remainingExtras] = existingExtras;
+          db.prepare(
+            "UPDATE movies SET file_path = ?, extra_files = ?, video_metadata = NULL WHERE id = ?",
+          ).run(
+            promotedPath,
+            remainingExtras.length > 0 ? JSON.stringify(remainingExtras) : null,
+            movie.id,
+          );
+          continue;
+        }
+
+        db.prepare(
+          "UPDATE movies SET file_path = NULL, extra_files = NULL, video_metadata = NULL WHERE id = ?",
+        ).run(movie.id);
+        detached++;
       }
 
       sendUpdate({
         type: "complete",
         added,
         linked,
-        removed,
+        detached,
         unchanged,
         failed,
         total: allFiles.length,

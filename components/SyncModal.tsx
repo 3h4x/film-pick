@@ -5,7 +5,7 @@ import { useState } from "react";
 interface SyncResult {
   added: number;
   linked: number;
-  removed: number;
+  detached: number;
   unchanged: number;
   failed: number;
   total: number;
@@ -147,7 +147,8 @@ export default function SyncModal({
         </div>
 
         <p className="text-gray-400 text-sm mb-6">
-          Re-scan your library folder to add new files and remove deleted ones.
+          Re-scan your library folder to add new files and detach entries whose
+          files are missing.
         </p>
 
         {!loading && !result && (
@@ -243,9 +244,9 @@ export default function SyncModal({
                 </span>
               </div>
               <div className="flex flex-col">
-                <span className="text-gray-500 text-xs">Removed</span>
+                <span className="text-gray-500 text-xs">Detached</span>
                 <span className="text-red-400 font-mono text-lg">
-                  {result.removed}
+                  {result.detached}
                 </span>
               </div>
               <div className="flex flex-col">

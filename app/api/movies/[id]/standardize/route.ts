@@ -201,7 +201,7 @@ export async function POST(
           // Otherwise, we merge the conflict into the current one and update the current one's path
           mergeMovies(conflict.id, movieId);
           db.prepare(
-            "UPDATE movies SET file_path = ?, title = ?, year = ? WHERE id = ?",
+            "UPDATE movies SET file_path = ?, title = ?, year = ?, video_metadata = NULL WHERE id = ?",
           ).run(newPath, finalTitle, finalYear, movieId);
           return Response.json({
             ok: true,
@@ -214,7 +214,7 @@ export async function POST(
       }
 
       db.prepare(
-        "UPDATE movies SET file_path = ?, title = ?, year = ? WHERE id = ?",
+        "UPDATE movies SET file_path = ?, title = ?, year = ?, video_metadata = NULL WHERE id = ?",
       ).run(newPath, finalTitle, finalYear, movieId);
       return Response.json({
         ok: true,
@@ -383,7 +383,7 @@ export async function POST(
     // 6. Update DB
     console.log(`- Updating DB record: id=${movieId}`);
     db.prepare(
-      "UPDATE movies SET file_path = ?, title = ?, year = ?, extra_files = ? WHERE id = ?",
+      "UPDATE movies SET file_path = ?, title = ?, year = ?, extra_files = ?, video_metadata = NULL WHERE id = ?",
     ).run(newPath, finalTitle, finalYear, updatedExtraFiles, movieId);
 
     // 6. Delete old directory — movie and subtitles have been moved, remaining contents are trash

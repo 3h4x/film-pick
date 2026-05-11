@@ -21,7 +21,7 @@ export interface Movie {
   // Columns added by filmweb import and other optional migrations
   user_rating?: number | null;
   pl_title?: string | null;
-  filmweb_id?: string | null;
+  filmweb_id?: number | null;
   filmweb_url?: string | null;
   rated_at?: string | null;
   wishlist?: number | null;
@@ -45,6 +45,15 @@ export interface MovieInput {
   type: string;
   file_path?: string | null;
   extra_files?: string | null;
+  user_rating?: number | null;
+  pl_title?: string | null;
+  filmweb_id?: number | null;
+  filmweb_url?: string | null;
+  rated_at?: string | null;
+  wishlist?: number | null;
+  description?: string | null;
+  cda_url?: string | null;
+  video_metadata?: string | null;
 }
 
 const DB_PATH = path.join(process.cwd(), "data", "movies.db");
@@ -247,7 +256,22 @@ export function getDb(): Database.Database {
 function enrichMissingMetadata(
   db: Database.Database,
   id: number,
-  existing: { genre: string | null; rating: number | null; poster_url: string | null; imdb_id: string | null; tmdb_id?: number | null },
+  existing: {
+    genre: string | null;
+    rating: number | null;
+    poster_url: string | null;
+    imdb_id: string | null;
+    tmdb_id?: number | null;
+    user_rating?: number | null;
+    pl_title?: string | null;
+    filmweb_id?: number | null;
+    filmweb_url?: string | null;
+    rated_at?: string | null;
+    wishlist?: number | null;
+    description?: string | null;
+    cda_url?: string | null;
+    video_metadata?: string | null;
+  },
   incoming: MovieInput,
 ): void {
   const sets: string[] = [];
@@ -257,6 +281,15 @@ function enrichMissingMetadata(
   if (!existing.poster_url && incoming.poster_url) { sets.push("poster_url = ?"); values.push(incoming.poster_url); }
   if (!existing.imdb_id && incoming.imdb_id) { sets.push("imdb_id = ?"); values.push(incoming.imdb_id); }
   if ("tmdb_id" in existing && !existing.tmdb_id && incoming.tmdb_id) { sets.push("tmdb_id = ?"); values.push(incoming.tmdb_id); }
+  if ("user_rating" in existing && existing.user_rating == null && incoming.user_rating != null) { sets.push("user_rating = ?"); values.push(incoming.user_rating); }
+  if ("pl_title" in existing && !existing.pl_title && incoming.pl_title) { sets.push("pl_title = ?"); values.push(incoming.pl_title); }
+  if ("filmweb_id" in existing && existing.filmweb_id == null && incoming.filmweb_id != null) { sets.push("filmweb_id = ?"); values.push(incoming.filmweb_id); }
+  if ("filmweb_url" in existing && !existing.filmweb_url && incoming.filmweb_url) { sets.push("filmweb_url = ?"); values.push(incoming.filmweb_url); }
+  if ("rated_at" in existing && !existing.rated_at && incoming.rated_at) { sets.push("rated_at = ?"); values.push(incoming.rated_at); }
+  if ("description" in existing && !existing.description && incoming.description) { sets.push("description = ?"); values.push(incoming.description); }
+  if ("cda_url" in existing && !existing.cda_url && incoming.cda_url) { sets.push("cda_url = ?"); values.push(incoming.cda_url); }
+  if ("video_metadata" in existing && !existing.video_metadata && incoming.video_metadata) { sets.push("video_metadata = ?"); values.push(incoming.video_metadata); }
+  if ("wishlist" in existing && (existing.wishlist == null || existing.wishlist === 0) && incoming.wishlist === 1) { sets.push("wishlist = ?"); values.push(incoming.wishlist); }
   if (sets.length === 0) return;
   values.push(id);
   db.prepare(`UPDATE movies SET ${sets.join(", ")} WHERE id = ?`).run(...values);
@@ -273,19 +306,19 @@ export function insertMovie(db: Database.Database, movie: MovieInput): number {
   // If a movie with the same tmdb_id already exists, link the file to it
   if (movie.tmdb_id) {
     const byTmdbId = db
-      .prepare("SELECT id, file_path, extra_files, genre, rating, poster_url, imdb_id FROM movies WHERE tmdb_id = ?")
-      .get(movie.tmdb_id) as { id: number; file_path: string | null; extra_files: string | null; genre: string | null; rating: number | null; poster_url: string | null; imdb_id: string | null } | undefined;
+      .prepare("SELECT id, file_path, extra_files, genre, rating, poster_url, imdb_id, user_rating, pl_title, filmweb_id, filmweb_url, rated_at, wishlist, description, cda_url, video_metadata FROM movies WHERE tmdb_id = ?")
+      .get(movie.tmdb_id) as { id: number; file_path: string | null; extra_files: string | null; genre: string | null; rating: number | null; poster_url: string | null; imdb_id: string | null; user_rating: number | null; pl_title: string | null; filmweb_id: number | null; filmweb_url: string | null; rated_at: string | null; wishlist: number | null; description: string | null; cda_url: string | null; video_metadata: string | null } | undefined;
     if (byTmdbId) {
       if (movie.file_path) {
         if (!byTmdbId.file_path) {
           // No primary file yet — set it and bump created_at so it sorts to top of "Date Added"
-          db.prepare("UPDATE movies SET file_path = ?, created_at = CURRENT_TIMESTAMP WHERE id = ?").run(movie.file_path, byTmdbId.id);
+          db.prepare("UPDATE movies SET file_path = ?, video_metadata = NULL, created_at = CURRENT_TIMESTAMP WHERE id = ?").run(movie.file_path, byTmdbId.id);
         } else if (byTmdbId.file_path !== movie.file_path) {
           // Already has a different primary file — add to extra_files to avoid overwrite loop
           const extras: string[] = byTmdbId.extra_files ? JSON.parse(byTmdbId.extra_files) : [];
           if (!extras.includes(movie.file_path)) {
             extras.push(movie.file_path);
-            db.prepare("UPDATE movies SET extra_files = ? WHERE id = ?").run(JSON.stringify(extras), byTmdbId.id);
+            db.prepare("UPDATE movies SET extra_files = ?, video_metadata = NULL WHERE id = ?").run(JSON.stringify(extras), byTmdbId.id);
           }
         }
       }
@@ -300,18 +333,18 @@ export function insertMovie(db: Database.Database, movie: MovieInput): number {
   if (movie.title) {
     const byTitleYear = db
       .prepare(
-        "SELECT id, file_path, extra_files, genre, rating, poster_url, imdb_id, tmdb_id FROM movies WHERE LOWER(title) = LOWER(?) AND year IS ?",
+        "SELECT id, file_path, extra_files, genre, rating, poster_url, imdb_id, tmdb_id, user_rating, pl_title, filmweb_id, filmweb_url, rated_at, wishlist, description, cda_url, video_metadata FROM movies WHERE LOWER(title) = LOWER(?) AND year IS ?",
       )
-      .get(movie.title, movie.year ?? null) as { id: number; file_path: string | null; extra_files: string | null; genre: string | null; rating: number | null; poster_url: string | null; imdb_id: string | null; tmdb_id: number | null } | undefined;
+      .get(movie.title, movie.year ?? null) as { id: number; file_path: string | null; extra_files: string | null; genre: string | null; rating: number | null; poster_url: string | null; imdb_id: string | null; tmdb_id: number | null; user_rating: number | null; pl_title: string | null; filmweb_id: number | null; filmweb_url: string | null; rated_at: string | null; wishlist: number | null; description: string | null; cda_url: string | null; video_metadata: string | null } | undefined;
     if (byTitleYear) {
       if (movie.file_path) {
         if (!byTitleYear.file_path) {
-          db.prepare("UPDATE movies SET file_path = ?, created_at = CURRENT_TIMESTAMP WHERE id = ?").run(movie.file_path, byTitleYear.id);
+          db.prepare("UPDATE movies SET file_path = ?, video_metadata = NULL, created_at = CURRENT_TIMESTAMP WHERE id = ?").run(movie.file_path, byTitleYear.id);
         } else if (byTitleYear.file_path !== movie.file_path) {
           const extras: string[] = byTitleYear.extra_files ? JSON.parse(byTitleYear.extra_files) : [];
           if (!extras.includes(movie.file_path)) {
             extras.push(movie.file_path);
-            db.prepare("UPDATE movies SET extra_files = ? WHERE id = ?").run(JSON.stringify(extras), byTitleYear.id);
+            db.prepare("UPDATE movies SET extra_files = ?, video_metadata = NULL WHERE id = ?").run(JSON.stringify(extras), byTitleYear.id);
           }
         }
       }
@@ -322,8 +355,8 @@ export function insertMovie(db: Database.Database, movie: MovieInput): number {
   }
 
   const stmt = db.prepare(`
-    INSERT INTO movies (title, year, genre, director, writer, actors, rating, poster_url, source, imdb_id, tmdb_id, type, file_path, extra_files)
-    VALUES (@title, @year, @genre, @director, @writer, @actors, @rating, @poster_url, @source, @imdb_id, @tmdb_id, @type, @file_path, @extra_files)
+    INSERT INTO movies (title, year, genre, director, writer, actors, rating, poster_url, source, imdb_id, tmdb_id, type, file_path, extra_files, user_rating, pl_title, filmweb_id, filmweb_url, rated_at, wishlist, description, cda_url, video_metadata)
+    VALUES (@title, @year, @genre, @director, @writer, @actors, @rating, @poster_url, @source, @imdb_id, @tmdb_id, @type, @file_path, @extra_files, @user_rating, @pl_title, @filmweb_id, @filmweb_url, @rated_at, @wishlist, @description, @cda_url, @video_metadata)
   `);
   const result = stmt.run({
     ...movie,
@@ -331,6 +364,15 @@ export function insertMovie(db: Database.Database, movie: MovieInput): number {
     actors: movie.actors ?? null,
     file_path: movie.file_path ?? null,
     extra_files: movie.extra_files ?? null,
+    user_rating: movie.user_rating ?? null,
+    pl_title: movie.pl_title ?? null,
+    filmweb_id: movie.filmweb_id ?? null,
+    filmweb_url: movie.filmweb_url ?? null,
+    rated_at: movie.rated_at ?? null,
+    wishlist: movie.wishlist ?? 0,
+    description: movie.description ?? null,
+    cda_url: movie.cda_url ?? null,
+    video_metadata: movie.video_metadata ?? null,
   });
   return Number(result.lastInsertRowid);
 }

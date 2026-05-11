@@ -110,6 +110,13 @@ export async function POST(request: NextRequest) {
     }
   }
 
+  if (
+    ("file_path" in updates || "extra_files" in updates) &&
+    existingCols.has("video_metadata")
+  ) {
+    updates.video_metadata = null;
+  }
+
   try {
     const updateKeys = Object.keys(updates);
     const updateParams = Object.values(updates);
