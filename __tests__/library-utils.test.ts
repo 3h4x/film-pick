@@ -1,6 +1,7 @@
 import { describe, it, expect } from "vitest";
 import {
   filterMovies,
+  parseGenreLabels,
   sortMovies,
   extractGenres,
   extractSources,
@@ -52,6 +53,18 @@ function makeGroup(reason: string, recs: TmdbSearchResult[]): RecommendationGrou
 }
 
 // ---------------------------------------------------------------------------
+// parseGenreLabels
+// ---------------------------------------------------------------------------
+describe("parseGenreLabels", () => {
+  it("deduplicates labels after Polish aliases are normalized", () => {
+    expect(parseGenreLabels("Dramat, Drama, Kryminał, Crime")).toEqual([
+      "Drama",
+      "Crime",
+    ]);
+  });
+});
+
+// ---------------------------------------------------------------------------
 // filterMovies
 // ---------------------------------------------------------------------------
 describe("filterMovies", () => {
@@ -100,6 +113,18 @@ describe("filterMovies", () => {
     const result = filterMovies(movies, { genreFilter: "Drama" });
     expect(result).toHaveLength(1);
     expect(result[0].id).toBe(1);
+  });
+
+  it("filters by normalized genre labels across Polish and English sources", () => {
+    const movies = [
+      makeMovie({ id: 1, genre: "Dramat,Thriller" }),
+      makeMovie({ id: 2, genre: "Drama , Crime" }),
+      makeMovie({ id: 3, genre: "Comedy" }),
+    ];
+
+    const result = filterMovies(movies, { genreFilter: "Drama" });
+
+    expect(result.map((movie) => movie.id)).toEqual([1, 2]);
   });
 
   it("filters by source", () => {
@@ -313,6 +338,16 @@ describe("extractGenres", () => {
   it("deduplicates genres across movies", () => {
     const movies = [makeMovie({ genre: "Drama" }), makeMovie({ genre: "Drama" })];
     expect(extractGenres(movies)).toEqual(["Drama"]);
+  });
+
+  it("normalizes Polish genre labels before deduplicating", () => {
+    const movies = [
+      makeMovie({ genre: "Dramat,Kryminał,Drama" }),
+      makeMovie({ genre: "Drama , Crime" }),
+      makeMovie({ genre: "Animacja" }),
+    ];
+
+    expect(extractGenres(movies)).toEqual(["Animation", "Crime", "Drama"]);
   });
 });
 

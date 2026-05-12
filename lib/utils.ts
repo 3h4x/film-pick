@@ -112,6 +112,31 @@ export interface MovieFilters {
   hasFileOnly?: boolean;
 }
 
+const GENRE_ALIASES: Record<string, string> = {
+  Animacja: "Animation",
+  Dramat: "Drama",
+  Familijny: "Family",
+  Kryminał: "Crime",
+  Przygodowy: "Adventure",
+};
+
+function normalizeGenreLabel(genre: string): string {
+  return GENRE_ALIASES[genre] ?? genre;
+}
+
+export function parseGenreLabels(genre: string): string[] {
+  const seen = new Set<string>();
+
+  return genre
+    .split(/\s*,\s*/)
+    .map((label) => normalizeGenreLabel(label.trim()))
+    .filter((label) => {
+      if (!label || seen.has(label)) return false;
+      seen.add(label);
+      return true;
+    });
+}
+
 export function filterMovies(movies: Movie[], filters: MovieFilters): Movie[] {
   let filtered = movies.filter(
     (m) =>
@@ -129,7 +154,9 @@ export function filterMovies(movies: Movie[], filters: MovieFilters): Movie[] {
     );
   }
   if (genreFilter)
-    filtered = filtered.filter((m) => m.genre?.includes(genreFilter));
+    filtered = filtered.filter((m) =>
+      m.genre ? parseGenreLabels(m.genre).includes(genreFilter) : false,
+    );
   if (sourceFilter) filtered = filtered.filter((m) => m.source === sourceFilter);
   if (yearFilter)
     filtered = filtered.filter((m) => m.year?.toString() === yearFilter);
@@ -169,7 +196,9 @@ export function sortMovies(
 export function extractGenres(movies: Movie[]): string[] {
   const all = new Set<string>();
   movies.forEach((m) => {
-    if (m.genre) m.genre.split(", ").forEach((g) => all.add(g.trim()));
+    if (m.genre) {
+      parseGenreLabels(m.genre).forEach((g) => all.add(g));
+    }
   });
   return Array.from(all).sort();
 }
