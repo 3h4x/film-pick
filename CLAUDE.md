@@ -121,6 +121,13 @@ pnpm backup              # Backup SQLite DB
     └── backups/                      — Tiered backup retention (gitignored)
 ```
 
+## Docs Reference
+
+| File | Topic | Load when |
+|------|-------|-----------|
+| `docs/superpowers/plans/2026-04-17-cda-refresh-scheduling.md` | Task plan for CDA refresh scheduling UI/API/scheduler work | Read when implementing or reviewing the CDA refresh scheduler rollout step-by-step |
+| `docs/superpowers/specs/2026-04-17-cda-refresh-scheduling-design.md` | Approved design spec for CDA refresh scheduling architecture | Read when changing CDA refresh behavior, settings, API semantics, or scheduler startup flow |
+
 ### Features
 
 - **Library tab:** Movie grid with posters, user ratings (indigo ♥ badge), global ratings (yellow ★ badge)
@@ -281,7 +288,7 @@ TMDB_API_KEY=<your_key> docker run -p 4000:4000 -v $(pwd)/data:/app/data -e TMDB
 4. New recommendation engines go under `lib/engines/` and must be registered in `lib/engines/index.ts`.
 5. Database schema changes require a migration block inside `initDb()` in `lib/db.ts` (additive `ALTER TABLE` or new table — never destructive).
 6. New tab-level views belong in `components/views/` as `<Name>View.tsx`. Smaller reusable UI pieces belong directly in `components/`.
-7. Scheduler modules (`cda-scheduler.ts`, `epg-scheduler.ts`) follow the same pattern: export `reschedule*Job(db)` and `run*Now(db)`; manage a single `activeTimer`; read interval from settings; start from `app/layout.tsx` or the relevant route on first use.
+7. Scheduler modules (`cda-scheduler.ts`, `epg-scheduler.ts`) follow the same pattern: export `init*Scheduler(db)`, `reschedule*Job(db)`, and `run*Now(db)`; manage a single `activeTimer`; read interval from settings; initialize from `instrumentation.ts`, not from routes or React components.
 8. **Client-side server state stays in hooks, not global stores.** Reuse `lib/hooks/` for fetch/caching/state orchestration before adding new top-level component state or a state library.
 9. **Route handlers own persistence and orchestration.** UI components should call existing API routes/hooks rather than reading the filesystem, hitting SQLite, or calling third-party APIs directly.
 10. **Caching belongs in the existing cache layers.** TMDb TTL logic stays in `lib/tmdb.ts`, recommendation cache logic stays in `lib/db.ts`/`recommendation_cache`, and EPG/CDA refresh behavior stays in their scheduler/fetch modules.
