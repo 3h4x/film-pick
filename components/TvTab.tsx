@@ -359,7 +359,7 @@ export default function TvTab() {
         onClick={() => load(true)}
         title="Refresh EPG cache"
         aria-label="Refresh TV guide"
-        className="text-gray-600 hover:text-gray-300 transition-colors"
+        className="flex h-10 w-10 items-center justify-center rounded-lg text-gray-600 transition-colors hover:bg-white/[0.04] hover:text-gray-300"
       >
         <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
           <path strokeLinecap="round" strokeLinejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
@@ -479,14 +479,14 @@ export default function TvTab() {
                 onClick={() => blacklistChannel(p.channel)}
                 title={`Hide ${channelLabel(ch?.name ?? p.channel)}`}
                 aria-label={`Hide channel ${channelLabel(ch?.name ?? p.channel)}`}
-                className="w-8 h-8 flex shrink-0 items-center justify-center rounded-lg text-gray-600 hover:text-gray-300 hover:bg-white/[0.06] transition-all"
+                className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg text-gray-600 transition-all hover:bg-white/[0.06] hover:text-gray-300"
               >
                 ×
               </button>
             </div>
           </div>
 
-          <div className="hidden md:grid md:grid-cols-[6rem_1fr_4.5rem_10rem_1.5rem] md:gap-x-4 md:items-center md:px-4 md:py-2.5">
+          <div className="hidden md:grid md:grid-cols-[6rem_1fr_4.5rem_10rem_2.5rem] md:gap-x-4 md:items-center md:px-4 md:py-2.5">
             <div className="tabular-nums shrink-0">
               {isNow ? (
                 <div>
@@ -572,7 +572,7 @@ export default function TvTab() {
                 onClick={() => blacklistChannel(p.channel)}
                 title={`Hide ${channelLabel(ch?.name ?? p.channel)}`}
                 aria-label={`Hide channel ${channelLabel(ch?.name ?? p.channel)}`}
-                className="w-5 h-5 flex items-center justify-center rounded text-gray-700 opacity-0 group-hover:opacity-100 hover:text-gray-300 hover:bg-white/[0.06] transition-all"
+                className="flex h-8 w-8 items-center justify-center rounded-lg text-gray-700 opacity-0 transition-all group-hover:opacity-100 hover:bg-white/[0.06] hover:text-gray-300"
               >
                 ×
               </button>
@@ -592,7 +592,7 @@ export default function TvTab() {
         ) : (
           <div>
             {/* Column headers */}
-            <div className="hidden md:grid md:grid-cols-[6rem_1fr_4.5rem_10rem_1.5rem] md:gap-x-4 md:px-4 md:pb-2 border-b border-gray-800/60">
+            <div className="hidden md:grid md:grid-cols-[6rem_1fr_4.5rem_10rem_2.5rem] md:gap-x-4 md:px-4 md:pb-2 border-b border-gray-800/60">
               {["Time", "Film", "Rating", "Channel", ""].map((h) => (
                 <span
                   key={h}
