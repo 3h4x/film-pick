@@ -1,4 +1,5 @@
 import { discoverHiddenGems, genreNameToId } from "../tmdb";
+import { parseGenreLabels } from "../utils";
 import {
   filterResults,
   type EngineContext,
@@ -14,8 +15,7 @@ export async function hiddenGemEngine(
     if (!movie.genre) continue;
     const weight = movie.user_rating ?? 5;
     if (weight < 5) continue;
-    for (const g of movie.genre.split(", ")) {
-      const genre = g.trim();
+    for (const genre of parseGenreLabels(movie.genre)) {
       if (genre && genre !== "Unknown") {
         genreScores.set(genre, (genreScores.get(genre) || 0) + weight);
       }

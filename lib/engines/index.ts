@@ -10,6 +10,7 @@ import { randomEngine } from "./random";
 import { getDb, getRecommendedMovies } from "../db";
 import { cdaEngine } from "./cda";
 import { watchlistEngine } from "./watchlist";
+import { parseGenreLabels } from "../utils";
 
 // Normalize a title for set-membership comparison: lowercase, collapse all whitespace
 // including zero-width variants TMDb sometimes embeds (U+200B zero-width space through
@@ -140,9 +141,7 @@ export function filterResults(
     if (cfg?.min_year && r.year && r.year < cfg.min_year) return false;
     if (cfg?.min_rating && r.rating < cfg.min_rating) return false;
     if (excludedGenres && r.genre) {
-      const movieGenres = r.genre
-        .split(", ")
-        .map((g) => g.trim().toLowerCase());
+      const movieGenres = parseGenreLabels(r.genre).map((g) => g.toLowerCase());
       if (movieGenres.some((g) => excludedGenres.has(g))) return false;
     }
     seen.add(r.tmdb_id);

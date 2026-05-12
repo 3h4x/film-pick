@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useMemo } from "react";
 import path from "path";
-import { cleanTitle, getErrorMessage } from "@/lib/utils";
+import { cleanTitle, getErrorMessage, parseGenreLabels } from "@/lib/utils";
 
 interface VideoAudioTrack {
   codec: string;
@@ -1303,7 +1303,7 @@ export default function MovieDetail({
                         Genres
                       </p>
                       <div className="flex flex-wrap gap-2">
-                        {movie.genre.split(", ").map((g) => (
+                        {parseGenreLabels(movie.genre).map((g) => (
                           <span
                             key={g}
                             className="text-xs px-3 py-1 bg-gray-800 text-gray-300 rounded-lg border border-gray-700/50"

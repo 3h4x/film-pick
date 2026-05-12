@@ -205,6 +205,30 @@ describe("genreEngine", () => {
     expect(result[0].reason).toContain("Sci-Fi");
   });
 
+  it("counts alias-normalized duplicate genres once per movie when scoring", async () => {
+    const library = [
+      makeMovie({ id: 1, title: "Mixed Drama", genre: "Dramat, Drama", user_rating: 7 }),
+      makeMovie({ id: 2, title: "Crime Film", genre: "Crime", user_rating: 10 }),
+    ];
+    const ctx = buildContext(library, new Set());
+    mockGenreNameToId.mockImplementation((g: string) =>
+      g === "Crime" ? 80 : g === "Drama" ? 18 : null,
+    );
+    mockDiscoverByGenre.mockImplementation((genreId: number) =>
+      Promise.resolve([
+        makeResult({
+          tmdb_id: genreId,
+          title: genreId === 80 ? "Crime Pick" : "Drama Pick",
+        }),
+      ]),
+    );
+
+    const result = await genreEngine(ctx);
+
+    expect(result[0].reason).toContain("Crime");
+    expect(mockDiscoverByGenre).toHaveBeenNthCalledWith(1, 80);
+  });
+
   it("limits recommendations to 15 per group", async () => {
     const library = [makeMovie({ id: 1, title: "Drama Film", genre: "Drama", user_rating: 8 })];
     const ctx = buildContext(library, new Set());

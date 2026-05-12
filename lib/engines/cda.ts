@@ -1,6 +1,7 @@
 import { getDb, getRecommendedMovies, getDismissedIds } from "../db";
 import { normalizeTitle, type EngineContext, type RecommendationGroup } from "./index";
 import type { TmdbSearchResult } from "../tmdb";
+import { parseGenreLabels } from "../utils";
 
 export async function cdaEngine(
   ctx: EngineContext,
@@ -17,8 +18,7 @@ export async function cdaEngine(
     if (!movie.genre) continue;
     const weight = movie.user_rating ?? 5;
     if (weight < 5) continue;
-    for (const g of movie.genre.split(", ")) {
-      const genre = g.trim();
+    for (const genre of parseGenreLabels(movie.genre)) {
       if (genre && genre !== "Unknown") {
         genreScores.set(genre, (genreScores.get(genre) || 0) + weight);
       }
@@ -36,12 +36,7 @@ export async function cdaEngine(
     if (libraryTitles.has(normalizeTitle(m.title))) continue;
     if (m.pl_title && libraryTitles.has(normalizeTitle(m.pl_title))) continue;
 
-    const genres = m.genre
-      ? m.genre
-          .split(", ")
-          .map((g) => g.trim())
-          .filter(Boolean)
-      : ["Other"];
+    const genres = m.genre ? parseGenreLabels(m.genre) : ["Other"];
 
     const primaryGenre = genres[0] || "Other";
     if (!genreGroups.has(primaryGenre)) genreGroups.set(primaryGenre, []);

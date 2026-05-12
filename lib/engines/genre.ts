@@ -1,4 +1,5 @@
 import { discoverByGenre, genreNameToId } from "../tmdb";
+import { parseGenreLabels } from "../utils";
 import {
   filterResults,
   type EngineContext,
@@ -17,8 +18,7 @@ export async function genreEngine(
   // Score only from movies the user actually liked (rated >= 7)
   for (const movie of ctx.library) {
     if (!movie.genre || !movie.user_rating || movie.user_rating < 7) continue;
-    for (const g of movie.genre.split(", ")) {
-      const genre = g.trim();
+    for (const genre of parseGenreLabels(movie.genre)) {
       if (!genre || genre === "Unknown") continue;
       if (excludedGenres.has(genre.toLowerCase())) continue;
       genreScores.set(genre, (genreScores.get(genre) || 0) + movie.user_rating);
@@ -29,8 +29,7 @@ export async function genreEngine(
   if (genreScores.size === 0) {
     for (const movie of ctx.library) {
       if (!movie.genre || !movie.user_rating || movie.user_rating < 5) continue;
-      for (const g of movie.genre.split(", ")) {
-        const genre = g.trim();
+      for (const genre of parseGenreLabels(movie.genre)) {
         if (!genre || genre === "Unknown") continue;
         if (excludedGenres.has(genre.toLowerCase())) continue;
         genreScores.set(genre, (genreScores.get(genre) || 0) + movie.user_rating);
@@ -44,8 +43,7 @@ export async function genreEngine(
       if (!movie.genre) continue;
       const weight = (!movie.user_rating || movie.user_rating === 0) ? 3 : 0;
       if (weight === 0) continue;
-      for (const g of movie.genre.split(", ")) {
-        const genre = g.trim();
+      for (const genre of parseGenreLabels(movie.genre)) {
         if (!genre || genre === "Unknown") continue;
         if (excludedGenres.has(genre.toLowerCase())) continue;
         genreScores.set(genre, (genreScores.get(genre) || 0) + weight);
