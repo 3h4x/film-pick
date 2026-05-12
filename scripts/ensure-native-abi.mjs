@@ -2,6 +2,11 @@ import { spawnSync } from "node:child_process";
 import { createRequire } from "node:module";
 
 const require = createRequire(import.meta.url);
+const ABI_MISMATCH_PATTERNS = [
+  "NODE_MODULE_VERSION",
+  "compiled against a different Node.js version",
+  "Module did not self-register",
+];
 
 function loadBetterSqlite3() {
   const Database = require("better-sqlite3");
@@ -9,11 +14,22 @@ function loadBetterSqlite3() {
   db.close();
 }
 
+function isNativeAbiMismatch(error) {
+  const message = error instanceof Error ? error.message : String(error);
+  const code = error && typeof error === "object" && "code" in error
+    ? error.code
+    : undefined;
+
+  return (
+    ABI_MISMATCH_PATTERNS.some((pattern) => message.includes(pattern)) ||
+    code === "ERR_DLOPEN_FAILED"
+  );
+}
+
 try {
   loadBetterSqlite3();
 } catch (error) {
-  const message = error instanceof Error ? error.message : String(error);
-  if (!message.includes("NODE_MODULE_VERSION")) {
+  if (!isNativeAbiMismatch(error)) {
     throw error;
   }
 
