@@ -1,50 +1,69 @@
 import { searchTmdb } from "@/lib/tmdb";
-
-interface EnrichResult {
-  rating: number | null;
-  year: number | null;
-}
-
-const cache = new Map<string, EnrichResult>();
+import {
+  getTvEnrichCacheEntry,
+  setTvEnrichCacheEntry,
+  type TvEnrichResult,
+} from "@/app/api/tv/enrich/cache";
 
 export async function POST(request: Request) {
-  const body = await request.json();
-  const { titles } = body as { titles: unknown };
+  let body: unknown;
 
-  if (!Array.isArray(titles)) {
-    return Response.json({ error: "titles must be an array" }, { status: 400 });
-  }
-  if (titles.length > 500) {
-    return Response.json({ error: "too many titles (max 500)" }, { status: 400 });
-  }
-  if (titles.some((t) => typeof t !== "string")) {
-    return Response.json({ error: "all titles must be strings" }, { status: 400 });
+  try {
+    body = await request.json();
+  } catch {
+    return Response.json({ error: "request body must be valid JSON" }, { status: 400 });
   }
 
-  const result: Record<string, EnrichResult> = {};
+  try {
+    const { titles } = body as { titles: unknown };
 
-  await Promise.all(
-    titles.map(async (title: string) => {
-      if (cache.has(title)) {
-        result[title] = cache.get(title)!;
-        return;
-      }
-      try {
-        const hits = await searchTmdb(title);
-        const top = hits[0];
-        const data: EnrichResult = top
-          ? {
-              rating: top.rating ?? null,
-              year: top.year ?? null,
-            }
-          : { rating: null, year: null };
-        cache.set(title, data);
-        result[title] = data;
-      } catch {
-        result[title] = { rating: null, year: null };
-      }
-    }),
-  );
+    if (!Array.isArray(titles)) {
+      return Response.json({ error: "titles must be an array" }, { status: 400 });
+    }
+    if (titles.length > 500) {
+      return Response.json({ error: "too many titles (max 500)" }, { status: 400 });
+    }
+    if (titles.some((t) => typeof t !== "string")) {
+      return Response.json({ error: "all titles must be strings" }, { status: 400 });
+    }
 
-  return Response.json(result);
+    const result: Record<string, TvEnrichResult> = {};
+
+    await Promise.all(
+      titles.map(async (rawTitle: string) => {
+        const title = rawTitle.trim();
+        if (!title) {
+          result[rawTitle] = { rating: null, year: null };
+          return;
+        }
+
+        const cached = getTvEnrichCacheEntry(title);
+        if (cached) {
+          result[rawTitle] = cached;
+          return;
+        }
+
+        try {
+          const hits = await searchTmdb(title);
+          const top = hits[0];
+          const data: TvEnrichResult = top
+            ? {
+                rating: top.rating ?? null,
+                year: top.year ?? null,
+              }
+            : { rating: null, year: null };
+          setTvEnrichCacheEntry(title, data);
+          result[rawTitle] = data;
+        } catch (error) {
+          console.error("[TV enrich] Failed to enrich title", { title, error });
+          result[rawTitle] = { rating: null, year: null };
+        }
+      }),
+    );
+
+    return Response.json(result);
+  } catch (error) {
+    console.error("[TV enrich] Unexpected route failure", error);
+    return Response.json({ error: "Failed to enrich TV movies" }, { status: 500 });
+  }
 }
