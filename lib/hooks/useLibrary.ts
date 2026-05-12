@@ -10,6 +10,38 @@ import {
   extractYears,
 } from "@/lib/utils";
 
+type WishlistAction = "liked" | "watched" | "disliked" | "remove";
+
+export function buildWishlistActionRequest(
+  movie: Movie,
+  action: WishlistAction,
+): {
+  nextMovie: Movie;
+  requestBody: { wishlist: 0 | 1; user_rating?: number };
+  toast: string;
+} {
+  if (action === "remove") {
+    return {
+      nextMovie: { ...movie, wishlist: 0 },
+      requestBody: { wishlist: 0 },
+      toast: `Removed "${movie.title}" from watchlist`,
+    };
+  }
+
+  const userRating = action === "liked" ? 8 : action === "disliked" ? 3 : 5;
+  const actionLabels = {
+    liked: `Liked "${movie.title}" — moved to library`,
+    watched: `Marked "${movie.title}" as watched`,
+    disliked: `Disliked "${movie.title}" — moved to library`,
+  } satisfies Record<Exclude<WishlistAction, "remove">, string>;
+
+  return {
+    nextMovie: { ...movie, user_rating: userRating, wishlist: 0 },
+    requestBody: { user_rating: userRating, wishlist: 0 },
+    toast: actionLabels[action],
+  };
+}
+
 export function useLibrary(
   addToast: (message: string, variant?: "default" | "success") => void,
 ) {
@@ -86,28 +118,21 @@ export function useLibrary(
 
   async function handleWishlistAction(
     movie: Movie,
-    action: "liked" | "watched" | "disliked" | "remove",
+    action: WishlistAction,
   ) {
-    if (action === "remove") {
-      handleDeleteMovie(movie.id, movie.title);
-      return;
-    }
-    const userRating = action === "liked" ? 8 : action === "disliked" ? 3 : 5;
-    const actionLabels = {
-      liked: `Liked "${movie.title}" — moved to library`,
-      watched: `Marked "${movie.title}" as watched`,
-      disliked: `Disliked "${movie.title}" — moved to library`,
-    };
-    addToast(actionLabels[action]);
+    const { nextMovie, requestBody, toast } = buildWishlistActionRequest(
+      movie,
+      action,
+    );
+
+    addToast(toast);
     setMovies((prev) =>
-      prev.map((m) =>
-        m.id === movie.id ? { ...m, user_rating: userRating, wishlist: 0 } : m,
-      ),
+      prev.map((m) => (m.id === movie.id ? nextMovie : m)),
     );
     fetch(`/api/movies/${movie.id}`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ user_rating: userRating, wishlist: 0 }),
+      body: JSON.stringify(requestBody),
     });
   }
 
