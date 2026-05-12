@@ -447,6 +447,20 @@ export default function ConfigPanel({
             {apiKeySource !== "env" && (
               <form className="flex items-center gap-2" onSubmit={handleApiKeySubmit}>
                 <input
+                  type="text"
+                  name="tmdb-username"
+                  autoComplete="username"
+                  tabIndex={-1}
+                  aria-hidden="true"
+                  className="sr-only"
+                  value="tmdb"
+                  readOnly
+                />
+                <label htmlFor="tmdb-api-key" className="sr-only">
+                  TMDb API key
+                </label>
+                <input
+                  id="tmdb-api-key"
                   type="password"
                   autoComplete="new-password"
                   placeholder={apiKeySource === "db" ? "••••••••  (replace)" : "Paste TMDb read access token"}
