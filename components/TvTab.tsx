@@ -1,6 +1,7 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
+import { createLatestOnlyRunner } from "@/lib/latest-only-runner";
 
 // Polsat Box S — film channels with good quality/quantity balance
 const BOX_S_CHANNELS = [
@@ -134,8 +135,10 @@ export default function TvTab() {
   const [filter, setFilter] = useState("");
   const [now, setNow] = useState(() => new Date());
   const [enrich, setEnrich] = useState<Record<string, EnrichResult>>({});
+  const [enrichLoaded, setEnrichLoaded] = useState(false);
   const [blacklist, setBlacklist] = useState<Set<string>>(new Set());
   const [hideUnrated, setHideUnrated] = useState(true);
+  const enrichRunnerRef = useRef(createLatestOnlyRunner<Record<string, EnrichResult>>());
 
   useEffect(() => {
     fetch("/api/tv/blacklist")
@@ -189,7 +192,13 @@ export default function TvTab() {
 
   // Enrich film titles with TMDb ratings/years once data arrives
   useEffect(() => {
-    if (!data?.programs?.length) return;
+    if (!data?.programs?.length) {
+      enrichRunnerRef.current.invalidate();
+      setEnrich({});
+      setEnrichLoaded(true);
+      return;
+    }
+
     const titles = [
       ...new Set(
         data.programs
@@ -197,21 +206,45 @@ export default function TvTab() {
           .map((p) => p.title),
       ),
     ];
-    if (titles.length === 0) return;
+    if (titles.length === 0) {
+      enrichRunnerRef.current.invalidate();
+      setEnrich({});
+      setEnrichLoaded(true);
+      return;
+    }
+
     const BATCH = 500;
     const chunks: string[][] = [];
     for (let i = 0; i < titles.length; i += BATCH) chunks.push(titles.slice(i, i + BATCH));
-    Promise.all(
-      chunks.map((batch) =>
-        fetch("/api/tv/enrich", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ titles: batch }),
-        }).then((r) => r.json() as Promise<Record<string, EnrichResult>>),
-      ),
-    )
-      .then((results) => setEnrich(Object.assign({}, ...results)))
-      .catch(() => {});
+
+    void enrichRunnerRef.current.run(
+      async () => {
+        const results = await Promise.all(
+          chunks.map((batch) =>
+            fetch("/api/tv/enrich", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ titles: batch }),
+            }).then((r) => r.json() as Promise<Record<string, EnrichResult>>),
+          ),
+        );
+
+        return Object.assign({}, ...results);
+      },
+      {
+        onStart: () => {
+          setEnrich({});
+          setEnrichLoaded(false);
+        },
+        onSuccess: (results) => setEnrich(results),
+        onError: () => setEnrich({}),
+        onSettled: () => setEnrichLoaded(true),
+      },
+    );
+
+    return () => {
+      enrichRunnerRef.current.invalidate();
+    };
   }, [data]);
 
   if (loading) {
@@ -286,7 +319,7 @@ export default function TvTab() {
         isMovie(p.category) &&
         !isFilmBlockedChannel(channelById.get(p.channel)?.name ?? "") &&
         new Date(p.stop) > now &&
-        (!hideUnrated || ((enrich[p.title]?.rating ?? 0) > 0)),
+        (!hideUnrated || !enrichLoaded || ((enrich[p.title]?.rating ?? 0) > 0)),
     )
     .sort((a, b) => new Date(a.start).getTime() - new Date(b.start).getTime());
 
