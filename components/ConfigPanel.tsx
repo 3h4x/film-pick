@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, type FormEvent } from "react";
 import { EPG_PRESETS } from "@/lib/epg-presets";
 import type { RecConfig } from "@/lib/types";
 
@@ -110,6 +110,10 @@ const CONFIG_TABS: { value: ConfigTab; label: string }[] = [
   { value: "recommendations", label: "Recommendations" },
   { value: "tv", label: "TV" },
 ];
+
+export function shouldSubmitApiKey(apiKey: string, apiKeySaving: boolean) {
+  return apiKey.trim().length > 0 && !apiKeySaving;
+}
 
 export default function ConfigPanel({
   config,
@@ -285,16 +289,22 @@ export default function ConfigPanel({
     setDirty(true);
   }
 
-  async function saveApiKey() {
+  async function saveApiKey(value: string) {
     setApiKeySaving(true);
     await fetch("/api/settings", {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ tmdb_api_key: apiKey }),
+      body: JSON.stringify({ tmdb_api_key: value }),
     });
-    setApiKeySource(apiKey.trim() ? "db" : null);
+    setApiKeySource(value.trim() ? "db" : null);
     setApiKey("");
     setApiKeySaving(false);
+  }
+
+  function handleApiKeySubmit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!shouldSubmitApiKey(apiKey, apiKeySaving)) return;
+    void saveApiKey(apiKey);
   }
 
   return (
@@ -435,16 +445,17 @@ export default function ConfigPanel({
               )}
             </Hint>
             {apiKeySource !== "env" && (
-              <div className="flex items-center gap-2">
+              <form className="flex items-center gap-2" onSubmit={handleApiKeySubmit}>
                 <input
                   type="password"
+                  autoComplete="new-password"
                   placeholder={apiKeySource === "db" ? "••••••••  (replace)" : "Paste TMDb read access token"}
                   value={apiKey}
                   onChange={(e) => setApiKey(e.target.value)}
                   className="bg-gray-800/60 border border-gray-700/30 rounded-lg px-3 py-2 text-white text-sm flex-1 focus:outline-none focus:border-indigo-500/50"
                 />
                 <button
-                  onClick={saveApiKey}
+                  type="submit"
                   disabled={!apiKey.trim() || apiKeySaving}
                   className="px-4 py-2 text-sm rounded-lg bg-indigo-600 text-white hover:bg-indigo-500 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
                 >
@@ -452,13 +463,14 @@ export default function ConfigPanel({
                 </button>
                 {apiKeySource === "db" && (
                   <button
-                    onClick={() => { setApiKey(""); saveApiKey(); }}
+                    type="button"
+                    onClick={() => { void saveApiKey(""); }}
                     className="px-3 py-2 text-sm rounded-lg bg-red-600/20 text-red-300 hover:bg-red-600/30 transition-colors"
                   >
                     Remove
                   </button>
                 )}
-              </div>
+              </form>
             )}
           </section>
 
