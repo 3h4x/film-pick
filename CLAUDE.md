@@ -152,6 +152,7 @@ pnpm backup              # Backup SQLite DB
 - **hasFileOnly filter:** Library can be filtered to show only movies with a local file path (`hasFileOnly=1`)
 - **Lazy enrichment:** `GET /api/movies/[id]/full` lazily fetches and stores `pl_title` and `description` from TMDb on first access
 - **TMDb TTL cache:** `lib/tmdb.ts` keeps an in-memory TTL cache for `getMovieLocalized` and `getTmdbMovieDetails` to reduce redundant API calls
+- **Config tabs:** Current Config sections are `Library`, `Integrations`, `Recommendations`, and `TV`
 
 ### Database Schema
 

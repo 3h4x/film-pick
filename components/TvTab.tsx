@@ -261,7 +261,7 @@ export default function TvTab() {
         <p className="text-gray-400 font-medium">Failed to load TV guide</p>
         <p className="text-gray-600 text-sm">{data.error}</p>
         <p className="text-gray-700 text-xs">
-          Check the EPG URL in Config (Settings → EPG URL)
+          Check the EPG source in Config (TV → EPG Source)
         </p>
         <button
           onClick={() => load(true)}
