@@ -57,6 +57,7 @@ pnpm backup              # Backup SQLite DB
 │           ├── route.ts              — Fetch TV guide (EPG)
 │           ├── refresh/route.ts      — Trigger EPG refresh
 │           ├── enrich/route.ts       — Enrich TV show entries from TMDb
+│           ├── enrich/cache.ts       — In-memory cache for TV enrichment results
 │           └── blacklist/route.ts    — Manage EPG channel blacklist
 ├── components/
 │   ├── AppNav.tsx                    — Top app navigation bar with tab routing and search input
@@ -93,6 +94,8 @@ pnpm backup              # Backup SQLite DB
 │   ├── backup.ts                     — Programmatic DB backup (used by backup API)
 │   ├── types.ts                      — Shared TypeScript types (Movie, RecType, AppTab, etc.)
 │   ├── utils.ts                      — Shared utilities
+│   ├── search.ts                     — Shared search types (SearchMatches, TmdbSearchMovieState)
+│   ├── latest-only-runner.ts         — Utility: run async tasks, discard stale (latest-wins)
 │   ├── scanner.ts                    — Filesystem video scanner + filename parser
 │   ├── hooks/                        — React hooks
 │   │   ├── useLibrary.ts             — Library fetch + filtering state
@@ -114,7 +117,10 @@ pnpm backup              # Backup SQLite DB
 ├── scripts/
 │   ├── backup-db.sh                  — SQLite backup with tiered retention
 │   ├── import-filmweb.ts             — Import Filmweb ratings export (JSON)
-│   └── enrich-tmdb.ts                — Enrich existing movies with TMDb posters/genres
+│   ├── enrich-tmdb.ts                — Enrich existing movies with TMDb posters/genres
+│   ├── fix-credits.ts                — Re-fetch director/writer/actors from TMDb for all movies
+│   ├── fetch-cda.ts                  — Fetch CDA Premium movies into recommended_movies
+│   └── ensure-native-abi.mjs         — Pre-test native ABI check (run by pnpm pretest)
 ├── __tests__/                        — Vitest tests
 └── data/
     ├── movies.db                     — SQLite DB (gitignored)
