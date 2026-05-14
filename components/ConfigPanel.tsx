@@ -91,7 +91,7 @@ function PillButton({
   return (
     <button
       onClick={onClick}
-      className={`text-xs px-2.5 py-1.5 rounded-lg border transition-all ${
+      className={`min-h-11 rounded-lg border px-3 py-2 text-xs transition-all ${
         active
           ? activeClass
           : "bg-white/5 text-gray-400 border-white/10 hover:bg-white/10 hover:text-gray-300"
@@ -321,7 +321,7 @@ export default function ConfigPanel({
             key={tab.value}
             data-active={activeTab === tab.value}
             onClick={() => setActiveTab(tab.value)}
-            className={`px-4 py-2 text-sm font-medium rounded-lg transition-all whitespace-nowrap shrink-0 ${
+            className={`min-h-11 shrink-0 whitespace-nowrap rounded-lg px-4 py-2 text-sm font-medium transition-all ${
               activeTab === tab.value
                 ? "bg-gray-700/80 text-white shadow-sm"
                 : "text-gray-500 hover:text-gray-300 hover:bg-gray-700/30"
@@ -351,19 +351,19 @@ export default function ConfigPanel({
                 onChange={(e) => setPathDraft(e.target.value)}
                 onKeyDown={(e) => e.key === "Enter" && handleSavePath()}
                 placeholder="/Volumes/video/Movies"
-                className="flex-1 min-w-0 bg-gray-800/60 border border-gray-700/30 rounded-lg px-3 py-2 text-white text-sm font-mono focus:outline-none focus:border-indigo-500/50 placeholder-gray-600"
+                className="h-11 flex-1 min-w-0 rounded-lg border border-gray-700/30 bg-gray-800/60 px-3 text-sm font-mono text-white placeholder-gray-600 focus:border-indigo-500/50 focus:outline-none"
               />
               <button
                 onClick={handleSavePath}
                 disabled={pathSaving || !pathDraft.trim() || pathDraft.trim() === libraryPath}
-                className="px-4 py-2 text-sm rounded-lg bg-indigo-600 text-white hover:bg-indigo-500 disabled:opacity-40 disabled:cursor-not-allowed transition-colors shrink-0"
+                className="min-h-11 shrink-0 rounded-lg bg-indigo-600 px-4 py-2 text-sm text-white transition-colors hover:bg-indigo-500 disabled:cursor-not-allowed disabled:opacity-40"
               >
                 {pathSaving ? "Saving..." : pathSaved ? "Saved" : "Save"}
               </button>
               {libraryPath && (
                 <button
                   onClick={onSync}
-                  className="px-4 py-2 text-sm rounded-lg bg-gray-700 text-gray-300 hover:bg-gray-600 hover:text-white transition-colors shrink-0"
+                  className="min-h-11 shrink-0 rounded-lg bg-gray-700 px-4 py-2 text-sm text-gray-300 transition-colors hover:bg-gray-600 hover:text-white"
                 >
                   Sync Now
                 </button>
@@ -392,7 +392,7 @@ export default function ConfigPanel({
                   });
                   if (!res.ok) setBackupEnabled(!next);
                 }}
-                className={`px-4 py-2 text-sm rounded-lg transition-colors ${
+                className={`min-h-11 rounded-lg px-4 py-2 text-sm transition-colors ${
                   backupEnabled
                     ? "bg-green-500/20 text-green-300 border border-green-500/30 hover:bg-green-500/30"
                     : "bg-red-500/20 text-red-300 border border-red-500/30 hover:bg-red-500/30"
@@ -403,7 +403,7 @@ export default function ConfigPanel({
               <button
                 onClick={handleBackup}
                 disabled={backupState === "running"}
-                className="px-4 py-2 text-sm rounded-lg bg-gray-700 text-gray-300 hover:bg-gray-600 hover:text-white disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+                className="min-h-11 rounded-lg bg-gray-700 px-4 py-2 text-sm text-gray-300 transition-colors hover:bg-gray-600 hover:text-white disabled:cursor-not-allowed disabled:opacity-40"
               >
                 {backupState === "running" ? "Backing up..." : "Backup Now"}
               </button>
@@ -466,12 +466,12 @@ export default function ConfigPanel({
                   placeholder={apiKeySource === "db" ? "••••••••  (replace)" : "Paste TMDb read access token"}
                   value={apiKey}
                   onChange={(e) => setApiKey(e.target.value)}
-                  className="bg-gray-800/60 border border-gray-700/30 rounded-lg px-3 py-2 text-white text-sm flex-1 focus:outline-none focus:border-indigo-500/50"
+                  className="h-11 flex-1 rounded-lg border border-gray-700/30 bg-gray-800/60 px-3 text-sm text-white focus:border-indigo-500/50 focus:outline-none"
                 />
                 <button
                   type="submit"
                   disabled={!apiKey.trim() || apiKeySaving}
-                  className="px-4 py-2 text-sm rounded-lg bg-indigo-600 text-white hover:bg-indigo-500 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+                  className="min-h-11 rounded-lg bg-indigo-600 px-4 py-2 text-sm text-white transition-colors hover:bg-indigo-500 disabled:cursor-not-allowed disabled:opacity-40"
                 >
                   {apiKeySaving ? "Saving..." : "Save"}
                 </button>
@@ -479,7 +479,7 @@ export default function ConfigPanel({
                   <button
                     type="button"
                     onClick={() => { void saveApiKey(""); }}
-                    className="px-3 py-2 text-sm rounded-lg bg-red-600/20 text-red-300 hover:bg-red-600/30 transition-colors"
+                    className="min-h-11 rounded-lg bg-red-600/20 px-3 py-2 text-sm text-red-300 transition-colors hover:bg-red-600/30"
                   >
                     Remove
                   </button>
@@ -523,7 +523,7 @@ export default function ConfigPanel({
                     const res = await fetch("/api/cda-refresh", { method: "POST" });
                     if (res.ok) setCdaStatus("running");
                   }}
-                  className="px-4 py-2 text-sm rounded-lg bg-white/5 border border-white/10 text-gray-300 hover:bg-white/10 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                  className="min-h-11 rounded-lg border border-white/10 bg-white/5 px-4 py-2 text-sm text-gray-300 transition-colors hover:bg-white/10 disabled:cursor-not-allowed disabled:opacity-50"
                 >
                   {cdaStatus === "running" ? "Refreshing…" : "Refresh Now"}
                 </button>
@@ -570,7 +570,7 @@ export default function ConfigPanel({
                     });
                     if (!res.ok) setEpgEnabled(!next);
                   }}
-                  className={`px-4 py-2 text-sm rounded-lg transition-colors border ${
+                  className={`min-h-11 rounded-lg border px-4 py-2 text-sm transition-colors ${
                     epgEnabled
                       ? "bg-green-500/20 text-green-300 border-green-500/30 hover:bg-green-500/30"
                       : "bg-red-500/20 text-red-300 border-red-500/30 hover:bg-red-500/30"
@@ -604,7 +604,7 @@ export default function ConfigPanel({
                     value={epgUrl}
                     onChange={(e) => setEpgUrlDraft(e.target.value)}
                     placeholder="https://epgshare01.online/epgshare01/epg_ripper_PL1.xml.gz"
-                    className="flex-1 bg-gray-800/60 border border-gray-700/30 rounded-lg px-3 py-2 text-white text-sm font-mono focus:outline-none focus:border-indigo-500/50 placeholder-gray-600 min-w-0"
+                    className="h-11 min-w-0 flex-1 rounded-lg border border-gray-700/30 bg-gray-800/60 px-3 text-sm font-mono text-white placeholder-gray-600 focus:border-indigo-500/50 focus:outline-none"
                   />
                   <button
                     disabled={epgUrlSaving}
@@ -617,7 +617,7 @@ export default function ConfigPanel({
                       });
                       setEpgUrlSaving(false);
                     }}
-                    className="px-4 py-2 text-sm rounded-lg bg-indigo-600 text-white hover:bg-indigo-500 disabled:opacity-40 transition-colors shrink-0"
+                    className="min-h-11 shrink-0 rounded-lg bg-indigo-600 px-4 py-2 text-sm text-white transition-colors hover:bg-indigo-500 disabled:opacity-40"
                   >
                     {epgUrlSaving ? "Saving…" : "Save"}
                   </button>
@@ -659,7 +659,7 @@ export default function ConfigPanel({
                     const res = await fetch("/api/tv/refresh", { method: "POST" });
                     if (res.ok) setEpgStatus("running");
                   }}
-                  className="px-4 py-2 text-sm rounded-lg bg-white/5 border border-white/10 text-gray-300 hover:bg-white/10 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                  className="min-h-11 rounded-lg border border-white/10 bg-white/5 px-4 py-2 text-sm text-gray-300 transition-colors hover:bg-white/10 disabled:cursor-not-allowed disabled:opacity-50"
                 >
                   {epgStatus === "running" ? "Refreshing…" : "Refresh Now"}
                 </button>
@@ -693,7 +693,7 @@ export default function ConfigPanel({
                     });
                     if (!res.ok) setTvHideUnrated(!next);
                   }}
-                  className={`px-4 py-2 text-sm rounded-lg transition-colors border ${
+                  className={`min-h-11 rounded-lg border px-4 py-2 text-sm transition-colors ${
                     tvHideUnrated
                       ? "bg-green-500/20 text-green-300 border-green-500/30 hover:bg-green-500/30"
                       : "bg-gray-700/40 text-gray-400 border-gray-700/50 hover:bg-gray-700/60"
