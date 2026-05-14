@@ -98,7 +98,7 @@ export default function AppNav({
               <button
                 type="button"
                 onClick={() => router.push("/")}
-                className="flex items-center gap-2 text-white hover:opacity-80 transition-opacity focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-400/70 rounded-lg"
+                className="flex min-h-11 items-center gap-2 rounded-lg px-1.5 text-white transition-opacity hover:opacity-80 focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-400/70"
                 aria-label="Go to FilmPick home"
               >
                 <img
@@ -121,7 +121,7 @@ export default function AppNav({
                 <button
                   onClick={onSync}
                   aria-label="Sync library"
-                  className="text-gray-500 hover:text-white p-2 rounded-lg hover:bg-gray-800/60 transition-all"
+                  className="flex h-11 w-11 items-center justify-center rounded-lg text-gray-500 transition-all hover:bg-gray-800/60 hover:text-white"
                   title="Sync library"
                 >
                   <svg
@@ -143,7 +143,7 @@ export default function AppNav({
                 <button
                   onClick={onImport}
                   aria-label="Import folder"
-                  className="text-gray-500 hover:text-white p-2 rounded-lg hover:bg-gray-800/60 transition-all"
+                  className="flex h-11 w-11 items-center justify-center rounded-lg text-gray-500 transition-all hover:bg-gray-800/60 hover:text-white"
                   title="Import folder"
                 >
                   <svg
@@ -200,7 +200,7 @@ export default function AppNav({
                 }}
                 placeholder="Search library..."
                 aria-label="Search library"
-                className="w-full bg-gray-800/40 text-white text-xs pl-8 pr-8 py-2 rounded-lg border border-gray-700/50 focus:border-indigo-500/50 focus:ring-1 focus:ring-indigo-500/20 focus:outline-none placeholder-gray-600 transition-all"
+                className="h-11 w-full rounded-lg border border-gray-700/50 bg-gray-800/40 pl-8 pr-8 text-sm text-white transition-all placeholder-gray-600 focus:border-indigo-500/50 focus:outline-none focus:ring-1 focus:ring-indigo-500/20"
               />
               {searchQuery && (
                 <button
@@ -209,7 +209,7 @@ export default function AppNav({
                     if (activeTab === "search") setActiveTab("library");
                   }}
                   aria-label="Clear search"
-                  className="absolute inset-y-0 right-2 flex items-center px-1 text-gray-500 hover:text-white"
+                  className="absolute inset-y-0 right-2 flex items-center px-2 text-gray-500 hover:text-white"
                 >
                   <svg
                     className="w-3.5 h-3.5"
@@ -245,7 +245,7 @@ export default function AppNav({
                   data-active={active}
                   onClick={() => setActiveTab(tab.key)}
                   aria-label={tab.count >= 0 ? `${tab.label} (${tab.count})` : tab.label}
-                  className={`relative shrink-0 px-2.5 py-2 pb-2.5 text-[13px] font-medium transition-all sm:px-3.5 sm:text-sm ${
+                  className={`relative flex min-h-11 min-w-11 shrink-0 items-center px-3 py-2 pb-2.5 text-[13px] font-medium transition-all sm:px-3.5 sm:text-sm ${
                     active
                       ? "text-white"
                       : "text-gray-500 hover:text-gray-300"
