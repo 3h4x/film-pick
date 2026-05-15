@@ -1,21 +1,18 @@
 import {
+  enrichMovieMetadata,
   getDb,
+  getExistingMovieInsertTargetId,
   getSetting,
   insertMovie,
+  type MovieInput,
+  movieNeedsTmdbEnrichment,
 } from "@/lib/db";
+import { linkToExistingPathlessRow } from "@/lib/pathless-row-link";
 import { scanDirectoryGenerator } from "@/lib/scanner";
 import type { ScannedFile } from "@/lib/scanner";
 import { searchTmdb } from "@/lib/tmdb";
-import { cleanTitle } from "@/lib/utils";
-import type Database from "better-sqlite3";
+import { selectTmdbSearchCandidates } from "@/lib/tmdb-match";
 import fs from "fs";
-
-interface PathlessRow {
-  id: number;
-  title: string;
-  year: number | null;
-  tmdb_id: number | null;
-}
 
 function parseExtraFiles(extraFiles: string | null): string[] {
   if (!extraFiles) return [];
@@ -26,68 +23,6 @@ function parseExtraFiles(extraFiles: string | null): string[] {
   } catch {
     return [];
   }
-}
-
-// Try to attach a scanned file to an existing pathless DB row before
-// inserting a new one. Returns true if a row was linked.
-//
-// Match priority:
-//   1. tmdb_id (when TMDb gave us one)
-//   2. exact LOWER(title) + year IS ?  (handles NULL year correctly,
-//      unlike `year = ?` which never matches NULL)
-//   3. cleanTitle equality + year tolerance (±1, mirroring the TMDb-side
-//      tolerance), which covers wishlist rows whose stored title differs
-//      in casing/punctuation/release-tag noise from the on-disk filename
-function linkToExistingPathlessRow(
-  db: Database.Database,
-  file: ScannedFile,
-  tmdbMatch: { tmdb_id?: number | null; title?: string; year?: number | null } | null,
-): boolean {
-  const link = (id: number) => {
-    db.prepare(
-      "UPDATE movies SET file_path = ?, video_metadata = NULL, created_at = CURRENT_TIMESTAMP WHERE id = ?",
-    ).run(file.filePath, id);
-  };
-
-  if (tmdbMatch?.tmdb_id) {
-    const byTmdb = db
-      .prepare(
-        "SELECT id FROM movies WHERE tmdb_id = ? AND (file_path IS NULL OR file_path = '')",
-      )
-      .get(tmdbMatch.tmdb_id) as { id: number } | undefined;
-    if (byTmdb) {
-      link(byTmdb.id);
-      return true;
-    }
-  }
-
-  const byTitleYear = db
-    .prepare(
-      "SELECT id FROM movies WHERE LOWER(title) = LOWER(?) AND year IS ? AND (file_path IS NULL OR file_path = '')",
-    )
-    .get(file.parsedTitle, file.parsedYear) as { id: number } | undefined;
-  if (byTitleYear) {
-    link(byTitleYear.id);
-    return true;
-  }
-
-  // Normalized fallback for alt-title / punctuation-noise cases.
-  const wantTitle = cleanTitle(file.parsedTitle).toLowerCase();
-  if (!wantTitle) return false;
-  const candidates = db
-    .prepare(
-      "SELECT id, title, year, tmdb_id FROM movies WHERE file_path IS NULL OR file_path = ''",
-    )
-    .all() as PathlessRow[];
-  for (const c of candidates) {
-    if (cleanTitle(c.title).toLowerCase() !== wantTitle) continue;
-    if (file.parsedYear != null && c.year != null) {
-      if (Math.abs(c.year - file.parsedYear) > 1) continue;
-    }
-    link(c.id);
-    return true;
-  }
-  return false;
 }
 
 export async function POST() {
@@ -157,6 +92,16 @@ export async function POST() {
       let added = 0;
       let linked = 0;
       let failed = 0;
+      function insertAndCount(movie: MovieInput) {
+        const existingTargetId = getExistingMovieInsertTargetId(db, movie);
+        insertMovie(db, movie);
+        if (existingTargetId != null) {
+          linked++;
+        } else {
+          added++;
+        }
+      }
+
       for (let i = 0; i < newFiles.length; i++) {
         const file = newFiles[i];
         // Small delay to avoid TMDb rate limits (~40 req/10s)
@@ -170,7 +115,11 @@ export async function POST() {
 
         // Fast path: link the file directly to an existing pathless row
         // (e.g., from Filmweb import or wishlist). No TMDb call needed.
-        if (linkToExistingPathlessRow(db, file, null)) {
+        const linkedRowId = linkToExistingPathlessRow(db, file, null);
+        const shouldEnrichLinkedRow =
+          linkedRowId != null && movieNeedsTmdbEnrichment(db, linkedRowId);
+
+        if (linkedRowId != null && !shouldEnrichLinkedRow) {
           linked++;
           continue;
         }
@@ -180,38 +129,55 @@ export async function POST() {
             file.parsedTitle,
             file.parsedYear,
           );
-          const match =
-            searchResults.find((r) => {
-              if (file.parsedYear && r.year) {
-                return Math.abs(r.year - file.parsedYear) <= 1;
-              }
-              return true;
-            }) || searchResults[0];
+          const { strongMatch, fallbackMatch } = selectTmdbSearchCandidates(
+            searchResults,
+            file.parsedTitle,
+            file.parsedYear,
+          );
 
-          // Even with a TMDb match, prefer linking to an existing pathless
-          // row (matching by tmdb_id, exact title+year, or cleanTitle).
-          // Only insert a new row if no linkable row exists.
-          if (linkToExistingPathlessRow(db, file, match ?? null)) {
+          if (linkedRowId != null) {
+            if (strongMatch) {
+              enrichMovieMetadata(db, linkedRowId, {
+                title: strongMatch.title,
+                year: strongMatch.year,
+                genre: strongMatch.genre,
+                director: null,
+                rating: strongMatch.rating,
+                poster_url: strongMatch.poster_url,
+                source: "tmdb",
+                imdb_id: strongMatch.imdb_id,
+                tmdb_id: strongMatch.tmdb_id,
+                type: "movie",
+              });
+            }
             linked++;
             continue;
           }
 
-          if (match) {
-            insertMovie(db, {
-              title: match.title,
-              year: match.year,
-              genre: match.genre,
+          // Even with a TMDb match, prefer linking to an existing pathless
+          // row (matching by tmdb_id, exact title+year, or cleanTitle).
+          // Only insert a new row if no linkable row exists.
+          if (linkToExistingPathlessRow(db, file, strongMatch)) {
+            linked++;
+            continue;
+          }
+
+          if (fallbackMatch) {
+            insertAndCount({
+              title: fallbackMatch.title,
+              year: fallbackMatch.year,
+              genre: fallbackMatch.genre,
               director: null,
-              rating: match.rating,
-              poster_url: match.poster_url,
+              rating: fallbackMatch.rating,
+              poster_url: fallbackMatch.poster_url,
               source: "tmdb",
-              imdb_id: match.imdb_id,
-              tmdb_id: match.tmdb_id,
+              imdb_id: fallbackMatch.imdb_id,
+              tmdb_id: fallbackMatch.tmdb_id,
               type: "movie",
               file_path: file.filePath,
             });
           } else {
-            insertMovie(db, {
+            insertAndCount({
               title: file.parsedTitle,
               year: file.parsedYear,
               genre: null,
@@ -225,10 +191,13 @@ export async function POST() {
               file_path: file.filePath,
             });
           }
-          added++;
         } catch {
+          if (linkedRowId != null) {
+            linked++;
+            continue;
+          }
           // TMDb lookup failed — still add as local entry so the file isn't lost
-          insertMovie(db, {
+          insertAndCount({
             title: file.parsedTitle,
             year: file.parsedYear,
             genre: null,
@@ -241,7 +210,6 @@ export async function POST() {
             type: "movie",
             file_path: file.filePath,
           });
-          added++;
           failed++;
         }
       }
