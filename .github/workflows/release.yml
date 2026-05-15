@@ -44,13 +44,6 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v6
 
-      - name: Log in to GHCR
-        uses: docker/login-action@v4
-        with:
-          registry: ${{ env.REGISTRY }}
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
-
       - name: Extract metadata
         id: meta
         uses: docker/metadata-action@v6
@@ -62,12 +55,70 @@ jobs:
             type=raw,value=v${{ needs.release.outputs.new_release_version }}
             type=sha,prefix=
 
-      - name: Build and push
+      - name: Build release image locally
         uses: docker/build-push-action@v7
         with:
           context: .
-          push: true
-          tags: ${{ steps.meta.outputs.tags }}
+          load: true
+          tags: |
+            filmpick-smoke:latest
+            ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
           build-args: |
             APP_VERSION=v${{ needs.release.outputs.new_release_version }}
+
+      - name: Smoke test container startup
+        run: |
+          set -euo pipefail
+
+          data_dir="$(mktemp -d)"
+          container_id=""
+
+          cleanup() {
+            if [ -n "$container_id" ]; then
+              docker rm -f "$container_id" >/dev/null 2>&1 || true
+            fi
+            rm -rf "$data_dir"
+          }
+
+          trap cleanup EXIT
+
+          container_id="$(docker run -d -p 4000:4000 \
+            -v "$data_dir:/app/data" \
+            -e TMDB_API_KEY=smoke-test \
+            filmpick-smoke:latest)"
+
+          for _ in $(seq 1 30); do
+            if curl -fsS http://127.0.0.1:4000/ >/dev/null; then
+              exit 0
+            fi
+
+            if ! docker ps --filter "id=$container_id" --format '{{.ID}}' | grep -q .; then
+              docker logs "$container_id"
+              exit 1
+            fi
+
+            sleep 2
+          done
+
+          docker logs "$container_id"
+          exit 1
+
+      - name: Log in to GHCR
+        uses: docker/login-action@v4
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Push smoke-tested image tags
+        env:
+          TAGS: ${{ steps.meta.outputs.tags }}
+        run: |
+          set -euo pipefail
+
+          while IFS= read -r tag; do
+            if [ -n "$tag" ]; then
+              docker push "$tag"
+            fi
+          done <<< "$TAGS"
