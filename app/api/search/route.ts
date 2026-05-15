@@ -1,5 +1,5 @@
 import { NextRequest } from "next/server";
-import { searchTmdb } from "@/lib/tmdb";
+import { searchTmdbForUi } from "@/lib/tmdb";
 
 export async function GET(request: NextRequest) {
   const query = request.nextUrl.searchParams.get("q") || "";
@@ -9,7 +9,7 @@ export async function GET(request: NextRequest) {
   }
 
   try {
-    const results = await searchTmdb(query);
+    const results = await searchTmdbForUi(query);
     return Response.json(results);
   } catch (err) {
     const message = err instanceof Error ? err.message : "Search failed";
