@@ -239,6 +239,18 @@ export function initDb(db: Database.Database): void {
     CREATE INDEX IF NOT EXISTS idx_rec_events_tmdb_engine ON recommendation_events (tmdb_id, engine, created_at);
   `);
 
+  // Migration: recommendation_impressions table (rotates the top of each row over time)
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS recommendation_impressions (
+      tmdb_id INTEGER NOT NULL,
+      engine TEXT NOT NULL,
+      shown_count INTEGER NOT NULL DEFAULT 1,
+      last_shown_at INTEGER NOT NULL DEFAULT (unixepoch()),
+      PRIMARY KEY (tmdb_id, engine)
+    );
+    CREATE INDEX IF NOT EXISTS idx_rec_impressions_engine ON recommendation_impressions (engine, last_shown_at);
+  `);
+
   // Indexes for common query patterns (idempotent — IF NOT EXISTS)
   db.exec(`
     CREATE INDEX IF NOT EXISTS idx_movies_tmdb_id ON movies (tmdb_id);
@@ -615,6 +627,50 @@ export function recordRecommendationEvent(
   db.prepare(
     "INSERT INTO recommendation_events (tmdb_id, engine, event) VALUES (?, ?, ?)",
   ).run(tmdbId, engine, event);
+}
+
+// Records that a set of tmdb_ids were surfaced by an engine. On the first call
+// per (tmdb_id, engine) inserts a row with shown_count=1; subsequent calls
+// increment shown_count and refresh last_shown_at. Used by the rotation
+// post-processor to penalize titles that have been surfaced repeatedly.
+export function recordImpressions(
+  db: Database.Database,
+  engine: string,
+  tmdbIds: number[],
+): void {
+  if (!engine || tmdbIds.length === 0) return;
+  const stmt = db.prepare(`
+    INSERT INTO recommendation_impressions (tmdb_id, engine, shown_count, last_shown_at)
+    VALUES (?, ?, 1, unixepoch())
+    ON CONFLICT(tmdb_id, engine) DO UPDATE SET
+      shown_count = shown_count + 1,
+      last_shown_at = unixepoch()
+  `);
+  const tx = db.transaction((ids: number[]) => {
+    for (const id of ids) stmt.run(id, engine);
+  });
+  tx(tmdbIds);
+}
+
+// Returns a map of tmdb_id → shown_count for the given engine, restricted to
+// impressions whose last_shown_at falls within the past `withinDays` window.
+// Impressions older than that decay to zero so titles eventually cycle back.
+export function getImpressionCounts(
+  db: Database.Database,
+  engine: string,
+  tmdbIds: number[],
+  withinDays = 14,
+): Map<number, number> {
+  if (!engine || tmdbIds.length === 0) return new Map();
+  const placeholders = tmdbIds.map(() => "?").join(",");
+  const cutoff = Math.floor(Date.now() / 1000) - withinDays * 24 * 60 * 60;
+  const rows = db
+    .prepare(
+      `SELECT tmdb_id, shown_count FROM recommendation_impressions
+       WHERE engine = ? AND last_shown_at >= ? AND tmdb_id IN (${placeholders})`,
+    )
+    .all(engine, cutoff, ...tmdbIds) as { tmdb_id: number; shown_count: number }[];
+  return new Map(rows.map((r) => [r.tmdb_id, r.shown_count]));
 }
 
 export function getRatedTmdbIds(
