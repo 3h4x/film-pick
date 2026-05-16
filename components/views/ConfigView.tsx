@@ -17,6 +17,7 @@ interface ConfigViewProps {
   setRecGroups: React.Dispatch<
     React.SetStateAction<Record<string, RecommendationGroup[]>>
   >;
+  onOpenMovie: (id: number) => void;
 }
 
 export default function ConfigView({
@@ -31,6 +32,7 @@ export default function ConfigView({
   addToast,
   fetchEngine,
   setRecGroups,
+  onOpenMovie,
 }: ConfigViewProps) {
   async function handleSaveLibraryPath(path: string) {
     const res = await fetch("/api/settings", {
@@ -97,6 +99,7 @@ export default function ConfigView({
       onSync={() => setSyncOpen(true)}
       onSave={handleSaveConfig}
       onToggleEngine={handleToggleEngine}
+      onOpenMovie={onOpenMovie}
     />
   );
 }

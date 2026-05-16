@@ -3,6 +3,7 @@
 import { useState, useEffect, useRef, type FormEvent } from "react";
 import { EPG_PRESETS } from "@/lib/epg-presets";
 import type { RecConfig } from "@/lib/types";
+import type { Movie } from "@/lib/db";
 
 export type { RecConfig };
 
@@ -51,6 +52,7 @@ interface ConfigPanelProps {
   libraryPath: string | null;
   onSaveLibraryPath: (path: string) => Promise<void>;
   onSync: () => void;
+  onOpenMovie: (id: number) => void;
 }
 
 function SectionHeader({ children }: { children: React.ReactNode }) {
@@ -125,6 +127,7 @@ export default function ConfigPanel({
   libraryPath,
   onSaveLibraryPath,
   onSync,
+  onOpenMovie,
 }: ConfigPanelProps) {
   const [activeTab, setActiveTab] = useState<ConfigTab>("library");
   const tabsRef = useRef<HTMLDivElement | null>(null);
@@ -154,6 +157,9 @@ export default function ConfigPanel({
   const [epgLastRefresh, setEpgLastRefresh] = useState<string | null>(null);
   const [epgUrlSaving, setEpgUrlSaving] = useState(false);
   const [blacklist, setBlacklist] = useState<string[]>([]);
+  const [detachedMovies, setDetachedMovies] = useState<Movie[]>([]);
+  const [detachedLoaded, setDetachedLoaded] = useState(false);
+  const [deletingIds, setDeletingIds] = useState<Set<number>>(new Set());
 
   useEffect(() => {
     setDraft({ ...DEFAULTS, ...config });
@@ -162,6 +168,31 @@ export default function ConfigPanel({
 
   useEffect(() => { setApiKeySource(tmdbKeySource); }, [tmdbKeySource]);
   useEffect(() => { setPathDraft(libraryPath || ""); }, [libraryPath]);
+
+  useEffect(() => {
+    if (activeTab !== "library" || detachedLoaded) return;
+    setDetachedLoaded(true);
+    fetch("/api/movies?detached=1")
+      .then((r) => r.json())
+      .then((movies: Movie[]) => setDetachedMovies(movies))
+      .catch(() => {});
+  }, [activeTab, detachedLoaded]);
+
+  async function handleDeleteDetached(id: number) {
+    setDeletingIds((prev) => new Set(prev).add(id));
+    try {
+      const res = await fetch(`/api/movies/${id}`, { method: "DELETE" });
+      if (res.ok) {
+        setDetachedMovies((prev) => prev.filter((m) => m.id !== id));
+      }
+    } finally {
+      setDeletingIds((prev) => {
+        const next = new Set(prev);
+        next.delete(id);
+        return next;
+      });
+    }
+  }
 
   useEffect(() => {
     fetch("/api/backup").then((r) => r.json()).then(setBackupStats);
@@ -420,6 +451,59 @@ export default function ConfigPanel({
                   <p>Last: <span className="font-mono text-gray-400">{backupStats.lastBackup}</span></p>
                 )}
                 <p>Stored: <span className="text-gray-400">{backupStats.count}</span></p>
+              </div>
+            )}
+          </section>
+
+          <section>
+            <SubHeader>Detached Files</SubHeader>
+            <Hint>Movies in your library with no local file. Open the detail to relink, or delete the record.</Hint>
+            {detachedMovies.length === 0 ? (
+              <p className="text-gray-700 text-sm">No detached movies.</p>
+            ) : (
+              <div className="space-y-1.5">
+                {detachedMovies.map((m) => (
+                  <div
+                    key={m.id}
+                    className="flex items-center justify-between gap-3 px-3 py-2 rounded-lg bg-gray-800/30 border border-gray-700/30"
+                  >
+                    <div className="min-w-0 flex-1">
+                      <p className="text-gray-300 text-sm font-medium truncate">
+                        {m.pl_title || m.title}
+                        {m.year ? <span className="text-gray-500 font-normal ml-1">({m.year})</span> : null}
+                      </p>
+                      <div className="flex items-center gap-2 mt-0.5 flex-wrap">
+                        {m.user_rating != null && (
+                          <span className="text-xs text-indigo-400">♥ {m.user_rating}</span>
+                        )}
+                        {m.wishlist === 1 && (
+                          <span className="text-xs text-yellow-400">Wishlist</span>
+                        )}
+                        {m.tmdb_id != null && (
+                          <span className="text-xs text-gray-600">TMDb</span>
+                        )}
+                        {m.filmweb_id != null && (
+                          <span className="text-xs text-gray-600">Filmweb</span>
+                        )}
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-2 shrink-0">
+                      <button
+                        onClick={() => onOpenMovie(m.id)}
+                        className="text-xs text-indigo-400 hover:text-indigo-300 transition-colors px-2 py-1 rounded hover:bg-white/5"
+                      >
+                        Open
+                      </button>
+                      <button
+                        disabled={deletingIds.has(m.id)}
+                        onClick={() => void handleDeleteDetached(m.id)}
+                        className="text-xs text-red-400 hover:text-red-300 transition-colors px-2 py-1 rounded hover:bg-red-500/10 disabled:opacity-40"
+                      >
+                        {deletingIds.has(m.id) ? "Deleting…" : "Delete"}
+                      </button>
+                    </div>
+                  </div>
+                ))}
               </div>
             )}
           </section>

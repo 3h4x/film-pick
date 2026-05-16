@@ -227,6 +227,18 @@ export function initDb(db: Database.Database): void {
     )`);
   }
 
+  // Migration: recommendation_events table
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS recommendation_events (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      tmdb_id INTEGER NOT NULL,
+      engine TEXT NOT NULL DEFAULT '',
+      event TEXT NOT NULL,
+      created_at INTEGER NOT NULL DEFAULT (unixepoch())
+    );
+    CREATE INDEX IF NOT EXISTS idx_rec_events_tmdb_engine ON recommendation_events (tmdb_id, engine, created_at);
+  `);
+
   // Indexes for common query patterns (idempotent — IF NOT EXISTS)
   db.exec(`
     CREATE INDEX IF NOT EXISTS idx_movies_tmdb_id ON movies (tmdb_id);
@@ -387,6 +399,12 @@ export function getMovies(db: Database.Database, type?: string): Movie[] {
       .all(type) as Movie[];
   }
   return db.prepare(`SELECT * FROM movies ${ORDER_BY_USER_RATING}`).all() as Movie[];
+}
+
+export function getDetachedMovies(db: Database.Database): Movie[] {
+  return db
+    .prepare("SELECT * FROM movies WHERE (file_path IS NULL OR file_path = '') ORDER BY title ASC")
+    .all() as Movie[];
 }
 
 export function deleteMovie(db: Database.Database, id: number): void {
@@ -584,6 +602,19 @@ export function getDismissedIds(db: Database.Database): Set<number> {
     .prepare("SELECT tmdb_id FROM dismissed_recommendations")
     .all() as { tmdb_id: number }[];
   return new Set(rows.map((r) => r.tmdb_id));
+}
+
+export type RecommendationEventType = "open" | "add" | "dismiss";
+
+export function recordRecommendationEvent(
+  db: Database.Database,
+  tmdbId: number,
+  engine: string,
+  event: RecommendationEventType,
+): void {
+  db.prepare(
+    "INSERT INTO recommendation_events (tmdb_id, engine, event) VALUES (?, ?, ?)",
+  ).run(tmdbId, engine, event);
 }
 
 export function getRatedTmdbIds(

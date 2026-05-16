@@ -280,6 +280,10 @@ export default function Home() {
             setDisabledEngines={setDisabledEngines} libraryPath={settings.libraryPath}
             setLibraryPath={settings.setLibraryPath} setSyncOpen={setSyncOpen}
             addToast={addToast} fetchEngine={recs.fetchEngine} setRecGroups={recs.setRecGroups}
+            onOpenMovie={(id) => {
+              const found = movies.find((m) => m.id === id);
+              if (found) setSelectedMovie(found);
+            }}
           />
         )}
       </div>

@@ -255,6 +255,15 @@ export function useRecommendations({
     };
     addToast(actionLabels[action] || "Done");
 
+    fetch("/api/recommendations/event", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        tmdb_id: tmdbId,
+        event: action === "dismiss" ? "dismiss" : "add",
+      }),
+    });
+
     if (action !== "dismiss") {
       const userRating =
         action === "liked"
@@ -341,6 +350,12 @@ export function useRecommendations({
   }
 
   async function handleRecClick(rec: TmdbSearchResult) {
+    fetch("/api/recommendations/event", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ tmdb_id: rec.tmdb_id, event: "open" }),
+    });
+
     const existing = getCanonicalMovieForTmdbId(movies, rec.tmdb_id);
     if (existing) {
       setSelectedMovie(existing);
