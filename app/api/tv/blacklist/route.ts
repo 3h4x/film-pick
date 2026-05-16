@@ -1,4 +1,5 @@
 import { getDb, getSetting, setSetting } from "@/lib/db";
+import { rateLimit } from "@/lib/rate-limit";
 
 export async function GET() {
   const db = getDb();
@@ -8,6 +9,8 @@ export async function GET() {
 }
 
 export async function PUT(request: Request) {
+  const limited = rateLimit(request, "mutation");
+  if (limited) return limited;
   const db = getDb();
   const body = await request.json();
 

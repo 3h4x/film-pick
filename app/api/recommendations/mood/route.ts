@@ -9,8 +9,11 @@ import {
 import { buildContext, getCdaLookup, enrichWithCda, type RecConfig } from "@/lib/engines";
 import { moodEngine } from "@/lib/engines/mood";
 import { MOOD_PRESETS, type MoodKey } from "@/lib/mood-presets";
+import { rateLimit } from "@/lib/rate-limit";
 
 export async function GET(request: NextRequest) {
+  const limited = rateLimit(request, "tmdb");
+  if (limited) return limited;
   const moodKey = request.nextUrl.searchParams.get("key") as MoodKey | null;
   if (!moodKey || !(moodKey in MOOD_PRESETS)) {
     return Response.json({ error: "invalid mood key" }, { status: 400 });

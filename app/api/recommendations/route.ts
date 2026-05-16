@@ -22,8 +22,11 @@ import {
   type RecommendationGroup,
   type RecConfig,
 } from "@/lib/engines";
+import { rateLimit } from "@/lib/rate-limit";
 
 export async function GET(request: NextRequest) {
+  const limited = rateLimit(request, "tmdb");
+  if (limited) return limited;
   const db = getDb();
   const engineKey = request.nextUrl.searchParams.get("engine") || "all";
   const refresh = request.nextUrl.searchParams.get("refresh") === "true";

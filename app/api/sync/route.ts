@@ -7,6 +7,8 @@ import { linkToExistingPathlessRow } from "@/lib/pathless-row-link";
 import { scanDirectoryGenerator } from "@/lib/scanner";
 import type { ScannedFile } from "@/lib/scanner";
 import { searchTmdb } from "@/lib/tmdb";
+import { rateLimit } from "@/lib/rate-limit";
+import type { NextRequest } from "next/server";
 import fs from "fs";
 
 function parseExtraFiles(extraFiles: string | null): string[] {
@@ -21,7 +23,9 @@ function parseExtraFiles(extraFiles: string | null): string[] {
 }
 
 
-export async function POST() {
+export async function POST(request?: NextRequest) {
+  const limited = request ? rateLimit(request, "mutation") : null;
+  if (limited) return limited;
   const db = getDb();
   const libraryPath = getSetting(db, "library_path");
 

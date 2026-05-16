@@ -1,6 +1,7 @@
 import { NextRequest } from "next/server";
 import { getDb, Movie } from "@/lib/db";
 import { parseFilename, getErrorMessage } from "@/lib/utils";
+import { rateLimit } from "@/lib/rate-limit";
 import fs from "fs/promises";
 import fsSync from "fs";
 import path from "path";
@@ -17,9 +18,11 @@ const VIDEO_EXTENSIONS = new Set([
 ]);
 
 export async function POST(
-  _request: NextRequest,
+  request: NextRequest,
   { params }: { params: Promise<{ id: string }> },
 ) {
+  const limited = rateLimit(request, "mutation");
+  if (limited) return limited;
   const { id } = await params;
   const db = getDb();
   const movieId = parseInt(id, 10);
@@ -227,7 +230,7 @@ export async function POST(
 
     // If the file is missing, we check for a 'delete_missing' query param to cleanup DB
     const deleteMissing =
-      _request.nextUrl.searchParams.get("delete_missing") === "true";
+      request.nextUrl.searchParams.get("delete_missing") === "true";
     if (deleteMissing) {
       db.prepare("DELETE FROM movies WHERE id = ?").run(movieId);
       return Response.json({

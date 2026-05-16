@@ -1,6 +1,7 @@
 import { NextRequest } from "next/server";
 import { getDb, deleteMovie, type Movie } from "@/lib/db";
 import { getTmdbMovieDetails, searchTmdb, getMovieLocalized } from "@/lib/tmdb";
+import { rateLimit } from "@/lib/rate-limit";
 import { cleanTitle } from "@/lib/utils";
 import { execFile } from "child_process";
 import { promisify } from "util";
@@ -40,9 +41,11 @@ interface VideoMetadata {
 }
 
 export async function GET(
-  _request: NextRequest,
+  request: NextRequest,
   { params }: { params: Promise<{ id: string }> },
 ) {
+  const limited = rateLimit(request, "tmdb");
+  if (limited) return limited;
   const { id } = await params;
   const db = getDb();
   const movie = db
@@ -367,9 +370,11 @@ export async function GET(
 }
 
 export async function DELETE(
-  _request: NextRequest,
+  request: NextRequest,
   { params }: { params: Promise<{ id: string }> },
 ) {
+  const limited = rateLimit(request, "mutation");
+  if (limited) return limited;
   const { id } = await params;
   const db = getDb();
   deleteMovie(db, parseInt(id, 10));
@@ -380,6 +385,8 @@ export async function PATCH(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> },
 ) {
+  const limited = rateLimit(request, "mutation");
+  if (limited) return limited;
   const { id } = await params;
   const db = getDb();
   const body = await request.json();
