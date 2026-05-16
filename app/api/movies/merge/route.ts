@@ -1,7 +1,10 @@
 import { NextRequest } from "next/server";
 import { getDb, Movie } from "@/lib/db";
+import { rateLimit } from "@/lib/rate-limit";
 
 export async function POST(request: NextRequest) {
+  const limited = rateLimit(request, "mutation");
+  if (limited) return limited;
   const { sourceId, targetId } = await request.json();
 
   if (!sourceId || !targetId || sourceId === targetId) {
