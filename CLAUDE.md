@@ -8,7 +8,7 @@ Personal movie discovery engine with a Next.js web UI and SQLite database.
 - **Database:** SQLite via `better-sqlite3`
 - **Data sources:** TMDb API, Filmweb (one-time import only — no scheduled sync)
 - **Testing:** Vitest
-- **Package manager:** pnpm (do not use npm)
+- **Package manager:** pnpm 11 (do not use npm; repo currently pins `packageManager` to `pnpm@10.33.2`, so upgrade that field when practical)
 - **Secrets:** bioenv (Touch ID-protected Keychain)
 
 ## Commands
@@ -44,6 +44,7 @@ pnpm backup              # Backup SQLite DB
 │       ├── search/route.ts           — TMDb search
 │       ├── recommendations/route.ts  — Generate recommendations
 │       ├── recommendations/dismiss/route.ts — Dismiss recommendation
+│       ├── recommendations/event/route.ts — Record recommendation interaction events
 │       ├── recommendations/count/route.ts — Recommendation count
 │       ├── recommendations/mood/route.ts — Mood-based recommendations
 │       ├── person-ratings/route.ts   — Director/actor/writer ratings
@@ -158,7 +159,7 @@ pnpm backup              # Backup SQLite DB
 
 **movies**: id, title, year, genre, director, writer, actors, rating, user_rating, poster_url, source, imdb_id, tmdb_id, type (`movie`|`tv`), file_path, extra_files (JSON), video_metadata (JSON), filmweb_id, filmweb_url, cda_url, pl_title, description, rated_at, created_at, wishlist (0|1)
 
-**Other tables**: settings (key/value), dismissed_recommendations (tmdb_id), recommendation_cache (engine, data, movie_count, created_at — `created_at` drives the TTL checked by `getCachedEngine(db, engine, maxAgeHours)`), recommended_movies (tmdb_id, engine, reason, title, year, genre, rating, poster_url, pl_title, cda_url, description), _migrations (migration guard)
+**Other tables**: settings (key/value), dismissed_recommendations (tmdb_id), recommendation_events (tmdb_id, engine, event, created_at), recommendation_cache (engine, data, movie_count, created_at — `created_at` drives the TTL checked by `getCachedEngine(db, engine, maxAgeHours)`), recommended_movies (tmdb_id, engine, reason, title, year, genre, rating, poster_url, pl_title, cda_url, description), _migrations (migration guard)
 
 ### Environment
 
@@ -192,7 +193,7 @@ Next.js dev server logs to stdout. When running in the background:
 
 ```bash
 # Start dev server with logs to file
-nohup npx next dev --port 4000 > /tmp/movies-dev.log 2>&1 &
+nohup pnpm dev > /tmp/movies-dev.log 2>&1 &
 
 # Tail logs
 tail -f /tmp/movies-dev.log
@@ -205,7 +206,7 @@ Each request is logged as `GET /path STATUS in Xms`. API errors show as 500 with
 
 Common errors:
 
-- **`better-sqlite3` native addon not found** — run `npx node-gyp rebuild` inside the `better-sqlite3` package dir (happens after `pnpm install` skips build scripts)
+- **`better-sqlite3` native addon not found** — run `pnpm exec node-gyp rebuild` inside the `better-sqlite3` package dir (happens after `pnpm install` skips build scripts)
 - **SWC binary missing** — install `@next/swc-linux-arm64-gnu` (or musl) for ARM64 Linux environments
 
 ## Docker
@@ -245,7 +246,7 @@ TMDB_API_KEY=<your_key> docker run -p 4000:4000 -v $(pwd)/data:/app/data -e TMDB
 
 ## Development
 
-- Use `pnpm` exclusively (not npm)
+- Use `pnpm` 11 exclusively (not npm); the current `packageManager` field is still pinned to `pnpm@10.33.2` and should be upgraded
 - Conventional commits are enforced (see Scope & Safety Rules §1)
 - Type check with `pnpm type-check` before committing
 - Target the versions already in the repo: Next.js 16, React 19, TypeScript 6, Tailwind CSS 4, Node 24 (see Dockerfile). Follow current framework patterns instead of introducing legacy APIs.
