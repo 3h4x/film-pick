@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getDb, Movie } from "@/lib/db";
+import { rateLimit } from "@/lib/rate-limit";
 import { getErrorMessage } from "@/lib/utils";
 import { execFile } from "child_process";
 import { promisify } from "util";
@@ -12,6 +13,8 @@ export async function POST(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> },
 ) {
+  const limited = rateLimit(req, "mutation");
+  if (limited) return limited;
   const { id: movieId } = await params;
   const { action = "play" } = await req.json(); // "play" or "folder"
 
