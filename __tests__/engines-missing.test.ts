@@ -12,6 +12,7 @@ const {
   mockGetDb,
   mockGetRecommendedMovies,
   mockGetDismissedIds,
+  mockGetImpressionCounts,
   mockDiscoverHiddenGems,
   mockDiscoverStarStudded,
   mockGetTmdbRecommendations,
@@ -20,6 +21,7 @@ const {
   mockGetDb: vi.fn(),
   mockGetRecommendedMovies: vi.fn(),
   mockGetDismissedIds: vi.fn(),
+  mockGetImpressionCounts: vi.fn(),
   mockDiscoverHiddenGems: vi.fn(),
   mockDiscoverStarStudded: vi.fn(),
   mockGetTmdbRecommendations: vi.fn(),
@@ -33,6 +35,7 @@ vi.mock("@/lib/db", async (importOriginal) => {
     getDb: mockGetDb,
     getRecommendedMovies: mockGetRecommendedMovies,
     getDismissedIds: mockGetDismissedIds,
+    getImpressionCounts: mockGetImpressionCounts,
   };
 });
 
@@ -108,6 +111,7 @@ beforeEach(() => {
   mockDiscoverStarStudded.mockResolvedValue([]);
   mockGetTmdbRecommendations.mockResolvedValue([]);
   mockGenreNameToId.mockReturnValue(null);
+  mockGetImpressionCounts.mockReturnValue(new Map());
 });
 
 // ---------------------------------------------------------------------------
