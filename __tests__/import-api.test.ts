@@ -383,6 +383,78 @@ describe("import API route", () => {
     expect(stored).toBe("/movies/library");
   });
 
+  // ── Pathless-row linking ────────────────────────────────────────────────────
+
+  it("counts linked=1 when a pathless row matches by title+year before TMDb search", async () => {
+    // Pre-insert a pathless Filmweb row (no file_path)
+    db.prepare(
+      "INSERT INTO movies (title, year, source, type) VALUES ('Inception', 2010, 'filmweb', 'movie')",
+    ).run();
+
+    vi.mocked(scanDirectoryGenerator).mockReturnValue(
+      (function* () {
+        yield {
+          filePath: "/movies/Inception (2010)/inception.mkv",
+          filename: "inception.mkv",
+          parsedTitle: "Inception",
+          parsedYear: 2010,
+        };
+      })() as ReturnType<typeof scanDirectoryGenerator>,
+    );
+
+    const res = await POST(makeRequest({ path: "/movies" }));
+    const lines = await readNDJSON(res);
+    const complete = lines.find((l) => l.type === "complete");
+
+    expect(complete!.linked).toBe(1);
+    expect(complete!.added).toBe(0);
+    expect(complete!.skipped).toBe(0);
+    // TMDb should not have been called since fast-path matched
+    expect(searchTmdb).not.toHaveBeenCalled();
+
+    const row = db
+      .prepare("SELECT file_path FROM movies WHERE title = 'Inception'")
+      .get() as { file_path: string };
+    expect(row.file_path).toBe("/movies/Inception (2010)/inception.mkv");
+  });
+
+  it("counts linked=1 when a pathless row matches by tmdb_id returned from TMDb", async () => {
+    // Pre-insert a pathless row with a tmdb_id (e.g., from wishlist)
+    db.prepare(
+      "INSERT INTO movies (title, year, source, tmdb_id, type) VALUES ('Dune', 2021, 'filmweb', 438631, 'movie')",
+    ).run();
+
+    vi.mocked(scanDirectoryGenerator).mockReturnValue(
+      (function* () {
+        yield {
+          filePath: "/movies/Dune Part One/dune.mkv",
+          filename: "dune.mkv",
+          parsedTitle: "Dune",
+          parsedYear: 2022,
+        };
+      })() as ReturnType<typeof scanDirectoryGenerator>,
+    );
+
+    vi.mocked(searchTmdb).mockResolvedValue([
+      {
+        title: "Dune: Part One",
+        year: 2021,
+        genre: "Sci-Fi",
+        rating: 8.0,
+        poster_url: null,
+        tmdb_id: 438631,
+        imdb_id: null,
+      },
+    ]);
+
+    const res = await POST(makeRequest({ path: "/movies" }));
+    const lines = await readNDJSON(res);
+    const complete = lines.find((l) => l.type === "complete");
+
+    expect(complete!.linked).toBe(1);
+    expect(complete!.added).toBe(0);
+  });
+
   // ── Multi-file summary ──────────────────────────────────────────────────────
 
   it("totals added + skipped + failed correctly across multiple files", async () => {

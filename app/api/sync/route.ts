@@ -3,19 +3,11 @@ import {
   getSetting,
   insertMovie,
 } from "@/lib/db";
+import { linkToExistingPathlessRow } from "@/lib/pathless-row-link";
 import { scanDirectoryGenerator } from "@/lib/scanner";
 import type { ScannedFile } from "@/lib/scanner";
 import { searchTmdb } from "@/lib/tmdb";
-import { cleanTitle } from "@/lib/utils";
-import type Database from "better-sqlite3";
 import fs from "fs";
-
-interface PathlessRow {
-  id: number;
-  title: string;
-  year: number | null;
-  tmdb_id: number | null;
-}
 
 function parseExtraFiles(extraFiles: string | null): string[] {
   if (!extraFiles) return [];
@@ -28,67 +20,6 @@ function parseExtraFiles(extraFiles: string | null): string[] {
   }
 }
 
-// Try to attach a scanned file to an existing pathless DB row before
-// inserting a new one. Returns true if a row was linked.
-//
-// Match priority:
-//   1. tmdb_id (when TMDb gave us one)
-//   2. exact LOWER(title) + year IS ?  (handles NULL year correctly,
-//      unlike `year = ?` which never matches NULL)
-//   3. cleanTitle equality + year tolerance (±1, mirroring the TMDb-side
-//      tolerance), which covers wishlist rows whose stored title differs
-//      in casing/punctuation/release-tag noise from the on-disk filename
-function linkToExistingPathlessRow(
-  db: Database.Database,
-  file: ScannedFile,
-  tmdbMatch: { tmdb_id?: number | null; title?: string; year?: number | null } | null,
-): boolean {
-  const link = (id: number) => {
-    db.prepare(
-      "UPDATE movies SET file_path = ?, video_metadata = NULL, created_at = CURRENT_TIMESTAMP WHERE id = ?",
-    ).run(file.filePath, id);
-  };
-
-  if (tmdbMatch?.tmdb_id) {
-    const byTmdb = db
-      .prepare(
-        "SELECT id FROM movies WHERE tmdb_id = ? AND (file_path IS NULL OR file_path = '')",
-      )
-      .get(tmdbMatch.tmdb_id) as { id: number } | undefined;
-    if (byTmdb) {
-      link(byTmdb.id);
-      return true;
-    }
-  }
-
-  const byTitleYear = db
-    .prepare(
-      "SELECT id FROM movies WHERE LOWER(title) = LOWER(?) AND year IS ? AND (file_path IS NULL OR file_path = '')",
-    )
-    .get(file.parsedTitle, file.parsedYear) as { id: number } | undefined;
-  if (byTitleYear) {
-    link(byTitleYear.id);
-    return true;
-  }
-
-  // Normalized fallback for alt-title / punctuation-noise cases.
-  const wantTitle = cleanTitle(file.parsedTitle).toLowerCase();
-  if (!wantTitle) return false;
-  const candidates = db
-    .prepare(
-      "SELECT id, title, year, tmdb_id FROM movies WHERE file_path IS NULL OR file_path = ''",
-    )
-    .all() as PathlessRow[];
-  for (const c of candidates) {
-    if (cleanTitle(c.title).toLowerCase() !== wantTitle) continue;
-    if (file.parsedYear != null && c.year != null) {
-      if (Math.abs(c.year - file.parsedYear) > 1) continue;
-    }
-    link(c.id);
-    return true;
-  }
-  return false;
-}
 
 export async function POST() {
   const db = getDb();
