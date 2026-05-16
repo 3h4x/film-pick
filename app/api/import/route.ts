@@ -1,5 +1,6 @@
 import { NextRequest } from "next/server";
 import { getDb, insertMovie, getMovieByFilePath, setSetting } from "@/lib/db";
+import { linkToExistingPathlessRow } from "@/lib/pathless-row-link";
 import { scanDirectoryGenerator } from "@/lib/scanner";
 import { searchTmdb } from "@/lib/tmdb";
 import fs from "fs";
@@ -25,7 +26,7 @@ export async function POST(request: NextRequest) {
   // Save the library path for future syncs
   setSetting(db, "library_path", dirPath);
 
-  const results = { added: 0, skipped: 0, failed: 0, total: 0 };
+  const results = { added: 0, skipped: 0, failed: 0, linked: 0, total: 0 };
 
   const encoder = new TextEncoder();
   const stream = new ReadableStream({
@@ -56,56 +57,69 @@ export async function POST(request: NextRequest) {
         // Skip if already imported
         if (getMovieByFilePath(db, file.filePath)) {
           results.skipped++;
-        } else {
-          // Search TMDb for metadata
-          try {
-            const searchResults = await searchTmdb(
-              file.parsedTitle,
-              file.parsedYear,
-            );
-            const match =
-              searchResults.find((r) => {
-                if (file.parsedYear && r.year) {
-                  return Math.abs(r.year - file.parsedYear) <= 1;
-                }
-                return true;
-              }) || searchResults[0];
+          continue;
+        }
 
-            if (match) {
-              insertMovie(db, {
-                title: match.title,
-                year: match.year,
-                genre: match.genre,
-                director: null,
-                rating: match.rating,
-                poster_url: match.poster_url,
-                source: "tmdb",
-                imdb_id: match.imdb_id,
-                tmdb_id: match.tmdb_id,
-                type: "movie",
-                file_path: file.filePath,
-              });
-              results.added++;
-            } else {
-              // Add with parsed info only (no TMDb match)
-              insertMovie(db, {
-                title: file.parsedTitle,
-                year: file.parsedYear,
-                genre: null,
-                director: null,
-                rating: null,
-                poster_url: null,
-                source: "local",
-                imdb_id: null,
-                tmdb_id: null,
-                type: "movie",
-                file_path: file.filePath,
-              });
-              results.added++;
-            }
-          } catch {
-            results.failed++;
+        // Fast path: link to an existing pathless row (Filmweb import or wishlist)
+        if (linkToExistingPathlessRow(db, file, null)) {
+          results.linked++;
+          continue;
+        }
+
+        // Search TMDb for metadata
+        try {
+          const searchResults = await searchTmdb(
+            file.parsedTitle,
+            file.parsedYear,
+          );
+          const match =
+            searchResults.find((r) => {
+              if (file.parsedYear && r.year) {
+                return Math.abs(r.year - file.parsedYear) <= 1;
+              }
+              return true;
+            }) || searchResults[0];
+
+          // Prefer linking to an existing pathless row matching the TMDb result.
+          if (linkToExistingPathlessRow(db, file, match ?? null)) {
+            results.linked++;
+            continue;
           }
+
+          if (match) {
+            insertMovie(db, {
+              title: match.title,
+              year: match.year,
+              genre: match.genre,
+              director: null,
+              rating: match.rating,
+              poster_url: match.poster_url,
+              source: "tmdb",
+              imdb_id: match.imdb_id,
+              tmdb_id: match.tmdb_id,
+              type: "movie",
+              file_path: file.filePath,
+            });
+            results.added++;
+          } else {
+            // Add with parsed info only (no TMDb match)
+            insertMovie(db, {
+              title: file.parsedTitle,
+              year: file.parsedYear,
+              genre: null,
+              director: null,
+              rating: null,
+              poster_url: null,
+              source: "local",
+              imdb_id: null,
+              tmdb_id: null,
+              type: "movie",
+              file_path: file.filePath,
+            });
+            results.added++;
+          }
+        } catch {
+          results.failed++;
         }
       }
 
