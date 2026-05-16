@@ -479,14 +479,14 @@ export default function TvTab() {
                 onClick={() => blacklistChannel(p.channel)}
                 title={`Hide ${channelLabel(ch?.name ?? p.channel)}`}
                 aria-label={`Hide channel ${channelLabel(ch?.name ?? p.channel)}`}
-                className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg text-gray-600 transition-all hover:bg-white/[0.06] hover:text-gray-300"
+                className="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg text-sm text-gray-600 transition-all hover:bg-white/[0.06] hover:text-gray-300 focus-visible:bg-white/[0.06] focus-visible:text-gray-200"
               >
                 ×
               </button>
             </div>
           </div>
 
-          <div className="hidden md:grid md:grid-cols-[6rem_1fr_4.5rem_10rem_2.5rem] md:gap-x-4 md:items-center md:px-4 md:py-2.5">
+          <div className="hidden md:grid md:grid-cols-[6rem_1fr_4.5rem_10rem_3rem] md:gap-x-4 md:items-center md:px-4 md:py-2.5">
             <div className="tabular-nums shrink-0">
               {isNow ? (
                 <div>
@@ -572,7 +572,7 @@ export default function TvTab() {
                 onClick={() => blacklistChannel(p.channel)}
                 title={`Hide ${channelLabel(ch?.name ?? p.channel)}`}
                 aria-label={`Hide channel ${channelLabel(ch?.name ?? p.channel)}`}
-                className="flex h-8 w-8 items-center justify-center rounded-lg text-gray-700 opacity-0 transition-all group-hover:opacity-100 hover:bg-white/[0.06] hover:text-gray-300"
+                className="flex h-11 w-11 items-center justify-center rounded-lg text-sm text-gray-700 opacity-60 transition-all group-hover:opacity-100 hover:bg-white/[0.06] hover:text-gray-300 focus-visible:bg-white/[0.06] focus-visible:text-gray-200 focus-visible:opacity-100"
               >
                 ×
               </button>
@@ -592,7 +592,7 @@ export default function TvTab() {
         ) : (
           <div>
             {/* Column headers */}
-            <div className="hidden md:grid md:grid-cols-[6rem_1fr_4.5rem_10rem_2.5rem] md:gap-x-4 md:px-4 md:pb-2 border-b border-gray-800/60">
+            <div className="hidden md:grid md:grid-cols-[6rem_1fr_4.5rem_10rem_3rem] md:gap-x-4 md:px-4 md:pb-2 border-b border-gray-800/60">
               {["Time", "Film", "Rating", "Channel", ""].map((h) => (
                 <span
                   key={h}

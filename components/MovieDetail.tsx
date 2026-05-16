@@ -57,6 +57,30 @@ interface MovieDetailProps {
   allMovies?: Movie[];
 }
 
+interface MovieDetailResponse {
+  movie?: Movie;
+  metadata?: VideoMetadata | { error: string } | null;
+}
+
+const pendingMovieDetailRequests = new Map<
+  number,
+  Promise<MovieDetailResponse>
+>();
+
+function fetchMovieDetail(movieId: number): Promise<MovieDetailResponse> {
+  const pending = pendingMovieDetailRequests.get(movieId);
+  if (pending) return pending;
+
+  const request = fetch(`/api/movies/${movieId}`)
+    .then((r) => r.json() as Promise<MovieDetailResponse>)
+    .finally(() => {
+      pendingMovieDetailRequests.delete(movieId);
+    });
+
+  pendingMovieDetailRequests.set(movieId, request);
+  return request;
+}
+
 export default function MovieDetail({
   movie,
   onClose,
@@ -190,8 +214,7 @@ export default function MovieDetail({
 
     // Fetch full movie details including metadata
     setIsLoadingMetadata(true);
-    fetch(`/api/movies/${movie.id}`)
-      .then((r) => r.json())
+    fetchMovieDetail(movie.id)
       .then((data) => {
         if (data.metadata) {
           if (data.metadata.error) {
