@@ -13,11 +13,11 @@ import type { Movie, RecommendationGroup } from "@/lib/types";
 import type { TmdbSearchResult } from "@/lib/tmdb";
 
 const HOVER_REVEAL_REC_CLASS =
-  "hidden flex-col gap-1 opacity-0 transition-all duration-200 [@media(hover:hover)]:flex [@media(hover:hover)]:group-hover/rec:opacity-100";
+  "pointer-events-none hidden flex-col gap-1 opacity-0 transition-all duration-200 [@media(hover:hover)]:flex [@media(hover:hover)]:group-hover/rec:pointer-events-auto [@media(hover:hover)]:group-hover/rec:opacity-100";
 const HOVER_REVEAL_WISH_CLASS =
-  "[@media(hover:hover)]:group-hover/wish:opacity-100";
+  "[@media(hover:hover)]:group-hover/wish:pointer-events-auto [@media(hover:hover)]:group-hover/wish:opacity-100";
 const HOVER_REVEAL_LIBRARY_CLASS =
-  "hidden flex-col gap-1 opacity-0 transition-all duration-200 [@media(hover:hover)]:flex [@media(hover:hover)]:group-hover:opacity-100";
+  "pointer-events-none hidden flex-col gap-1 opacity-0 transition-all duration-200 [@media(hover:hover)]:flex [@media(hover:hover)]:group-hover:pointer-events-auto [@media(hover:hover)]:group-hover:opacity-100";
 
 const rec: TmdbSearchResult = {
   title: "Heat",
