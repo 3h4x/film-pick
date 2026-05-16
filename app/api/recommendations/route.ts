@@ -12,6 +12,7 @@ import {
   getRecommendedMovies,
   getSetting,
   insertMovie,
+  recordImpressions,
 } from "@/lib/db";
 import {
   engines,
@@ -168,13 +169,36 @@ export async function GET(request: NextRequest) {
     }));
   }
 
+  // Engines that re-rank on prior impressions via getImpressionCounts. Recording
+  // impressions for engines that never read them would accumulate dead rows.
+  const ROTATION_AWARE_ENGINES = new Set(["hidden_gem"]);
+
+  function recordImpressionsForGroups(groups: RecommendationGroup[]): void {
+    const byEngine = new Map<string, number[]>();
+    for (const g of groups) {
+      if (!ROTATION_AWARE_ENGINES.has(g.type)) continue;
+      const ids = byEngine.get(g.type) ?? [];
+      for (const r of g.recommendations) ids.push(r.tmdb_id);
+      byEngine.set(g.type, ids);
+    }
+    for (const [engine, ids] of byEngine) {
+      try {
+        recordImpressions(db, engine, ids);
+      } catch (err) {
+        console.error(`[Recommendations] recordImpressions failed for "${engine}":`, err);
+      }
+    }
+  }
+
   // Single engine request
   if (engineKey !== "all" && engines[engineKey]) {
     if (disabledEngines.includes(engineKey)) {
       return Response.json([]);
     }
     const groups = await runEngine(engineKey, engines[engineKey]);
-    return Response.json(applyMaxPerGroup(groups));
+    const final = applyMaxPerGroup(groups);
+    recordImpressionsForGroups(final);
+    return Response.json(final);
   }
 
   // All engines
@@ -185,5 +209,7 @@ export async function GET(request: NextRequest) {
     allGroups.push(...groups);
   }
 
-  return Response.json(applyMaxPerGroup(allGroups));
+  const final = applyMaxPerGroup(allGroups);
+  recordImpressionsForGroups(final);
+  return Response.json(final);
 }
