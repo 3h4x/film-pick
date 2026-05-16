@@ -1,8 +1,11 @@
 import { NextRequest } from "next/server";
-import { getDb, getMovies, insertMovie, type MovieInput } from "@/lib/db";
+import { getDb, getMovies, getDetachedMovies, insertMovie, type MovieInput } from "@/lib/db";
 
 export async function GET(request: NextRequest) {
   const db = getDb();
+  if (request.nextUrl.searchParams.get("detached") === "1") {
+    return Response.json(getDetachedMovies(db));
+  }
   const type = request.nextUrl.searchParams.get("type") || undefined;
   const movies = getMovies(db, type);
   return Response.json(movies);

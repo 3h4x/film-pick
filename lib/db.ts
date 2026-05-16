@@ -401,6 +401,12 @@ export function getMovies(db: Database.Database, type?: string): Movie[] {
   return db.prepare(`SELECT * FROM movies ${ORDER_BY_USER_RATING}`).all() as Movie[];
 }
 
+export function getDetachedMovies(db: Database.Database): Movie[] {
+  return db
+    .prepare("SELECT * FROM movies WHERE (file_path IS NULL OR file_path = '') ORDER BY title ASC")
+    .all() as Movie[];
+}
+
 export function deleteMovie(db: Database.Database, id: number): void {
   db.prepare("DELETE FROM movies WHERE id = ?").run(id);
 }
