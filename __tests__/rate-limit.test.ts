@@ -50,6 +50,12 @@ describe("getClientIp", () => {
     const req = makeRequest();
     expect(getClientIp(req)).toBe("anon");
   });
+
+  it("does not trust forwarded headers when TRUSTED_PROXY=true", () => {
+    process.env.TRUSTED_PROXY = "true";
+    const req = makeRequest("http://localhost/", { "x-forwarded-for": "1.2.3.4" });
+    expect(getClientIp(req)).toBe("anon");
+  });
 });
 
 describe("check — token bucket", () => {
