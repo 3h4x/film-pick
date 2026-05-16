@@ -38,7 +38,7 @@ function getConfig(bucket: RateLimitBucket): BucketConfig {
 }
 
 export function getClientIp(req: Request): string {
-  if (process.env.TRUSTED_PROXY === "1" || process.env.TRUSTED_PROXY === "true") {
+  if (process.env.TRUSTED_PROXY === "1") {
     const xff = req.headers.get("x-forwarded-for");
     if (xff) {
       const first = xff.split(",")[0]?.trim();
