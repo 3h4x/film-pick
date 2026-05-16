@@ -4,8 +4,11 @@ import {
   setTvEnrichCacheEntry,
   type TvEnrichResult,
 } from "@/app/api/tv/enrich/cache";
+import { rateLimit } from "@/lib/rate-limit";
 
 export async function POST(request: Request) {
+  const limited = rateLimit(request, "tmdb");
+  if (limited) return limited;
   let body: unknown;
 
   try {

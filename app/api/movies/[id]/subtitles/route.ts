@@ -1,6 +1,7 @@
 import { NextRequest } from "next/server";
 import { getDb, Movie } from "@/lib/db";
 import { getErrorMessage } from "@/lib/utils";
+import { rateLimit } from "@/lib/rate-limit";
 import fs from "fs/promises";
 import fsSync from "fs";
 import path from "path";
@@ -64,6 +65,8 @@ export async function POST(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> },
 ) {
+  const limited = rateLimit(request, "mutation");
+  if (limited) return limited;
   const { id } = await params;
   const db = getDb();
   const movieId = parseInt(id, 10);

@@ -1,5 +1,6 @@
 import { NextRequest } from "next/server";
 import { getDb, getMovies, getDetachedMovies, insertMovie, type MovieInput } from "@/lib/db";
+import { rateLimit } from "@/lib/rate-limit";
 
 export async function GET(request: NextRequest) {
   const db = getDb();
@@ -12,6 +13,8 @@ export async function GET(request: NextRequest) {
 }
 
 export async function POST(request: NextRequest) {
+  const limited = rateLimit(request, "mutation");
+  if (limited) return limited;
   const db = getDb();
   const body = await request.json();
 

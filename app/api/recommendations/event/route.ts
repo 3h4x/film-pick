@@ -4,10 +4,13 @@ import {
   recordRecommendationEvent,
   type RecommendationEventType,
 } from "@/lib/db";
+import { rateLimit } from "@/lib/rate-limit";
 
 const VALID_EVENTS: RecommendationEventType[] = ["open", "add", "dismiss"];
 
 export async function POST(request: NextRequest) {
+  const limited = rateLimit(request, "mutation");
+  if (limited) return limited;
   const body = await request.json();
   const { tmdb_id, engine = "", event } = body;
 
