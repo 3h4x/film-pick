@@ -2,6 +2,12 @@
 
 <p align="center">Your personal movie discovery engine. Tracks what you watch, learns what you love, and finds what to watch next.</p>
 
+<p align="center">
+  <a href="https://github.com/3h4x/film-pick/actions/workflows/test.yml">
+    <img src="https://github.com/3h4x/film-pick/actions/workflows/test.yml/badge.svg" alt="CI status" />
+  </a>
+</p>
+
 ## Why
 
 Streaming platforms recommend what they want you to watch. This recommends what *you* actually want — based on your ratings, your favorite directors, your favorite actors, and your genre preferences. Everything runs locally. Your taste stays yours.
@@ -142,6 +148,12 @@ The Dockerfile uses a multi-stage build: Node 24 Alpine for building, minimal Al
 ## Tech Stack
 
 Next.js 16 | React 19 | TypeScript | SQLite | Tailwind CSS 4 | TMDb API
+
+## CI
+
+GitHub Actions workflow [`test.yml`](.github/workflows/test.yml) runs `pnpm install --frozen-lockfile`, `pnpm lint`, `pnpm type-check`, and `pnpm test` on every push and pull request. On `master`, the semantic-release and Docker publish jobs are gated behind that verification job, so a red CI run blocks the `:latest` image from updating.
+
+For repository settings, protect `master` by requiring the `Verify` job from the `CI` workflow before merge.
 
 ## License
 
