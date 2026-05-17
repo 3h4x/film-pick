@@ -118,30 +118,32 @@ describe("POST /api/recommendations/event", () => {
   });
 
   it.each(["liked", "watched", "wishlist", "disliked"])(
-    "records one add event and no dismiss event for %s action sequence",
+    "records add then dismiss events for %s action sequence",
     async () => {
-      await POST(req({ tmdb_id: 77, event: "add" }));
-      await dismissPOST(dismissReq({ tmdb_id: 77 }));
+      await POST(req({ tmdb_id: 77, engine: "genre", event: "add" }));
+      await dismissPOST(dismissReq({ tmdb_id: 77, engine: "genre" }));
 
       const rows = db
         .prepare(
-          "SELECT event FROM recommendation_events WHERE tmdb_id = 77 ORDER BY id",
+          "SELECT engine, event FROM recommendation_events WHERE tmdb_id = 77 ORDER BY id",
         )
-        .all() as { event: string }[];
-      expect(rows.map((r) => r.event)).toEqual(["add"]);
+        .all() as { engine: string; event: string }[];
+      expect(rows).toEqual([
+        { engine: "genre", event: "add" },
+        { engine: "genre", event: "dismiss" },
+      ]);
     },
   );
 
-  it("records one dismiss event for the explicit dismiss action sequence", async () => {
-    await POST(req({ tmdb_id: 88, event: "dismiss" }));
-    await dismissPOST(dismissReq({ tmdb_id: 88 }));
+  it("records a dismiss event when the dismiss route is called directly", async () => {
+    await dismissPOST(dismissReq({ tmdb_id: 88, engine: "actor" }));
 
     const rows = db
       .prepare(
-        "SELECT event FROM recommendation_events WHERE tmdb_id = 88 ORDER BY id",
+        "SELECT engine, event FROM recommendation_events WHERE tmdb_id = 88 ORDER BY id",
       )
-      .all() as { event: string }[];
-    expect(rows.map((r) => r.event)).toEqual(["dismiss"]);
+      .all() as { engine: string; event: string }[];
+    expect(rows).toEqual([{ engine: "actor", event: "dismiss" }]);
   });
 });
 

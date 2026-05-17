@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useRef, type FormEvent } from "react";
 import { EPG_PRESETS } from "@/lib/epg-presets";
+import type { TmdbHealthSnapshot } from "@/lib/tmdb-health";
 import type { RecConfig } from "@/lib/types";
 import type { Movie } from "@/lib/db";
 
@@ -147,6 +148,7 @@ export default function ConfigPanel({
   const [cdaStatus, setCdaStatus] = useState<"idle" | "running" | "error">("idle");
   const [cdaLastRefresh, setCdaLastRefresh] = useState<string | null>(null);
   const [cdaMovieCount, setCdaMovieCount] = useState<number | null>(null);
+  const [tmdbHealth, setTmdbHealth] = useState<TmdbHealthSnapshot | null>(null);
 
   // EPG / TV
   const [tvHideUnrated, setTvHideUnrated] = useState(true);
@@ -216,6 +218,33 @@ export default function ConfigPanel({
       .then((list: string[]) => setBlacklist(list))
       .catch(() => {});
   }, []);
+
+  useEffect(() => {
+    if (activeTab !== "integrations") return;
+
+    let cancelled = false;
+
+    async function loadTmdbHealth() {
+      try {
+        const res = await fetch("/api/tmdb-health");
+        if (!res.ok) return;
+        const data = (await res.json()) as TmdbHealthSnapshot;
+        if (!cancelled) setTmdbHealth(data);
+      } catch {
+        // Keep config usable even if the process-local debug endpoint is unavailable.
+      }
+    }
+
+    void loadTmdbHealth();
+    const timer = setInterval(() => {
+      void loadTmdbHealth();
+    }, 5000);
+
+    return () => {
+      cancelled = true;
+      clearInterval(timer);
+    };
+  }, [activeTab]);
 
   useEffect(() => {
     if (cdaStatus !== "running") return;
@@ -570,6 +599,83 @@ export default function ConfigPanel({
                 )}
               </form>
             )}
+          </section>
+
+          <section>
+            <SubHeader>TMDb Request Pressure</SubHeader>
+            <Hint>Process-local counters for this running app instance. They reset on restart.</Hint>
+            <div className="space-y-3 rounded-xl border border-white/10 bg-white/5 p-4">
+              <div className="grid gap-3 sm:grid-cols-2">
+                <div className="rounded-lg border border-white/10 bg-black/10 p-3">
+                  <p className="text-[11px] uppercase tracking-widest text-gray-500">Live requests</p>
+                  <p className="mt-1 text-lg font-semibold text-white">
+                    {tmdbHealth?.liveRequestCount ?? 0}
+                  </p>
+                </div>
+                <div className="rounded-lg border border-white/10 bg-black/10 p-3">
+                  <p className="text-[11px] uppercase tracking-widest text-gray-500">Cache hits</p>
+                  <p className="mt-1 text-lg font-semibold text-white">
+                    {tmdbHealth?.cacheHitCount ?? 0}
+                  </p>
+                </div>
+                <div className="rounded-lg border border-white/10 bg-black/10 p-3">
+                  <p className="text-[11px] uppercase tracking-widest text-gray-500">Retries</p>
+                  <p className="mt-1 text-lg font-semibold text-white">
+                    {tmdbHealth?.retryCount ?? 0}
+                  </p>
+                </div>
+                <div className="rounded-lg border border-white/10 bg-black/10 p-3">
+                  <p className="text-[11px] uppercase tracking-widest text-gray-500">Non-OK responses</p>
+                  <p className="mt-1 text-lg font-semibold text-white">
+                    {tmdbHealth?.nonOkCount ?? 0}
+                  </p>
+                </div>
+              </div>
+
+              <div className="text-xs text-gray-500 space-y-1">
+                <p>
+                  Last error status:{" "}
+                  <span className="text-gray-300">
+                    {tmdbHealth?.lastErrorStatus ?? "None"}
+                  </span>
+                </p>
+                <p>
+                  Last error:{" "}
+                  <span className="text-gray-300">
+                    {tmdbHealth?.lastErrorMessage ?? "None"}
+                  </span>
+                </p>
+                <p>
+                  Last 429:{" "}
+                  <span className="text-gray-300">
+                    {tmdbHealth?.last429At ? new Date(tmdbHealth.last429At).toLocaleString() : "Never"}
+                  </span>
+                </p>
+              </div>
+
+              <div>
+                <p className="mb-2 text-[11px] uppercase tracking-widest text-gray-500">By helper</p>
+                {tmdbHealth && Object.keys(tmdbHealth.helpers).length > 0 ? (
+                  <div className="space-y-2">
+                    {Object.entries(tmdbHealth.helpers)
+                      .sort(([a], [b]) => a.localeCompare(b))
+                      .map(([helper, stats]) => (
+                        <div
+                          key={helper}
+                          className="rounded-lg border border-white/10 bg-black/10 px-3 py-2 text-xs text-gray-400"
+                        >
+                          <p className="font-mono text-gray-200">{helper}</p>
+                          <p className="mt-1">
+                            requests {stats.liveRequestCount} · cache hits {stats.cacheHitCount} · retries {stats.retryCount} · non-OK {stats.nonOkCount}
+                          </p>
+                        </div>
+                      ))}
+                  </div>
+                ) : (
+                  <p className="text-sm text-gray-600">No TMDb requests recorded in this process yet.</p>
+                )}
+              </div>
+            </div>
           </section>
 
           <section>

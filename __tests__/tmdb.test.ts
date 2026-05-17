@@ -12,6 +12,7 @@ import {
   searchTmdb,
   getTmdbRecommendations,
   getTmdbSimilar,
+  getTmdbHealth,
   genreNameToId,
   getMovieLocalized,
   getPolishTitle,
@@ -19,15 +20,23 @@ import {
   getMovieCredits,
   searchTmdbPl,
   clearTmdbCache,
+  clearTmdbHealthTracker,
 } from "@/lib/tmdb";
 
 const mockFetch = vi.fn();
 global.fetch = mockFetch;
 
+afterEach(() => {
+  clearTmdbCache();
+  clearTmdbHealthTracker();
+  vi.useRealTimers();
+});
+
 describe("tmdb client", () => {
   beforeEach(() => {
     vi.resetAllMocks();
     clearTmdbCache();
+    clearTmdbHealthTracker();
     process.env.TMDB_API_KEY = "test-key";
   });
 
@@ -129,6 +138,119 @@ describe("tmdb client", () => {
     mockFetch.mockResolvedValueOnce({ ok: false, status: 401, statusText: "Unauthorized", text: async () => "" });
 
     await expect(searchTmdb("inception")).rejects.toThrow("tmdb_api_error:401");
+  });
+
+  it("tracks successful live TMDb requests by helper", async () => {
+    mockFetch.mockResolvedValueOnce({
+      ok: true,
+      json: async () => ({
+        results: [
+          {
+            id: 27205,
+            title: "Inception",
+            release_date: "2010-07-16",
+            genre_ids: [28, 878],
+            vote_average: 8.365,
+            poster_path: "/ljsZTbVsrQSqZgWeep2B1QiDKuh.jpg",
+          },
+        ],
+      }),
+    });
+
+    await searchTmdb("inception");
+
+    expect(getTmdbHealth()).toMatchObject({
+      liveRequestCount: 1,
+      cacheHitCount: 0,
+      retryCount: 0,
+      nonOkCount: 0,
+      helpers: {
+        searchTmdb: {
+          liveRequestCount: 1,
+          cacheHitCount: 0,
+          retryCount: 0,
+          nonOkCount: 0,
+        },
+      },
+    });
+  });
+
+  it("tracks cache hits for localized lookups", async () => {
+    mockFetch.mockResolvedValueOnce({
+      ok: true,
+      json: async () => ({
+        title: "Incepcja",
+        overview: "Opis",
+      }),
+    });
+
+    const first = await getMovieLocalized(27205);
+    const second = await getMovieLocalized(27205);
+
+    expect(first).toEqual(second);
+    expect(mockFetch).toHaveBeenCalledTimes(1);
+    expect(getTmdbHealth()).toMatchObject({
+      liveRequestCount: 1,
+      cacheHitCount: 1,
+      helpers: {
+        getMovieLocalized: {
+          liveRequestCount: 1,
+          cacheHitCount: 1,
+          retryCount: 0,
+          nonOkCount: 0,
+        },
+      },
+    });
+  });
+
+  it("tracks 429 retries and last rate-limit timestamp", async () => {
+    vi.useFakeTimers();
+    const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
+    mockFetch
+      .mockResolvedValueOnce({
+        ok: false,
+        status: 429,
+        statusText: "Too Many Requests",
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({
+          results: [
+            {
+              id: 27205,
+              title: "Inception",
+              release_date: "2010-07-16",
+              genre_ids: [28, 878],
+              vote_average: 8.365,
+              poster_path: "/ljsZTbVsrQSqZgWeep2B1QiDKuh.jpg",
+            },
+          ],
+        }),
+      });
+
+    const promise = searchTmdb("inception");
+    await vi.runAllTimersAsync();
+    await promise;
+
+    expect(getTmdbHealth()).toMatchObject({
+      liveRequestCount: 2,
+      retryCount: 1,
+      nonOkCount: 1,
+      lastErrorStatus: 429,
+      lastErrorMessage: "Too Many Requests",
+      helpers: {
+        searchTmdb: {
+          liveRequestCount: 2,
+          cacheHitCount: 0,
+          retryCount: 1,
+          nonOkCount: 1,
+        },
+      },
+    });
+    expect(getTmdbHealth().last429At).toBeTruthy();
+
+    warnSpy.mockRestore();
+    vi.useRealTimers();
   });
 
   it("fetches recommendations for a tmdb id", async () => {

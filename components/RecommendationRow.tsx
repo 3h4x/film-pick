@@ -6,6 +6,7 @@ import {
   CARD_ACTION_ICON_SIZE_CLASS,
   CARD_ACTION_TOUCH_TARGET_CLASS,
 } from "./card-action-styles";
+import type { RecType } from "@/lib/types";
 import type { TmdbSearchResult } from "@/lib/tmdb";
 
 export type RecAction =
@@ -17,10 +18,15 @@ export type RecAction =
 
 interface RecommendationRowProps {
   reason: string;
-  type: string;
+  type: RecType;
   recommendations: TmdbSearchResult[];
-  onAction: (tmdbId: number, action: RecAction, rec: TmdbSearchResult) => void;
-  onClickMovie: (rec: TmdbSearchResult) => void | Promise<void>;
+  onAction: (
+    tmdbId: number,
+    action: RecAction,
+    rec: TmdbSearchResult,
+    engine?: RecType,
+  ) => void;
+  onClickMovie: (rec: TmdbSearchResult, engine?: RecType) => void | Promise<void>;
   onMoveUp?: () => void;
   onMoveDown?: () => void;
   isFirst?: boolean;
@@ -115,7 +121,7 @@ export default function RecommendationRow({
               posterUrl={r.poster_url}
               source="tmdb"
               cdaUrl={r.cda_url}
-              onClick={() => onClickMovie(r)}
+              onClick={() => onClickMovie(r, type)}
             />
             <CardActionStack
               actions={[
@@ -125,7 +131,7 @@ export default function RecommendationRow({
                   icon: "👍",
                   className:
                     `bg-green-600/90 backdrop-blur-sm text-white rounded-lg ${CARD_ACTION_TOUCH_TARGET_CLASS} ${CARD_ACTION_ICON_SIZE_CLASS} flex items-center justify-center hover:bg-green-500 transition-colors`,
-                  onClick: () => onAction(r.tmdb_id, "liked", r),
+                  onClick: () => onAction(r.tmdb_id, "liked", r, type),
                 },
                 {
                   key: "watched",
@@ -133,7 +139,7 @@ export default function RecommendationRow({
                   icon: "👁",
                   className:
                     `bg-gray-600/90 backdrop-blur-sm text-white rounded-lg ${CARD_ACTION_TOUCH_TARGET_CLASS} ${CARD_ACTION_ICON_SIZE_CLASS} flex items-center justify-center hover:bg-gray-500 transition-colors`,
-                  onClick: () => onAction(r.tmdb_id, "watched", r),
+                  onClick: () => onAction(r.tmdb_id, "watched", r, type),
                 },
                 {
                   key: "wishlist",
@@ -141,7 +147,7 @@ export default function RecommendationRow({
                   icon: "🔖",
                   className:
                     `bg-blue-600/90 backdrop-blur-sm text-white rounded-lg ${CARD_ACTION_TOUCH_TARGET_CLASS} ${CARD_ACTION_ICON_SIZE_CLASS} flex items-center justify-center hover:bg-blue-500 transition-colors`,
-                  onClick: () => onAction(r.tmdb_id, "wishlist", r),
+                  onClick: () => onAction(r.tmdb_id, "wishlist", r, type),
                 },
                 {
                   key: "disliked",
@@ -149,7 +155,7 @@ export default function RecommendationRow({
                   icon: "👎",
                   className:
                     `bg-orange-600/90 backdrop-blur-sm text-white rounded-lg ${CARD_ACTION_TOUCH_TARGET_CLASS} ${CARD_ACTION_ICON_SIZE_CLASS} flex items-center justify-center hover:bg-orange-500 transition-colors`,
-                  onClick: () => onAction(r.tmdb_id, "disliked", r),
+                  onClick: () => onAction(r.tmdb_id, "disliked", r, type),
                 },
                 {
                   key: "dismiss",
@@ -157,7 +163,7 @@ export default function RecommendationRow({
                   icon: "✕",
                   className:
                     `bg-red-600/90 backdrop-blur-sm text-white rounded-lg ${CARD_ACTION_TOUCH_TARGET_CLASS} ${CARD_ACTION_ICON_SIZE_CLASS} flex items-center justify-center hover:bg-red-500 transition-colors`,
-                  onClick: () => onAction(r.tmdb_id, "dismiss", r),
+                  onClick: () => onAction(r.tmdb_id, "dismiss", r, type),
                 },
               ]}
             />
