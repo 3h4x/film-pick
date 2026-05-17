@@ -9,7 +9,7 @@ import {
 import RecommendationRow from "@/components/RecommendationRow";
 import RecommendationSkeleton from "@/components/RecommendationSkeleton";
 import { getUniqueRecommendations } from "@/lib/utils";
-import type { RecommendationGroup } from "@/lib/types";
+import type { RecommendationGroup, RecType } from "@/lib/types";
 import { REC_CATEGORIES } from "@/lib/types";
 import type { TmdbSearchResult } from "@/lib/tmdb";
 import { MOOD_PRESETS, MOOD_KEYS, type MoodKey } from "@/lib/mood-presets";
@@ -85,6 +85,12 @@ export default function RecommendationsView({
     return getUniqueRecommendations(recommendations);
   }, [recommendations]);
 
+  function findRecommendationEngine(tmdbId: number): RecType | undefined {
+    return recommendations.find((group) =>
+      group.recommendations.some((recommendation) => recommendation.tmdb_id === tmdbId),
+    )?.type;
+  }
+
   if (!hasMovies) {
     return (
       <div className="text-center py-24">
@@ -101,7 +107,11 @@ export default function RecommendationsView({
     );
   }
 
-  function recActionButtons(r: TmdbSearchResult, fromMood = false) {
+  function recActionButtons(
+    r: TmdbSearchResult,
+    fromMood = false,
+    engine = fromMood ? ("mood" as RecType) : findRecommendationEngine(r.tmdb_id),
+  ) {
     return (
       <CardActionStack
         actions={[
@@ -111,7 +121,7 @@ export default function RecommendationsView({
             icon: "👍",
             className:
               `bg-green-600/90 backdrop-blur-sm text-white rounded-lg ${CARD_ACTION_TOUCH_TARGET_CLASS} ${CARD_ACTION_ICON_SIZE_CLASS} flex items-center justify-center hover:bg-green-500 transition-colors`,
-            onClick: () => handleRecAction(r.tmdb_id, "liked", r, fromMood),
+            onClick: () => handleRecAction(r.tmdb_id, "liked", r, fromMood, engine),
           },
           {
             key: "watched",
@@ -119,7 +129,7 @@ export default function RecommendationsView({
             icon: "👁",
             className:
               `bg-gray-600/90 backdrop-blur-sm text-white rounded-lg ${CARD_ACTION_TOUCH_TARGET_CLASS} ${CARD_ACTION_ICON_SIZE_CLASS} flex items-center justify-center hover:bg-gray-500 transition-colors`,
-            onClick: () => handleRecAction(r.tmdb_id, "watched", r, fromMood),
+            onClick: () => handleRecAction(r.tmdb_id, "watched", r, fromMood, engine),
           },
           {
             key: "wishlist",
@@ -127,7 +137,7 @@ export default function RecommendationsView({
             icon: "🔖",
             className:
               `bg-blue-600/90 backdrop-blur-sm text-white rounded-lg ${CARD_ACTION_TOUCH_TARGET_CLASS} ${CARD_ACTION_ICON_SIZE_CLASS} flex items-center justify-center hover:bg-blue-500 transition-colors`,
-            onClick: () => handleRecAction(r.tmdb_id, "wishlist", r, fromMood),
+            onClick: () => handleRecAction(r.tmdb_id, "wishlist", r, fromMood, engine),
           },
           {
             key: "disliked",
@@ -135,7 +145,7 @@ export default function RecommendationsView({
             icon: "👎",
             className:
               `bg-orange-600/90 backdrop-blur-sm text-white rounded-lg ${CARD_ACTION_TOUCH_TARGET_CLASS} ${CARD_ACTION_ICON_SIZE_CLASS} flex items-center justify-center hover:bg-orange-500 transition-colors`,
-            onClick: () => handleRecAction(r.tmdb_id, "disliked", r, fromMood),
+            onClick: () => handleRecAction(r.tmdb_id, "disliked", r, fromMood, engine),
           },
           {
             key: "dismiss",
@@ -143,7 +153,7 @@ export default function RecommendationsView({
             icon: "✕",
             className:
               `bg-red-600/90 backdrop-blur-sm text-white rounded-lg ${CARD_ACTION_TOUCH_TARGET_CLASS} ${CARD_ACTION_ICON_SIZE_CLASS} flex items-center justify-center hover:bg-red-500 transition-colors`,
-            onClick: () => handleRecAction(r.tmdb_id, "dismiss", r, fromMood),
+            onClick: () => handleRecAction(r.tmdb_id, "dismiss", r, fromMood, engine),
           },
         ]}
       />
@@ -281,7 +291,7 @@ export default function RecommendationsView({
             <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4">
               {moodPicks.map((r) => (
                 <div key={r.tmdb_id} className="relative group/rec">
-                  <MovieCard title={r.title} year={r.year} genre={r.genre} rating={r.rating} userRating={null} posterUrl={r.poster_url} source="tmdb" cdaUrl={r.cda_url} onClick={() => handleRecClick(r)} />
+                  <MovieCard title={r.title} year={r.year} genre={r.genre} rating={r.rating} userRating={null} posterUrl={r.poster_url} source="tmdb" cdaUrl={r.cda_url} onClick={() => handleRecClick(r, "mood")} />
                   {recActionButtons(r, true)}
                 </div>
               ))}
@@ -300,7 +310,7 @@ export default function RecommendationsView({
         <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4">
           {allRecommendations.map((r) => (
             <div key={r.tmdb_id} className="relative group/rec">
-              <MovieCard title={r.title} year={r.year} genre={r.genre} rating={r.rating} userRating={null} posterUrl={r.poster_url} source="tmdb" cdaUrl={r.cda_url} onClick={() => handleRecClick(r)} />
+              <MovieCard title={r.title} year={r.year} genre={r.genre} rating={r.rating} userRating={null} posterUrl={r.poster_url} source="tmdb" cdaUrl={r.cda_url} onClick={() => handleRecClick(r, findRecommendationEngine(r.tmdb_id))} />
               {recActionButtons(r)}
             </div>
           ))}
