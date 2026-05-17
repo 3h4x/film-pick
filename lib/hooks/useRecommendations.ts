@@ -1,6 +1,6 @@
 "use client";
 import { useState, useCallback, useMemo, useEffect, useRef } from "react";
-import type { Movie, RecommendationGroup, AppTab } from "@/lib/types";
+import type { Movie, RecommendationGroup, AppTab, RecType } from "@/lib/types";
 import { REC_CATEGORIES } from "@/lib/types";
 import type { MoodKey } from "@/lib/mood-presets";
 import type { TmdbSearchResult } from "@/lib/tmdb";
@@ -21,6 +21,24 @@ interface UseRecommendationsParams {
   addToast: (message: string, variant?: "default" | "success") => void;
   setMovies: React.Dispatch<React.SetStateAction<Movie[]>>;
   setSelectedMovie: (movie: Movie | null) => void;
+}
+
+type RecommendationEventType = "open" | "add";
+
+function postRecommendationEvent(
+  tmdbId: number,
+  event: RecommendationEventType,
+  engine?: RecType,
+) {
+  void fetch("/api/recommendations/event", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      tmdb_id: tmdbId,
+      event,
+      ...(engine ? { engine } : {}),
+    }),
+  });
 }
 
 export function useRecommendations({
@@ -240,6 +258,7 @@ export function useRecommendations({
     action: string,
     rec: TmdbSearchResult,
     fromMood = false,
+    engine?: RecType,
   ) {
     const existingMovie = getCanonicalMovieForTmdbId(movies, rec.tmdb_id);
 
@@ -254,15 +273,6 @@ export function useRecommendations({
       wishlist: `Added "${rec.title}" to watchlist`,
     };
     addToast(actionLabels[action] || "Done");
-
-    fetch("/api/recommendations/event", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        tmdb_id: tmdbId,
-        event: action === "dismiss" ? "dismiss" : "add",
-      }),
-    });
 
     if (action !== "dismiss") {
       const userRating =
@@ -335,26 +345,31 @@ export function useRecommendations({
         cda_url: rec.cda_url || null,
       };
 
-      fetch(existingMovie ? `/api/movies/${existingMovie.id}` : "/api/movies", {
-        method: existingMovie ? "PATCH" : "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(requestBody),
+      const movieRequest = fetch(
+        existingMovie ? `/api/movies/${existingMovie.id}` : "/api/movies",
+        {
+          method: existingMovie ? "PATCH" : "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(requestBody),
+        },
+      );
+
+      void movieRequest.then((response) => {
+        if (response.ok) {
+          postRecommendationEvent(tmdbId, "add", engine);
+        }
       });
     }
 
-    fetch("/api/recommendations/dismiss", {
+    void fetch("/api/recommendations/dismiss", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ tmdb_id: tmdbId }),
+      body: JSON.stringify({ tmdb_id: tmdbId, engine }),
     });
   }
 
-  async function handleRecClick(rec: TmdbSearchResult) {
-    fetch("/api/recommendations/event", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ tmdb_id: rec.tmdb_id, event: "open" }),
-    });
+  async function handleRecClick(rec: TmdbSearchResult, engine?: RecType) {
+    postRecommendationEvent(rec.tmdb_id, "open", engine);
 
     const existing = getCanonicalMovieForTmdbId(movies, rec.tmdb_id);
     if (existing) {
@@ -377,6 +392,7 @@ export function useRecommendations({
       }),
     });
     if (!res.ok) return;
+    postRecommendationEvent(rec.tmdb_id, "add", engine);
     const { id } = await res.json();
     const movieRes = await fetch(`/api/movies/${id}`);
     const { movie } = await movieRes.json();
