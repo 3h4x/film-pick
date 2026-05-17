@@ -333,8 +333,8 @@ export default function RecommendationsView({
                 reason={group.reason}
                 type={group.type}
                 recommendations={group.recommendations}
-                onAction={(tmdbId, action, rec, engine) =>
-                  handleRecAction(tmdbId, action, rec, false, engine)
+                onAction={(tmdbId, action, rec, fromMood, engine) =>
+                  handleRecAction(tmdbId, action, rec, fromMood, engine)
                 }
                 isFirst={i === 0}
                 isLast={i === sorted.length - 1}
