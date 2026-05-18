@@ -98,6 +98,52 @@ export function useLibrary(
     }
   }, []);
 
+  const patchMovie = useCallback(
+    async (
+      id: number,
+      updates: Partial<Pick<Movie, "user_rating" | "wishlist" | "rated_at">>,
+    ) => {
+      const previousMovie = movies.find((movie) => movie.id === id);
+
+      if (previousMovie) {
+        setMovies((prev) =>
+          prev.map((movie) =>
+            movie.id === id ? { ...movie, ...updates } : movie,
+          ),
+        );
+      }
+
+      try {
+        const res = await fetch(`/api/movies/${id}`, {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(updates),
+        });
+
+        if (!res.ok) {
+          const error = await res.json().catch(() => ({ error: "Failed to update movie" }));
+          throw new Error(typeof error.error === "string" ? error.error : "Failed to update movie");
+        }
+
+        const updatedMovie = (await res.json()) as Movie;
+        setMovies((prev) =>
+          prev.map((movie) => (movie.id === id ? updatedMovie : movie)),
+        );
+        return updatedMovie;
+      } catch (error) {
+        if (previousMovie) {
+          setMovies((prev) =>
+            prev.map((movie) => (movie.id === id ? previousMovie : movie)),
+          );
+        }
+        console.error("[movies-organizer] patchMovie: error", error);
+        addToast("Failed to update movie");
+        return null;
+      }
+    },
+    [addToast, movies],
+  );
+
   function handleDeleteMovie(id: number, title: string) {
     setMovies((prev) => prev.filter((m) => m.id !== id));
     fetch(`/api/movies/${id}`, { method: "DELETE" });
@@ -136,6 +182,29 @@ export function useLibrary(
     });
   }
 
+  async function handleQuickRate(movie: Movie, rating: number) {
+    const updatedMovie = await patchMovie(movie.id, {
+      user_rating: rating,
+      wishlist: 0,
+    });
+    if (!updatedMovie) return false;
+    addToast(`Rated "${movie.title}" ${rating}/10`, "success");
+    return true;
+  }
+
+  async function handleToggleWishlist(movie: Movie) {
+    const nextWishlist = movie.wishlist === 1 ? 0 : 1;
+    const updatedMovie = await patchMovie(movie.id, { wishlist: nextWishlist });
+    if (!updatedMovie) return false;
+    addToast(
+      nextWishlist === 1
+        ? `Added "${movie.title}" to watchlist`
+        : `Removed "${movie.title}" from watchlist`,
+      "success",
+    );
+    return true;
+  }
+
   return {
     movies,
     setMovies,
@@ -168,5 +237,7 @@ export function useLibrary(
     handleDeleteMovie,
     handleMoveToWatchlist,
     handleWishlistAction,
+    handleQuickRate,
+    handleToggleWishlist,
   };
 }

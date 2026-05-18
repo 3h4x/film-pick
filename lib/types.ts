@@ -32,6 +32,7 @@ export interface Movie {
   filmweb_url?: string | null;
   cda_url?: string | null;
   pl_title?: string | null;
+  description?: string | null;
   wishlist?: number;
   file_path?: string | null;
 }
