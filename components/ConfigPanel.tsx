@@ -161,6 +161,7 @@ export default function ConfigPanel({
   const [blacklist, setBlacklist] = useState<string[]>([]);
   const [detachedMovies, setDetachedMovies] = useState<Movie[]>([]);
   const [detachedLoaded, setDetachedLoaded] = useState(false);
+  const [detachedVisibleCount, setDetachedVisibleCount] = useState(100);
   const [deletingIds, setDeletingIds] = useState<Set<number>>(new Set());
 
   useEffect(() => {
@@ -176,7 +177,10 @@ export default function ConfigPanel({
     setDetachedLoaded(true);
     fetch("/api/movies?detached=1")
       .then((r) => r.json())
-      .then((movies: Movie[]) => setDetachedMovies(movies))
+      .then((movies: Movie[]) => {
+        setDetachedMovies(movies);
+        setDetachedVisibleCount(100);
+      })
       .catch(() => {});
   }, [activeTab, detachedLoaded]);
 
@@ -490,49 +494,66 @@ export default function ConfigPanel({
             {detachedMovies.length === 0 ? (
               <p className="text-gray-700 text-sm">No detached movies.</p>
             ) : (
-              <div className="space-y-1.5">
-                {detachedMovies.map((m) => (
-                  <div
-                    key={m.id}
-                    className="flex items-center justify-between gap-3 px-3 py-2 rounded-lg bg-gray-800/30 border border-gray-700/30"
-                  >
-                    <div className="min-w-0 flex-1">
-                      <p className="text-gray-300 text-sm font-medium truncate">
-                        {m.pl_title || m.title}
-                        {m.year ? <span className="text-gray-500 font-normal ml-1">({m.year})</span> : null}
-                      </p>
-                      <div className="flex items-center gap-2 mt-0.5 flex-wrap">
-                        {m.user_rating != null && (
-                          <span className="text-xs text-indigo-400">♥ {m.user_rating}</span>
-                        )}
-                        {m.wishlist === 1 && (
-                          <span className="text-xs text-yellow-400">Wishlist</span>
-                        )}
-                        {m.tmdb_id != null && (
-                          <span className="text-xs text-gray-600">TMDb</span>
-                        )}
-                        {m.filmweb_id != null && (
-                          <span className="text-xs text-gray-600">Filmweb</span>
-                        )}
+              <div className="space-y-3">
+                <p className="text-xs text-gray-500">
+                  Showing {Math.min(detachedVisibleCount, detachedMovies.length)} of {detachedMovies.length}
+                </p>
+                <div className="space-y-1.5">
+                  {detachedMovies.slice(0, detachedVisibleCount).map((m) => (
+                    <div
+                      key={m.id}
+                      className="flex items-center justify-between gap-3 px-3 py-2 rounded-lg bg-gray-800/30 border border-gray-700/30"
+                    >
+                      <div className="min-w-0 flex-1">
+                        <p className="text-gray-300 text-sm font-medium truncate">
+                          {m.pl_title || m.title}
+                          {m.year ? <span className="text-gray-500 font-normal ml-1">({m.year})</span> : null}
+                        </p>
+                        <div className="flex items-center gap-2 mt-0.5 flex-wrap">
+                          {m.user_rating != null && (
+                            <span className="text-xs text-indigo-400">♥ {m.user_rating}</span>
+                          )}
+                          {m.wishlist === 1 && (
+                            <span className="text-xs text-yellow-400">Wishlist</span>
+                          )}
+                          {m.tmdb_id != null && (
+                            <span className="text-xs text-gray-600">TMDb</span>
+                          )}
+                          {m.filmweb_id != null && (
+                            <span className="text-xs text-gray-600">Filmweb</span>
+                          )}
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-2 shrink-0">
+                        <button
+                          onClick={() => onOpenMovie(m.id)}
+                          className="text-xs text-indigo-400 hover:text-indigo-300 transition-colors px-2 py-1 rounded hover:bg-white/5"
+                        >
+                          Open
+                        </button>
+                        <button
+                          disabled={deletingIds.has(m.id)}
+                          onClick={() => void handleDeleteDetached(m.id)}
+                          className="text-xs text-red-400 hover:text-red-300 transition-colors px-2 py-1 rounded hover:bg-red-500/10 disabled:opacity-40"
+                        >
+                          {deletingIds.has(m.id) ? "Deleting…" : "Delete"}
+                        </button>
                       </div>
                     </div>
-                    <div className="flex items-center gap-2 shrink-0">
-                      <button
-                        onClick={() => onOpenMovie(m.id)}
-                        className="text-xs text-indigo-400 hover:text-indigo-300 transition-colors px-2 py-1 rounded hover:bg-white/5"
-                      >
-                        Open
-                      </button>
-                      <button
-                        disabled={deletingIds.has(m.id)}
-                        onClick={() => void handleDeleteDetached(m.id)}
-                        className="text-xs text-red-400 hover:text-red-300 transition-colors px-2 py-1 rounded hover:bg-red-500/10 disabled:opacity-40"
-                      >
-                        {deletingIds.has(m.id) ? "Deleting…" : "Delete"}
-                      </button>
-                    </div>
-                  </div>
-                ))}
+                  ))}
+                </div>
+                {detachedVisibleCount < detachedMovies.length && (
+                  <button
+                    onClick={() =>
+                      setDetachedVisibleCount((prev) =>
+                        Math.min(prev + 100, detachedMovies.length),
+                      )
+                    }
+                    className="min-h-11 rounded-lg bg-gray-800/50 px-4 py-2 text-sm text-gray-300 transition-colors hover:bg-gray-700/60 hover:text-white"
+                  >
+                    Load 100 More
+                  </button>
+                )}
               </div>
             )}
           </section>
