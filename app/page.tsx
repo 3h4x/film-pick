@@ -67,6 +67,62 @@ function parseHash(): {
   return { tab: "recommendations", category: "all" };
 }
 
+export function buildHash({
+  selectedMovie,
+  pendingMovieHash,
+  activeTab,
+  personFilter,
+  searchQuery,
+  invalidMoodKey,
+  activeMood,
+  recCategory,
+}: {
+  selectedMovie: Movie | null;
+  pendingMovieHash: string | null;
+  activeTab: AppTab;
+  personFilter: string;
+  searchQuery: string;
+  invalidMoodKey: string | null;
+  activeMood: MoodKey | null;
+  recCategory: string;
+}): string {
+  if (selectedMovie) {
+    return selectedMovie.tmdb_id
+      ? `#movie/${selectedMovie.tmdb_id}`
+      : `#movie/local/${selectedMovie.id}`;
+  }
+  if (pendingMovieHash) return `#movie/${pendingMovieHash}`;
+  if (activeTab === "person") return `#person/${encodeURIComponent(personFilter)}`;
+  if (activeTab === "search") return `#search/${encodeURIComponent(searchQuery)}`;
+  if (activeTab === "library") return "#library";
+  if (activeTab === "wishlist") return "#wishlist";
+  if (activeTab === "config") return "#config";
+  if (activeTab === "tv") return "#tv";
+  if (invalidMoodKey) return `#recommendations/mood/${encodeURIComponent(invalidMoodKey)}`;
+  if (activeMood) return `#recommendations/mood/${activeMood}`;
+  return recCategory === "all" ? "#recommendations" : `#recommendations/${recCategory}`;
+}
+
+export function resolvePendingMovieHash({
+  pendingMovieHash,
+  initialLoad,
+  movies,
+}: {
+  pendingMovieHash: string | null;
+  initialLoad: boolean;
+  movies: Movie[];
+}): { selectedMovie: Movie | null; nextPendingMovieHash: string | null } {
+  if (!pendingMovieHash) {
+    return { selectedMovie: null, nextPendingMovieHash: null };
+  }
+  if (initialLoad) {
+    return { selectedMovie: null, nextPendingMovieHash: pendingMovieHash };
+  }
+
+  const selectedMovie = findMovieFromHashRef(movies, pendingMovieHash) ?? null;
+  return { selectedMovie, nextPendingMovieHash: null };
+}
+
 export default function Home() {
   const [activeTab, setActiveTab] = useState<AppTab>("recommendations");
   const [personFilter, setPersonFilter] = useState("");
@@ -75,6 +131,7 @@ export default function Home() {
   const [importOpen, setImportOpen] = useState(false);
   const [syncOpen, setSyncOpen] = useState(false);
   const [invalidMoodKey, setInvalidMoodKey] = useState<string | null>(null);
+  const [pendingMovieHash, setPendingMovieHash] = useState<string | null>(null);
   const [disabledEngines, setDisabledEngines] = useState<string[]>([]);
   const [recConfig, setRecConfig] = useState<RecConfig>({
     excluded_genres: [], min_year: null, min_rating: null, max_per_group: 15,
@@ -84,7 +141,6 @@ export default function Home() {
 
   const [toasts, setToasts] = useState<ToastItem[]>([]);
   const toastId = useRef(0);
-  const pendingMovieRef = useRef<string | null>(null);
   function addToast(message: string, variant?: "default" | "success") {
     const id = ++toastId.current;
     setToasts((prev) => [...prev, { id, message, variant }]);
@@ -125,7 +181,7 @@ export default function Home() {
   useEffect(() => {
     const hash = window.location.hash;
     if (hash.startsWith("#movie/")) {
-      pendingMovieRef.current = hash.substring(7);
+      setPendingMovieHash(hash.substring(7));
       return;
     }
     const { tab, category, moodKey, invalidMoodKey } = parseHash();
@@ -147,42 +203,31 @@ export default function Home() {
 
   // After movies load, open movie referenced in URL (e.g. shared link)
   useEffect(() => {
-    if (!pendingMovieRef.current || initialLoad) return;
-    const ref = pendingMovieRef.current;
-
-    const found = findMovieFromHashRef(movies, ref);
-    if (found) {
-      pendingMovieRef.current = null;
-      setSelectedMovie(found);
-      return;
+    const resolved = resolvePendingMovieHash({
+      pendingMovieHash,
+      initialLoad,
+      movies,
+    });
+    if (resolved.nextPendingMovieHash !== pendingMovieHash) {
+      setPendingMovieHash(resolved.nextPendingMovieHash);
     }
-
-    // Keep the pending hash until the library actually has rows to search.
-    if (movies.length > 0) pendingMovieRef.current = null;
-  }, [movies, initialLoad]);
+    if (resolved.selectedMovie) setSelectedMovie(resolved.selectedMovie);
+  }, [pendingMovieHash, movies, initialLoad]);
 
   // Sync URL hash with state (movie modal takes precedence over tab hash)
   useEffect(() => {
-    let hash: string;
-    if (selectedMovie) {
-      hash = selectedMovie.tmdb_id
-        ? `#movie/${selectedMovie.tmdb_id}`
-        : `#movie/local/${selectedMovie.id}`;
-    } else {
-      hash =
-        activeTab === "person" ? `#person/${encodeURIComponent(personFilter)}`
-        : activeTab === "search" ? `#search/${encodeURIComponent(searchQuery)}`
-        : activeTab === "library" ? "#library"
-        : activeTab === "wishlist" ? "#wishlist"
-        : activeTab === "config" ? "#config"
-        : activeTab === "tv" ? "#tv"
-        : invalidMoodKey ? `#recommendations/mood/${encodeURIComponent(invalidMoodKey)}`
-        : recs.activeMood ? `#recommendations/mood/${recs.activeMood}`
-        : recs.recCategory === "all" ? "#recommendations"
-        : `#recommendations/${recs.recCategory}`;
-    }
+    const hash = buildHash({
+      selectedMovie,
+      pendingMovieHash,
+      activeTab,
+      personFilter,
+      searchQuery,
+      invalidMoodKey,
+      activeMood: recs.activeMood,
+      recCategory: recs.recCategory,
+    });
     if (window.location.hash !== hash) window.history.replaceState(null, "", hash);
-  }, [selectedMovie, activeTab, recs.recCategory, recs.activeMood, invalidMoodKey, personFilter, searchQuery]);
+  }, [selectedMovie, pendingMovieHash, activeTab, recs.recCategory, recs.activeMood, invalidMoodKey, personFilter, searchQuery]);
 
   // Browser back/forward / external hash navigation
   useEffect(() => {
@@ -192,13 +237,18 @@ export default function Home() {
         const ref = hash.substring(7);
         const found = findMovieFromHashRef(movies, ref);
         if (found) {
-          pendingMovieRef.current = null;
+          setPendingMovieHash(null);
           setSelectedMovie(found);
+        } else if (initialLoad) {
+          setPendingMovieHash(ref);
+          setSelectedMovie(null);
         } else {
-          pendingMovieRef.current = ref;
+          setPendingMovieHash(null);
+          setSelectedMovie(null);
         }
         return;
       }
+      setPendingMovieHash(null);
       setSelectedMovie(null);
       const { tab, category, moodKey, invalidMoodKey } = parseHash();
       if (tab === "search") {
@@ -215,7 +265,7 @@ export default function Home() {
     }
     window.addEventListener("hashchange", onHashChange);
     return () => window.removeEventListener("hashchange", onHashChange);
-  }, [movies]);
+  }, [movies, initialLoad]);
 
   useEffect(() => {
     if (activeTab === "search" && !searchQuery.trim()) setActiveTab("library");

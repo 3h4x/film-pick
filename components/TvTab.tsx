@@ -341,7 +341,7 @@ export default function TvTab() {
           onChange={(e) => setFilter(e.target.value)}
           placeholder="Filter channels..."
           aria-label="Filter TV channels"
-          className="bg-gray-800/40 text-white text-sm pl-8 pr-3 py-1.5 rounded-lg border border-gray-700/50 focus:outline-none focus:border-indigo-500/50 placeholder-gray-600 w-44"
+          className="h-11 w-44 rounded-lg border border-gray-700/50 bg-gray-800/40 pl-8 pr-3 text-sm text-white placeholder-gray-600 focus:border-indigo-500/50 focus:outline-none"
         />
       </div>
 
@@ -359,7 +359,7 @@ export default function TvTab() {
         onClick={() => load(true)}
         title="Refresh EPG cache"
         aria-label="Refresh TV guide"
-        className="flex h-10 w-10 items-center justify-center rounded-lg text-gray-600 transition-colors hover:bg-white/[0.04] hover:text-gray-300"
+        className="flex h-11 w-11 items-center justify-center rounded-lg text-gray-600 transition-colors hover:bg-white/[0.04] hover:text-gray-300"
       >
         <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
           <path strokeLinecap="round" strokeLinejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
