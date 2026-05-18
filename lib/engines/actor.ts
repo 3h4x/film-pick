@@ -1,5 +1,6 @@
 import { discoverByPerson, getMovieCredits } from "../tmdb";
 import {
+  attachTrace,
   filterResults,
   type EngineContext,
   type RecommendationGroup,
@@ -55,7 +56,12 @@ export async function actorEngine(
       groups.push({
         reason: `Starring ${name}`,
         type: "actor",
-        recommendations: filtered.slice(0, 15),
+        recommendations: attachTrace(filtered.slice(0, 15), {
+          engine: "actor",
+          seedKind: "actor",
+          seedId: topActors[i][0],
+          seedName: name,
+        }),
       });
     }
   });

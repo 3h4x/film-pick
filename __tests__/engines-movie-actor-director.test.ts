@@ -90,6 +90,13 @@ describe("movieEngine", () => {
     expect(result[0].reason).toContain("Inception");
     expect(result[0].type).toBe("movie");
     expect(result[0].recommendations[0].title).toBe("Arrival");
+    expect(result[0].recommendations[0].trace).toMatchObject({
+      engine: "movie",
+      source: "live_tmdb",
+      seedKind: "movie",
+      seedTmdbId: 27205,
+      seedTitle: "Inception",
+    });
   });
 
   it("merges similar results with recommendations, deduplicating by tmdb_id", async () => {
@@ -229,6 +236,13 @@ describe("actorEngine", () => {
     expect(result.length).toBeGreaterThanOrEqual(1);
     expect(result[0].reason).toContain("Tom Hanks");
     expect(result[0].type).toBe("actor");
+    expect(result[0].recommendations[0].trace).toMatchObject({
+      engine: "actor",
+      source: "live_tmdb",
+      seedKind: "actor",
+      seedId: actorId,
+      seedName: "Tom Hanks",
+    });
   });
 
   it("respects actor_min_appearances=1 — includes actors with single appearance", async () => {
@@ -319,6 +333,13 @@ describe("directorEngine", () => {
     expect(result.length).toBeGreaterThanOrEqual(1);
     expect(result[0].reason).toContain("Christopher Nolan");
     expect(result[0].type).toBe("director");
+    expect(result[0].recommendations[0].trace).toMatchObject({
+      engine: "director",
+      source: "live_tmdb",
+      seedKind: "director",
+      seedId: dirId,
+      seedName: "Christopher Nolan",
+    });
   });
 
   it("respects director_min_films=1 — includes director with single film", async () => {

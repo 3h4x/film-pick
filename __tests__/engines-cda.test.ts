@@ -99,6 +99,11 @@ describe("cdaEngine", () => {
     const types = result.map((g) => g.reason);
     expect(types).toContain("Science Fiction on CDA");
     expect(types).toContain("Drama on CDA");
+    expect(result[0].recommendations[0].trace).toMatchObject({
+      engine: "cda",
+      source: "recommended_movies",
+      seedKind: "cda",
+    });
   });
 
   it("filters out movies already in library by tmdb_id", async () => {

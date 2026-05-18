@@ -19,6 +19,7 @@ import {
   buildContext,
   getCdaLookup,
   enrichWithCda,
+  overrideTraceSource,
   type RecommendationGroup,
   type RecConfig,
 } from "@/lib/engines";
@@ -147,7 +148,12 @@ export async function GET(request: NextRequest) {
       const cached = getCachedEngine(db, key, movieCount);
       if (cached) {
         return addCdaUrls(
-          filterExcluded(enrichFromDb(cached as RecommendationGroup[], key)),
+          filterExcluded(
+            overrideTraceSource(
+              enrichFromDb(cached as RecommendationGroup[], key),
+              "recommendation_cache",
+            ),
+          ),
         );
       }
 
