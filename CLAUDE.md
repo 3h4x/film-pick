@@ -149,7 +149,7 @@ pnpm backup              # Backup SQLite DB
 - **TV guide (EPG):** Fetches and caches an M3U/EPG feed; configurable via settings; scheduled refresh; channel blacklist
 - **Mood recommendations:** Predefined mood presets map to TMDb genre/keyword queries
 - **CDA integration:** `cda.ts` resolves streaming URLs; `cda-scheduler.ts` refreshes availability cache on a schedule
-- **URL hash deep-link:** `#movie-<id>` in the URL opens the movie detail modal directly on page load
+- **URL hash deep-link:** `#movie/<tmdbId>` opens a TMDb-backed movie detail modal directly on page load; use `#movie/local/<dbId>` for local-only entries
 - **hasFileOnly filter:** Library can be filtered to show only movies with a local file path (`hasFileOnly=1`)
 - **Lazy enrichment:** `GET /api/movies/[id]/full` lazily fetches and stores `pl_title` and `description` from TMDb on first access
 - **TMDb TTL cache:** `lib/tmdb.ts` keeps an in-memory TTL cache for `getMovieLocalized` and `getTmdbMovieDetails` to reduce redundant API calls
