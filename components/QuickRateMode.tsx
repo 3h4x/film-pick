@@ -109,6 +109,8 @@ export default function QuickRateMode({
   useEffect(() => {
     if (!currentMovie) return;
 
+    const movie = currentMovie;
+
     function onKeyDown(event: KeyboardEvent) {
       if (isBusy || event.metaKey || event.ctrlKey || event.altKey) return;
       const target = event.target;
@@ -142,7 +144,7 @@ export default function QuickRateMode({
           return;
         }
         setIsBusy(true);
-        void onDismiss(currentMovie)
+        void onDismiss(movie)
           .then((ok) => {
             if (ok) advance();
           })
@@ -152,12 +154,12 @@ export default function QuickRateMode({
 
       if (action.kind === "wishlist") {
         setIsBusy(true);
-        void onToggleWishlist(currentMovie).finally(() => setIsBusy(false));
+        void onToggleWishlist(movie).finally(() => setIsBusy(false));
         return;
       }
 
       setIsBusy(true);
-      void onRate(currentMovie, action.rating)
+      void onRate(movie, action.rating)
         .then((ok) => {
           if (ok) advance();
         })
