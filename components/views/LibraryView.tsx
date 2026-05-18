@@ -1,9 +1,12 @@
 "use client";
+import { useEffect, useMemo, useState } from "react";
 import MovieCard from "@/components/MovieCard";
+import QuickRateMode from "@/components/QuickRateMode";
 import SortFilterBar from "@/components/SortFilterBar";
 import type { Movie } from "@/lib/types";
 import { PAGE_SIZE } from "@/lib/types";
 import type { useLibrary } from "@/lib/hooks/useLibrary";
+import { isUnratedMovie } from "@/lib/quick-rate";
 
 type LibraryState = ReturnType<typeof useLibrary>;
 
@@ -50,7 +53,37 @@ export default function LibraryView({
     setHasFileOnly,
     handleDeleteMovie,
     handleMoveToWatchlist,
+    handleQuickRate,
+    handleToggleWishlist,
   } = library;
+  const [quickRateOpen, setQuickRateOpen] = useState(false);
+
+  const unratedMovies = useMemo(
+    () => sortedMovies.filter(isUnratedMovie),
+    [sortedMovies],
+  );
+
+  useEffect(() => {
+    function onKeyDown(event: KeyboardEvent) {
+      if (event.repeat || event.metaKey || event.ctrlKey || event.altKey) return;
+      const target = event.target;
+      if (
+        target instanceof HTMLElement &&
+        (target.tagName === "INPUT" ||
+          target.tagName === "TEXTAREA" ||
+          target.isContentEditable)
+      ) {
+        return;
+      }
+      if (event.key.toLowerCase() !== "r") return;
+      if (unratedMovies.length === 0) return;
+      event.preventDefault();
+      setQuickRateOpen(true);
+    }
+
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [unratedMovies.length]);
 
   if (initialLoad) {
     return (
@@ -159,15 +192,25 @@ export default function LibraryView({
           {sortedMovies.length}
           {sortedMovies.length !== movies.length && ` (${movies.length} total)`}
         </p>
-        {searchQuery && (
+        <div className="flex flex-wrap items-center gap-2">
           <button
-            onClick={() => onSearchInTMDb(searchQuery)}
-            className="text-indigo-400 hover:text-indigo-300 text-xs font-medium transition-colors flex items-center gap-1.5 px-2 py-1 rounded-lg hover:bg-indigo-500/10"
+            type="button"
+            onClick={() => setQuickRateOpen(true)}
+            disabled={unratedMovies.length === 0}
+            className="rounded-xl border border-indigo-500/30 bg-indigo-500/10 px-3 py-2 text-xs font-semibold text-indigo-200 transition-colors hover:border-indigo-400/50 hover:bg-indigo-500/20 disabled:cursor-not-allowed disabled:border-gray-800/70 disabled:bg-gray-900/60 disabled:text-gray-600"
           >
-            <span>🔍</span>
-            Search &ldquo;{searchQuery}&rdquo; in TMDb
+            Quick Rate ({unratedMovies.length}) · R
           </button>
-        )}
+          {searchQuery && (
+            <button
+              onClick={() => onSearchInTMDb(searchQuery)}
+              className="text-indigo-400 hover:text-indigo-300 text-xs font-medium transition-colors flex items-center gap-1.5 px-2 py-1 rounded-lg hover:bg-indigo-500/10"
+            >
+              <span>🔍</span>
+              Search &ldquo;{searchQuery}&rdquo; in TMDb
+            </button>
+          )}
+        </div>
       </div>
       {sortedMovies.length === 0 ? (
         <div className="text-center py-12">
@@ -206,6 +249,14 @@ export default function LibraryView({
             Load More ({sortedMovies.length - visibleCount} remaining)
           </button>
         </div>
+      )}
+      {quickRateOpen && (
+        <QuickRateMode
+          movies={sortedMovies}
+          onClose={() => setQuickRateOpen(false)}
+          onRate={handleQuickRate}
+          onToggleWishlist={handleToggleWishlist}
+        />
       )}
     </>
   );
