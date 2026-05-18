@@ -29,6 +29,17 @@ const rec: TmdbSearchResult = {
   imdb_id: "tt0113277",
 };
 
+const tracedRec: TmdbSearchResult = {
+  ...rec,
+  trace: {
+    engine: "movie",
+    source: "live_tmdb",
+    seedKind: "movie",
+    seedTmdbId: 27205,
+    seedTitle: "Inception",
+  },
+};
+
 const moodGroups: RecommendationGroup[] = [
   {
     reason: "For tense nights",
@@ -110,6 +121,23 @@ describe("responsive action visibility", () => {
     expect(html).toContain(HOVER_REVEAL_REC_CLASS);
     expect(html).toContain("Show actions");
     expect(html).not.toContain("md:[@media(hover:hover)]");
+  });
+
+  it("keeps trace controls away from grouped recommendation rating badges", () => {
+    const html = renderToStaticMarkup(
+      <RecommendationRow
+        reason="Because you liked crime"
+        type="movie"
+        recommendations={[tracedRec]}
+        onAction={vi.fn()}
+        onClickMovie={vi.fn()}
+      />,
+    );
+
+    expect(html).toContain("Trace");
+    expect(html).toContain("★ 8.3");
+    expect(html).toContain("absolute right-2 top-2 z-20");
+    expect(html).not.toContain("absolute left-2 top-2 z-20");
   });
 
   it("keeps mood recommendation actions hover-gated by input capability instead of md width", () => {

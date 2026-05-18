@@ -130,7 +130,7 @@ export default function RecommendationRow({
               onClick={() => onClickMovie(r, type)}
             />
             {r.trace ? (
-              <details className="absolute left-2 top-2 z-20 max-w-[calc(100%-1rem)]">
+              <details className="absolute right-2 top-2 z-20 max-w-[calc(100%-1rem)]">
                 <summary className="cursor-pointer list-none rounded-md bg-black/70 px-2 py-1 text-[10px] font-medium uppercase tracking-[0.18em] text-cyan-200 backdrop-blur-sm">
                   Trace
                 </summary>
