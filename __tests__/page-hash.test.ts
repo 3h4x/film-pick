@@ -1,0 +1,115 @@
+import { describe, expect, it } from "vitest";
+import { buildHash, resolvePendingMovieHash } from "@/app/page";
+import type { Movie } from "@/lib/types";
+
+const baseMovie: Movie = {
+  id: 7,
+  title: "Heat",
+  year: 1995,
+  genre: "Crime",
+  director: null,
+  writer: null,
+  actors: null,
+  rating: 8.3,
+  user_rating: null,
+  poster_url: null,
+  source: "tmdb",
+  type: "movie",
+  tmdb_id: 949,
+  rated_at: null,
+  created_at: "2026-05-18T00:00:00.000Z",
+};
+
+describe("buildHash", () => {
+  it("keeps a pending TMDb movie hash until the movie resolves", () => {
+    expect(
+      buildHash({
+        selectedMovie: null,
+        pendingMovieHash: "949",
+        activeTab: "recommendations",
+        personFilter: "",
+        searchQuery: "",
+        invalidMoodKey: null,
+        activeMood: null,
+        recCategory: "all",
+      }),
+    ).toBe("#movie/949");
+  });
+
+  it("keeps a pending local movie hash until the movie resolves", () => {
+    expect(
+      buildHash({
+        selectedMovie: null,
+        pendingMovieHash: "local/7",
+        activeTab: "library",
+        personFilter: "",
+        searchQuery: "",
+        invalidMoodKey: null,
+        activeMood: null,
+        recCategory: "all",
+      }),
+    ).toBe("#movie/local/7");
+  });
+
+  it("prefers the selected movie hash over other UI state", () => {
+    expect(
+      buildHash({
+        selectedMovie: baseMovie,
+        pendingMovieHash: "local/7",
+        activeTab: "tv",
+        personFilter: "",
+        searchQuery: "",
+        invalidMoodKey: "cozy",
+        activeMood: "comfort_rewatch",
+        recCategory: "movie",
+      }),
+    ).toBe("#movie/949");
+  });
+});
+
+describe("resolvePendingMovieHash", () => {
+  it("keeps an unresolved movie hash while the library is still loading", () => {
+    expect(
+      resolvePendingMovieHash({
+        pendingMovieHash: "949",
+        initialLoad: true,
+        movies: [],
+      }),
+    ).toEqual({ selectedMovie: null, nextPendingMovieHash: "949" });
+  });
+
+  it("clears an unresolved movie hash after an empty library has loaded", () => {
+    const resolved = resolvePendingMovieHash({
+      pendingMovieHash: "949",
+      initialLoad: false,
+      movies: [],
+    });
+
+    expect(resolved).toEqual({
+      selectedMovie: null,
+      nextPendingMovieHash: null,
+    });
+    expect(
+      buildHash({
+        selectedMovie: resolved.selectedMovie,
+        pendingMovieHash: resolved.nextPendingMovieHash,
+        activeTab: "tv",
+        personFilter: "",
+        searchQuery: "",
+        invalidMoodKey: null,
+        activeMood: null,
+        recCategory: "all",
+      }),
+    ).toBe("#tv");
+  });
+
+  it("resolves a pending movie hash to the matching movie after loading", () => {
+    expect(
+      resolvePendingMovieHash({
+        pendingMovieHash: "949",
+        initialLoad: false,
+        movies: [baseMovie],
+      }),
+    ).toEqual({ selectedMovie: baseMovie, nextPendingMovieHash: null });
+  });
+});
