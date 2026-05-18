@@ -1,5 +1,9 @@
 import type { Movie } from "../db";
 import type { TmdbSearchResult } from "../tmdb";
+import type {
+  RecommendationSourceKind,
+  RecommendationTrace,
+} from "../recommendation-trace";
 import { genreEngine } from "./genre";
 import { directorEngine } from "./director";
 import { actorEngine } from "./actor";
@@ -102,6 +106,41 @@ export function enrichWithCda(
     if (cdaUrl) return { ...r, cda_url: cdaUrl };
     return r;
   });
+}
+
+export function attachTrace(
+  results: TmdbSearchResult[],
+  trace: Omit<RecommendationTrace, "source"> & {
+    source?: RecommendationSourceKind;
+  },
+): TmdbSearchResult[] {
+  return results.map((result) => ({
+    ...result,
+    trace: {
+      ...trace,
+      source: trace.source ?? "live_tmdb",
+    },
+  }));
+}
+
+export function overrideTraceSource(
+  groups: RecommendationGroup[],
+  source: RecommendationSourceKind,
+): RecommendationGroup[] {
+  return groups.map((group) => ({
+    ...group,
+    recommendations: group.recommendations.map((recommendation) =>
+      recommendation.trace
+        ? {
+            ...recommendation,
+            trace: {
+              ...recommendation.trace,
+              source,
+            },
+          }
+        : recommendation,
+    ),
+  }));
 }
 
 export function buildContext(

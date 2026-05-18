@@ -133,6 +133,36 @@ describe("recommendation cache", () => {
     expect(result).toEqual(data);
   });
 
+  it("preserves recommendation trace in cached engine JSON", () => {
+    const data = [{
+      reason: "Because you loved Inception",
+      type: "movie",
+      recommendations: [{
+        tmdb_id: 329865,
+        title: "Arrival",
+        year: 2016,
+        genre: "Sci-Fi",
+        rating: 7.9,
+        poster_url: null,
+        imdb_id: null,
+        trace: {
+          engine: "movie",
+          source: "live_tmdb",
+          seedKind: "movie",
+          seedTmdbId: 27205,
+          seedTitle: "Inception",
+        },
+      }],
+    }];
+    setCachedEngine(db, "movie", data, 5);
+    const result = getCachedEngine<typeof data[number]>(db, "movie", 5);
+    expect(result?.[0].recommendations[0].trace).toMatchObject({
+      engine: "movie",
+      source: "live_tmdb",
+      seedTmdbId: 27205,
+    });
+  });
+
   it("returns null when movie count differs from cached count", () => {
     setCachedEngine(db, "genre", [{ tmdb_id: 1, title: "Test" }], 5);
     expect(getCachedEngine(db, "genre", 10)).toBeNull();
@@ -420,6 +450,25 @@ describe("recommended movies", () => {
     expect(movies[0].engine).toBe("genre");
     expect(movies[0].reason).toBe("Because you love Sci-Fi");
     expect(movies[0].tmdb_id).toBe(329865);
+  });
+
+  it("saves and retrieves recommendation trace from recommended_movies", () => {
+    saveRecommendedMovies(db, "genre", "Because you love Sci-Fi", [{
+      ...sampleMovie,
+      trace: {
+        engine: "genre",
+        source: "live_tmdb",
+        seedKind: "genre",
+        seedId: 878,
+        seedName: "Sci-Fi",
+      },
+    }]);
+    const movies = getRecommendedMovies(db, "genre");
+    expect(movies[0].trace).toMatchObject({
+      engine: "genre",
+      source: "live_tmdb",
+      seedName: "Sci-Fi",
+    });
   });
 
   it("retrieves recommended movies filtered by engine", () => {
@@ -922,6 +971,33 @@ describe("database migrations on existing schema", () => {
 
     const cols = (db.pragma("table_info(recommended_movies)") as { name: string }[]).map((c) => c.name);
     expect(cols).toContain("description");
+  });
+
+  it("adds trace column to recommended_movies when missing", () => {
+    db = new Database(MIGRATION_DB);
+    db.exec(ORIGINAL_MOVIES_SCHEMA);
+    db.exec(`
+      CREATE TABLE recommended_movies (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        tmdb_id INTEGER NOT NULL,
+        engine TEXT NOT NULL,
+        reason TEXT NOT NULL,
+        title TEXT NOT NULL,
+        year INTEGER,
+        genre TEXT,
+        rating REAL,
+        poster_url TEXT,
+        pl_title TEXT,
+        cda_url TEXT,
+        description TEXT,
+        UNIQUE(tmdb_id, engine)
+      );
+    `);
+
+    initDb(db);
+
+    const cols = (db.pragma("table_info(recommended_movies)") as { name: string }[]).map((c) => c.name);
+    expect(cols).toContain("trace");
   });
 
   it("preserves existing movie data through migrations", () => {

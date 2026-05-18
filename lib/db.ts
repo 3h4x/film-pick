@@ -1,5 +1,6 @@
 import Database from "better-sqlite3";
 import path from "path";
+import type { RecommendationTrace } from "@/lib/recommendation-trace";
 
 export interface Movie {
   id: number;
@@ -199,6 +200,7 @@ export function initDb(db: Database.Database): void {
       pl_title TEXT,
       cda_url TEXT,
       description TEXT,
+      trace TEXT,
       created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
       UNIQUE(tmdb_id, engine)
     );
@@ -210,6 +212,9 @@ export function initDb(db: Database.Database): void {
   ).map((c) => c.name);
   if (!recMovieCols.includes("description")) {
     db.exec("ALTER TABLE recommended_movies ADD COLUMN description TEXT");
+  }
+  if (!recMovieCols.includes("trace")) {
+    db.exec("ALTER TABLE recommended_movies ADD COLUMN trace TEXT");
   }
 
   // Migration: old recommendation_cache had 'id' column, new one has 'engine'
@@ -483,7 +488,43 @@ export interface RecommendedMovie {
   pl_title: string | null;
   cda_url: string | null;
   description: string | null;
+  trace: RecommendationTrace | null;
   created_at: string;
+}
+
+interface RecommendedMovieRow {
+  id: number;
+  tmdb_id: number;
+  engine: string;
+  reason: string;
+  title: string;
+  year: number | null;
+  genre: string | null;
+  rating: number | null;
+  poster_url: string | null;
+  pl_title: string | null;
+  cda_url: string | null;
+  description: string | null;
+  trace: string | null;
+  created_at: string;
+}
+
+function parseRecommendationTrace(
+  trace: string | null,
+): RecommendationTrace | null {
+  if (!trace) return null;
+  try {
+    return JSON.parse(trace) as RecommendationTrace;
+  } catch {
+    return null;
+  }
+}
+
+function mapRecommendedMovieRow(row: RecommendedMovieRow): RecommendedMovie {
+  return {
+    ...row,
+    trace: parseRecommendationTrace(row.trace),
+  };
 }
 
 export function saveRecommendedMovies(
@@ -497,14 +538,20 @@ export function saveRecommendedMovies(
     genre: string | null;
     rating: number | null;
     poster_url: string | null;
+    trace?: RecommendationTrace;
   }[],
 ): void {
   const stmt = db.prepare(`
-    INSERT OR IGNORE INTO recommended_movies (tmdb_id, engine, reason, title, year, genre, rating, poster_url)
-    VALUES (@tmdb_id, @engine, @reason, @title, @year, @genre, @rating, @poster_url)
+    INSERT OR IGNORE INTO recommended_movies (tmdb_id, engine, reason, title, year, genre, rating, poster_url, trace)
+    VALUES (@tmdb_id, @engine, @reason, @title, @year, @genre, @rating, @poster_url, @trace)
   `);
   for (const m of movies) {
-    stmt.run({ ...m, engine, reason });
+    stmt.run({
+      ...m,
+      engine,
+      reason,
+      trace: m.trace ? JSON.stringify(m.trace) : null,
+    });
   }
 }
 
@@ -537,16 +584,16 @@ export function getRecommendedMovies(
        LIMIT 1),
       rm.poster_url
     ) AS poster_url,
-    rm.pl_title, rm.cda_url, rm.description, rm.created_at
+    rm.pl_title, rm.cda_url, rm.description, rm.trace, rm.created_at
   `;
   if (engine) {
-    return db
+    return (db
       .prepare(`SELECT ${cols} FROM recommended_movies rm WHERE rm.engine = ? ORDER BY rm.rating DESC`)
-      .all(engine) as RecommendedMovie[];
+      .all(engine) as RecommendedMovieRow[]).map(mapRecommendedMovieRow);
   }
-  return db
+  return (db
     .prepare(`SELECT ${cols} FROM recommended_movies rm ORDER BY rm.engine, rm.rating DESC`)
-    .all() as RecommendedMovie[];
+    .all() as RecommendedMovieRow[]).map(mapRecommendedMovieRow);
 }
 
 export function updateRecommendedMovie(

@@ -1,5 +1,6 @@
 import { discoverByPerson, getMovieCredits } from "../tmdb";
 import {
+  attachTrace,
   filterResults,
   type EngineContext,
   type RecommendationGroup,
@@ -56,7 +57,12 @@ export async function directorEngine(
       groups.push({
         reason: `More from director ${name}`,
         type: "director",
-        recommendations: filtered.slice(0, 15),
+        recommendations: attachTrace(filtered.slice(0, 15), {
+          engine: "director",
+          seedKind: "director",
+          seedId: topDirectors[i][0],
+          seedName: name,
+        }),
       });
     }
   });

@@ -418,8 +418,9 @@ describe("buildContext", () => {
 // ---------------------------------------------------------------------------
 
 function makeCdaMovie(overrides: Partial<RecommendedMovie> & { tmdb_id: number; title: string }): RecommendedMovie {
+  const { trace, ...rest } = overrides;
   return {
-    id: overrides.tmdb_id,
+    id: rest.tmdb_id,
     engine: "cda",
     reason: "cda",
     year: 2020,
@@ -430,7 +431,8 @@ function makeCdaMovie(overrides: Partial<RecommendedMovie> & { tmdb_id: number; 
     cda_url: "https://cda.pl/video/default",
     description: null,
     created_at: "2026-01-01",
-    ...overrides,
+    ...rest,
+    trace: trace ?? null,
   };
 }
 
