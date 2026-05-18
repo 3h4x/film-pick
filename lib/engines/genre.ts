@@ -1,6 +1,7 @@
 import { discoverByGenre, genreNameToId } from "../tmdb";
 import { parseGenreLabels } from "../utils";
 import {
+  attachTrace,
   filterResults,
   type EngineContext,
   type RecommendationGroup,
@@ -66,7 +67,12 @@ export async function genreEngine(
       groups.push({
         reason: `Because you love ${genreName}`,
         type: "genre",
-        recommendations: filtered.slice(0, 15),
+        recommendations: attachTrace(filtered.slice(0, 15), {
+          engine: "genre",
+          seedKind: "genre",
+          seedId: genreId,
+          seedName: genreName,
+        }),
       });
     }
   }

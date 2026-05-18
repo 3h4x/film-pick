@@ -1,4 +1,9 @@
 import type { TmdbSearchResult } from "@/lib/tmdb";
+export type {
+  RecommendationSourceKind,
+  RecommendationSeedKind,
+  RecommendationTrace,
+} from "@/lib/recommendation-trace";
 
 export type SortOption =
   | "user_rating"

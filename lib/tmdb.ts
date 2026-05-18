@@ -1,4 +1,5 @@
 import { getDb, getSetting } from "@/lib/db";
+import type { RecommendationTrace } from "@/lib/recommendation-trace";
 import type { TmdbHealthSnapshot } from "@/lib/tmdb-health";
 
 const TMDB_BASE = "https://api.themoviedb.org/3";
@@ -213,6 +214,7 @@ export interface TmdbSearchResult {
   imdb_id: string | null;
   cda_url?: string | null;
   pl_title?: string | null;
+  trace?: RecommendationTrace;
 }
 
 function normalizeSearchText(value: string): string {

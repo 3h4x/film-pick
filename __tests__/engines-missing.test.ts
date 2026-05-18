@@ -86,6 +86,7 @@ function makeResult(
 }
 
 function makeRecommendedMovie(overrides: Partial<RecommendedMovie> & { tmdb_id: number; title: string }): RecommendedMovie {
+  const { trace, ...rest } = overrides;
   return {
     id: 1,
     engine: "cda",
@@ -98,7 +99,8 @@ function makeRecommendedMovie(overrides: Partial<RecommendedMovie> & { tmdb_id: 
     cda_url: "https://cda.pl/video/test",
     description: null,
     created_at: "2026-01-01",
-    ...overrides,
+    ...rest,
+    trace: trace ?? null,
   };
 }
 

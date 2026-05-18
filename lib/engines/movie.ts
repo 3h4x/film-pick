@@ -1,5 +1,6 @@
 import { getTmdbRecommendations, getTmdbSimilar } from "../tmdb";
 import {
+  attachTrace,
   filterResults,
   type EngineContext,
   type RecommendationGroup,
@@ -47,7 +48,12 @@ export async function movieEngine(
       groups.push({
         reason: `Because you loved ${seeds[i].title}`,
         type: "movie",
-        recommendations: filtered,
+        recommendations: attachTrace(filtered, {
+          engine: "movie",
+          seedKind: "movie",
+          seedTmdbId: seeds[i].tmdb_id,
+          seedTitle: seeds[i].title,
+        }),
       });
     }
   });

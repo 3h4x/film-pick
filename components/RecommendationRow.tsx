@@ -44,6 +44,11 @@ const TYPE_ICONS: Record<string, string> = {
   random: "🎲",
 };
 
+function formatTraceValue(value: string | number | null | undefined): string | null {
+  if (value == null || value === "") return null;
+  return String(value);
+}
+
 export default function RecommendationRow({
   reason,
   type,
@@ -124,6 +129,26 @@ export default function RecommendationRow({
               cdaUrl={r.cda_url}
               onClick={() => onClickMovie(r, type)}
             />
+            {r.trace ? (
+              <details className="absolute right-2 top-2 z-20 max-w-[calc(100%-1rem)]">
+                <summary className="cursor-pointer list-none rounded-md bg-black/70 px-2 py-1 text-[10px] font-medium uppercase tracking-[0.18em] text-cyan-200 backdrop-blur-sm">
+                  Trace
+                </summary>
+                <div className="mt-1 rounded-lg border border-cyan-500/30 bg-black/90 p-2 text-[11px] text-cyan-50 shadow-xl">
+                  <div><span className="text-cyan-300">engine:</span> {r.trace.engine}</div>
+                  <div><span className="text-cyan-300">source:</span> {r.trace.source}</div>
+                  {formatTraceValue(r.trace.seedKind) ? (
+                    <div><span className="text-cyan-300">seed:</span> {formatTraceValue(r.trace.seedKind)}</div>
+                  ) : null}
+                  {formatTraceValue(r.trace.seedName ?? r.trace.seedTitle) ? (
+                    <div><span className="text-cyan-300">label:</span> {formatTraceValue(r.trace.seedName ?? r.trace.seedTitle)}</div>
+                  ) : null}
+                  {formatTraceValue(r.trace.seedId ?? r.trace.seedTmdbId) ? (
+                    <div><span className="text-cyan-300">id:</span> {formatTraceValue(r.trace.seedId ?? r.trace.seedTmdbId)}</div>
+                  ) : null}
+                </div>
+              </details>
+            ) : null}
             <CardActionStack
               actions={[
                 {

@@ -36,6 +36,7 @@ vi.mock("@/lib/engines", () => ({
   })),
   // Return results unchanged so we can assert on raw engine output.
   enrichWithCda: vi.fn((results: TmdbSearchResult[]) => results),
+  overrideTraceSource: vi.fn((groups: RecommendationGroup[]) => groups),
 }));
 
 // Patch only getDb; every other DB function runs against the real in-memory DB.

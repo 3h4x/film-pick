@@ -50,6 +50,12 @@ export async function cdaEngine(
       tmdb_id: m.tmdb_id,
       imdb_id: null,
       cda_url: m.cda_url || undefined,
+      trace: m.trace ?? {
+        engine: "cda",
+        source: "recommended_movies",
+        seedKind: "cda",
+        seedName: primaryGenre,
+      },
     });
   }
 
