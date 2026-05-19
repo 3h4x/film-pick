@@ -119,6 +119,20 @@ export function buildHash({
   return recCategory === "all" ? "#recommendations" : `#recommendations/${recCategory}`;
 }
 
+export function getTabNavigationState({
+  currentInvalidMoodKey,
+  nextTab,
+}: {
+  currentInvalidMoodKey: string | null;
+  nextTab: AppTab;
+}): { nextInvalidMoodKey: string | null; nextTab: AppTab } {
+  return {
+    nextInvalidMoodKey:
+      nextTab === "recommendations" ? null : currentInvalidMoodKey,
+    nextTab,
+  };
+}
+
 export function resolvePendingMovieHash({
   pendingMovieHash,
   initialLoad,
@@ -179,6 +193,15 @@ export default function Home() {
     setSearchQuery(query);
     setActiveTab("search");
     void search.handleNavSearch(query);
+  }
+
+  function handleTabChange(nextTab: AppTab) {
+    const nextState = getTabNavigationState({
+      currentInvalidMoodKey: invalidMoodKey,
+      nextTab,
+    });
+    setInvalidMoodKey(nextState.nextInvalidMoodKey);
+    setActiveTab(nextState.nextTab);
   }
 
   useEffect(() => {
@@ -295,7 +318,7 @@ export default function Home() {
   return (
     <main className="max-w-7xl w-full mx-auto px-4 sm:px-6 flex-1">
       <AppNav
-        activeTab={activeTab} setActiveTab={setActiveTab} initialLoad={initialLoad}
+        activeTab={activeTab} setActiveTab={handleTabChange} initialLoad={initialLoad}
         searchQuery={searchQuery} setSearchQuery={setSearchQuery}
         moviesCount={movies.length} wishlistCount={wishlistMovies.length}
         totalRecsCount={recs.totalRecsCount} categoryCounts={recs.categoryCounts}

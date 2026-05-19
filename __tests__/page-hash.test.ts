@@ -1,5 +1,10 @@
 import { describe, expect, it } from "vitest";
-import { buildHash, parseHashValue, resolvePendingMovieHash } from "@/app/page";
+import {
+  buildHash,
+  getTabNavigationState,
+  parseHashValue,
+  resolvePendingMovieHash,
+} from "@/app/page";
 import type { Movie } from "@/lib/types";
 
 const baseMovie: Movie = {
@@ -127,6 +132,32 @@ describe("parseHashValue", () => {
     expect(parseHashValue("search/%E0%A4%A")).toEqual({
       tab: "search",
       category: "%E0%A4%A",
+    });
+  });
+});
+
+describe("getTabNavigationState", () => {
+  it("clears an invalid mood when the user returns to Discover via tab navigation", () => {
+    expect(
+      getTabNavigationState({
+        currentInvalidMoodKey: "cozy",
+        nextTab: "recommendations",
+      }),
+    ).toEqual({
+      nextInvalidMoodKey: null,
+      nextTab: "recommendations",
+    });
+  });
+
+  it("preserves invalid mood state when navigating to a non-recommendations tab", () => {
+    expect(
+      getTabNavigationState({
+        currentInvalidMoodKey: "cozy",
+        nextTab: "library",
+      }),
+    ).toEqual({
+      nextInvalidMoodKey: "cozy",
+      nextTab: "library",
     });
   });
 });
