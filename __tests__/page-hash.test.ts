@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { buildHash, resolvePendingMovieHash } from "@/app/page";
+import { buildHash, parseHashValue, resolvePendingMovieHash } from "@/app/page";
 import type { Movie } from "@/lib/types";
 
 const baseMovie: Movie = {
@@ -111,5 +111,22 @@ describe("resolvePendingMovieHash", () => {
         movies: [baseMovie],
       }),
     ).toEqual({ selectedMovie: baseMovie, nextPendingMovieHash: null });
+  });
+});
+
+describe("parseHashValue", () => {
+  it("keeps invalid mood hashes routable even when the segment is malformed", () => {
+    expect(parseHashValue("recommendations/mood/%E0%A4%A")).toEqual({
+      tab: "recommendations",
+      category: "all",
+      invalidMoodKey: "%E0%A4%A",
+    });
+  });
+
+  it("keeps malformed search hashes from crashing decode", () => {
+    expect(parseHashValue("search/%E0%A4%A")).toEqual({
+      tab: "search",
+      category: "%E0%A4%A",
+    });
   });
 });
