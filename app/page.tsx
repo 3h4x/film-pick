@@ -34,21 +34,26 @@ function findMovieFromHashRef(movies: Movie[], ref: string): Movie | undefined {
     : getCanonicalMovieForTmdbId(movies, tmdbId);
 }
 
-function parseHash(): {
+function decodeHashSegment(value: string): string {
+  try {
+    return decodeURIComponent(value);
+  } catch {
+    return value;
+  }
+}
+
+export function parseHashValue(hash: string): {
   tab: AppTab;
   category: string;
   moodKey?: MoodKey;
   invalidMoodKey?: string;
 } {
-  if (typeof window === "undefined")
-    return { tab: "recommendations", category: "all" };
-  const hash = window.location.hash.replace("#", "");
   if (hash === "library") return { tab: "library", category: "all" };
   if (hash === "wishlist" || hash === "watchlist") return { tab: "wishlist", category: "all" };
   if (hash === "config") return { tab: "config", category: "all" };
   if (hash === "tv") return { tab: "tv", category: "all" };
   if (hash.startsWith("search/"))
-    return { tab: "search", category: decodeURIComponent(hash.substring(7)) };
+    return { tab: "search", category: decodeHashSegment(hash.substring(7)) };
   if (hash.startsWith("recommendations")) {
     const parts = hash.split("/");
     if (parts[1] === "mood" && parts[2] && parts[2] in MOOD_PRESETS)
@@ -57,14 +62,25 @@ function parseHash(): {
       return {
         tab: "recommendations",
         category: "all",
-        invalidMoodKey: parts[2] ? decodeURIComponent(parts[2]) : undefined,
+        invalidMoodKey: parts[2] ? decodeHashSegment(parts[2]) : undefined,
       };
     }
     return { tab: "recommendations", category: parts[1] || "all" };
   }
   if (hash.startsWith("person/"))
-    return { tab: "person", category: decodeURIComponent(hash.substring(7)) };
+    return { tab: "person", category: decodeHashSegment(hash.substring(7)) };
   return { tab: "recommendations", category: "all" };
+}
+
+function parseHash(): {
+  tab: AppTab;
+  category: string;
+  moodKey?: MoodKey;
+  invalidMoodKey?: string;
+} {
+  if (typeof window === "undefined")
+    return { tab: "recommendations", category: "all" };
+  return parseHashValue(window.location.hash.replace("#", ""));
 }
 
 export function buildHash({
