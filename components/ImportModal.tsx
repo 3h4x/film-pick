@@ -128,9 +128,14 @@ export default function ImportModal({
 
   return (
     <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-start justify-center z-50 pt-[10vh] px-4">
-      <div className="bg-gray-900 border border-gray-700/50 rounded-2xl p-6 w-full max-w-lg shadow-2xl shadow-black/50">
+      <div
+        className="bg-gray-900 border border-gray-700/50 rounded-2xl p-6 w-full max-w-lg shadow-2xl shadow-black/50"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="import-modal-title"
+      >
         <div className="flex justify-between items-center mb-5">
-          <h2 className="text-white text-lg font-semibold">
+          <h2 id="import-modal-title" className="text-white text-lg font-semibold">
             Import from Folder
           </h2>
           <button

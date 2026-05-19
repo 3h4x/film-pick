@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 
 interface SyncResult {
   added: number;
@@ -55,6 +55,14 @@ export default function SyncModal({
   );
   const [progress, setProgress] = useState<ProgressUpdate | null>(null);
   const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!isOpen) return;
+    document.body.style.overflow = "hidden";
+    return () => {
+      document.body.style.overflow = "";
+    };
+  }, [isOpen]);
 
   if (!isOpen) return null;
 
@@ -135,11 +143,19 @@ export default function SyncModal({
 
   return (
     <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-start justify-center z-50 pt-[10vh]">
-      <div className="bg-gray-900 border border-gray-700/50 rounded-2xl p-6 w-full max-w-lg shadow-2xl shadow-black/50">
+      <div
+        className="bg-gray-900 border border-gray-700/50 rounded-2xl p-6 w-full max-w-lg shadow-2xl shadow-black/50"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="sync-modal-title"
+      >
         <div className="flex justify-between items-center mb-5">
-          <h2 className="text-white text-lg font-semibold">Sync Library</h2>
+          <h2 id="sync-modal-title" className="text-white text-lg font-semibold">
+            Sync Library
+          </h2>
           <button
             onClick={onClose}
+            aria-label="Close sync modal"
             className="text-gray-500 hover:text-white transition-colors w-8 h-8 rounded-lg hover:bg-gray-800 flex items-center justify-center"
           >
             ✕
