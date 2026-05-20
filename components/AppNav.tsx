@@ -1,6 +1,5 @@
 "use client";
 import { useEffect, useRef } from "react";
-import { useRouter } from "next/navigation";
 import type { AppTab } from "@/lib/types";
 
 interface AppNavProps {
@@ -36,7 +35,6 @@ export default function AppNav({
   onImport,
   onSearchEnter,
 }: AppNavProps) {
-  const router = useRouter();
   const tabsRef = useRef<HTMLDivElement | null>(null);
 
   const tabs = [
@@ -95,9 +93,8 @@ export default function AppNav({
         <div className="mb-3 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <div className="flex items-center justify-between gap-3 sm:justify-start sm:gap-4">
             <h1 className="text-lg font-bold tracking-tight">
-              <button
-                type="button"
-                onClick={() => router.push("/")}
+              <a
+                href="#recommendations"
                 className="flex min-h-11 items-center gap-2 rounded-lg px-1.5 text-white transition-opacity hover:opacity-80 focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-400/70"
                 aria-label="Go to FilmPick home"
               >
@@ -112,7 +109,7 @@ export default function AppNav({
                 <span className="text-[10px] font-medium px-1.5 py-0.5 rounded-md bg-indigo-500/15 text-indigo-400/80 border border-indigo-500/20">
                   {process.env.NEXT_PUBLIC_APP_VERSION || "dev"}
                 </span>
-              </button>
+              </a>
             </h1>
           </div>
           {!initialLoad && (
