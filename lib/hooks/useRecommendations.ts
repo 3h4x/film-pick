@@ -4,6 +4,7 @@ import type { Movie, RecommendationGroup, AppTab, RecType } from "@/lib/types";
 import { REC_CATEGORIES } from "@/lib/types";
 import type { MoodKey } from "@/lib/mood-presets";
 import type { TmdbSearchResult } from "@/lib/tmdb";
+import { createLatestOnlyRunner } from "@/lib/latest-only-runner";
 import {
   getCanonicalMovieForTmdbId,
   upsertCanonicalTmdbMovie,
@@ -69,29 +70,51 @@ export function useRecommendations({
   );
 
   const initialLoadSaved = useRef(false);
+  const moodRunnerRef = useRef(createLatestOnlyRunner<RecommendationGroup[]>());
 
   useEffect(() => {
     if (!activeMood) {
+      moodRunnerRef.current.invalidate();
       setMoodGroups([]);
+      setMoodLoading(false);
       setMoodError(null);
       return;
     }
-    setMoodLoading(true);
-    setMoodError(null);
-    (async () => {
-      try {
-        const r = await fetch(`/api/recommendations/mood?key=${activeMood}`);
-        if (!r.ok) throw new Error(`Request failed (${r.status})`);
-        const data = (await r.json()) as RecommendationGroup[];
-        setMoodGroups(data);
-        setMoodLoading(false);
-      } catch (err: unknown) {
-        setMoodError(
-          err instanceof Error ? err.message : "Failed to load mood picks",
-        );
-        setMoodLoading(false);
-      }
-    })();
+
+    const controller = new AbortController();
+    let requestErrorMessage = "Failed to load mood picks";
+    void moodRunnerRef.current.run(
+      async () => {
+        try {
+          const response = await fetch(`/api/recommendations/mood?key=${activeMood}`, {
+            signal: controller.signal,
+          });
+          if (!response.ok) throw new Error(`Request failed (${response.status})`);
+          return (await response.json()) as RecommendationGroup[];
+        } catch (error) {
+          requestErrorMessage =
+            error instanceof Error ? error.message : "Failed to load mood picks";
+          throw error;
+        }
+      },
+      {
+        onStart: () => {
+          setMoodLoading(true);
+          setMoodError(null);
+        },
+        onSuccess: (data) => setMoodGroups(data),
+        onError: () => {
+          if (controller.signal.aborted) return;
+          setMoodError(requestErrorMessage);
+        },
+        onSettled: () => setMoodLoading(false),
+      },
+    );
+
+    return () => {
+      controller.abort();
+      moodRunnerRef.current.invalidate();
+    };
   }, [activeMood]);
 
   const recommendations = useMemo(() => {
