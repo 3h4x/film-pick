@@ -121,6 +121,7 @@ pnpm backup              # Backup SQLite DB
 │   ├── enrich-tmdb.ts                — Enrich existing movies with TMDb posters/genres
 │   ├── fix-credits.ts                — Re-fetch director/writer/actors from TMDb for all movies
 │   ├── fetch-cda.ts                  — Fetch CDA Premium movies into recommended_movies
+│   ├── dedupe-movies.ts              — Merge rows sharing a tmdb_id into a canonical row (uses lib/dedup.ts)
 │   └── ensure-native-abi.mjs         — Pre-test native ABI check (run by pnpm pretest)
 ├── __tests__/                        — Vitest tests
 └── data/
