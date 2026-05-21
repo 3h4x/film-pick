@@ -1,18 +1,10 @@
 "use client";
+// tamtam inspected 2026-05-21
 
 import { useState, useEffect, use } from "react";
 import { useRouter } from "next/navigation";
 import MovieCard from "@/components/MovieCard";
-
-interface SearchResult {
-  title: string;
-  year: number | null;
-  genre: string;
-  rating: number;
-  poster_url: string | null;
-  tmdb_id: number;
-  imdb_id: string | null;
-}
+import type { TmdbSearchResult } from "@/lib/tmdb";
 
 interface LibraryMovie {
   tmdb_id: number | null;
@@ -27,7 +19,7 @@ export default function SearchPage({
   const decoded = decodeURIComponent(query);
   const router = useRouter();
 
-  const [results, setResults] = useState<SearchResult[]>([]);
+  const [results, setResults] = useState<TmdbSearchResult[]>([]);
   const [library, setLibrary] = useState<Set<number>>(new Set());
   const [loading, setLoading] = useState(true);
   const [added, setAdded] = useState<Set<number>>(new Set());
@@ -49,7 +41,7 @@ export default function SearchPage({
     load();
   }, [decoded]);
 
-  async function addMovie(result: SearchResult, wishlist: boolean) {
+  async function addMovie(result: TmdbSearchResult, wishlist: boolean) {
     await fetch("/api/movies", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
