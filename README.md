@@ -1,3 +1,4 @@
+<!-- tamtam inspected 2026-05-21 -->
 <h1 align="center">FilmPick</h1>
 
 <p align="center">Your personal movie discovery engine. Tracks what you watch, learns what you love, and finds what to watch next.</p>

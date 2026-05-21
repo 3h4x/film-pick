@@ -1,3 +1,4 @@
+// tamtam inspected 2026-05-21
 import type { EngineContext, RecommendationGroup } from "./index";
 
 export async function randomEngine(
