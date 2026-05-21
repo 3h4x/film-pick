@@ -1,3 +1,4 @@
+// tamtam inspected 2026-05-21
 import type { ComponentProps } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it, vi } from "vitest";

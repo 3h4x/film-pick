@@ -27,3 +27,5 @@ docs/superpowers/specs/*
 .tamtam/
 __tests__/*.db
 __tests__/*.db-journal
+test-results/
+playwright-report/

@@ -1,3 +1,4 @@
+// tamtam inspected 2026-05-21
 import type Database from "better-sqlite3";
 import { getSetting, setSetting } from "@/lib/db";
 import { fetchAndCacheEpg } from "@/lib/epg-fetch";
@@ -7,13 +8,14 @@ let activeTimer: ReturnType<typeof setInterval> | null = null;
 export function runEpgRefreshNow(db: Database.Database): void {
   if (getSetting(db, "epg_status") === "running") return;
 
-  fetchAndCacheEpg(db)
-    .then(() => {
+  void (async () => {
+    try {
+      await fetchAndCacheEpg(db);
       console.log("[epg] Refresh complete");
-    })
-    .catch((err) => {
+    } catch (err) {
       console.error("[epg] Refresh failed:", err);
-    });
+    }
+  })();
 }
 
 export function rescheduleEpgJob(db: Database.Database): void {

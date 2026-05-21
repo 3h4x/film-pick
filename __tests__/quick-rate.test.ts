@@ -1,3 +1,4 @@
+// tamtam inspected 2026-05-21
 import { describe, expect, it } from "vitest";
 import type { Movie } from "@/lib/types";
 import { mapQuickRateKey, nextUnratedMovie } from "@/lib/quick-rate";

@@ -1,4 +1,5 @@
 "use client";
+// tamtam inspected 2026-05-21
 import { useState, useCallback } from "react";
 import type { RecConfig } from "@/lib/types";
 

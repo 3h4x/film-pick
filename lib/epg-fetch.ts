@@ -1,3 +1,4 @@
+// tamtam inspected 2026-05-21
 import { gunzipSync } from "zlib";
 import type Database from "better-sqlite3";
 import { getSetting, setSetting } from "@/lib/db";

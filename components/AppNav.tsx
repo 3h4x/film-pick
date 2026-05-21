@@ -1,4 +1,5 @@
 "use client";
+// tamtam inspected 2026-05-21
 import { useEffect, useRef } from "react";
 import type { AppTab } from "@/lib/types";
 

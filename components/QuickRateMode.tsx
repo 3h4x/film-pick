@@ -1,4 +1,5 @@
 "use client";
+// tamtam inspected 2026-05-21
 
 import { useEffect, useMemo, useState } from "react";
 import type { Movie } from "@/lib/types";

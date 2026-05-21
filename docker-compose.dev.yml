@@ -1,3 +1,4 @@
+# tamtam inspected 2026-05-21
 services:
   filmpick-dev:
     image: node:24-alpine

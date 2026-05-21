@@ -1,4 +1,5 @@
 "use client";
+// tamtam inspected 2026-05-21
 import ConfigPanel from "@/components/ConfigPanel";
 import type { RecConfig, RecommendationGroup } from "@/lib/types";
 import { REC_CATEGORIES } from "@/lib/types";

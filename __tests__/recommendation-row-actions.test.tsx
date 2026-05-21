@@ -1,3 +1,4 @@
+// tamtam inspected 2026-05-21
 import { renderToStaticMarkup } from "react-dom/server";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { RecommendationGroup } from "@/lib/types";

@@ -1,3 +1,4 @@
+// tamtam inspected 2026-05-21
 import type { ScannedFile } from "@/lib/scanner";
 import { cleanTitle } from "@/lib/utils";
 import type Database from "better-sqlite3";

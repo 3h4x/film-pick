@@ -1,3 +1,4 @@
+// tamtam inspected 2026-05-21
 import { getDb, getSetting, setSetting } from "@/lib/db";
 import { rateLimit } from "@/lib/rate-limit";
 

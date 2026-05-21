@@ -1,3 +1,4 @@
+// tamtam inspected 2026-05-21
 import type Database from "better-sqlite3";
 import { searchTmdbPl } from "@/lib/tmdb";
 
@@ -189,20 +190,12 @@ export async function fetchAndStoreCdaMovies(db: Database.Database): Promise<voi
 
   const allMovies: CdaMovie[] = [...premiumMovies];
   const seenUrls = new Set(premiumMovies.map((m) => m.url));
-  const movieCategories = new Map<string, string[]>();
-  for (const m of premiumMovies) {
-    movieCategories.set(m.url, ["Polecane"]);
-  }
 
   for (const cat of CATEGORIES) {
     const catMovies = await scrapeCategory(cat);
     const label = CATEGORY_LABELS[cat] || cat;
     let added = 0;
     for (const m of catMovies) {
-      const cats = movieCategories.get(m.url) || [];
-      cats.push(label);
-      movieCategories.set(m.url, cats);
-
       if (!seenUrls.has(m.url)) {
         seenUrls.add(m.url);
         m.category = label;
