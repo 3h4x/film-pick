@@ -1,4 +1,5 @@
 "use client";
+// tamtam inspected 2026-05-21
 
 import { useState } from "react";
 import { CARD_ACTION_TOGGLE_CLASS } from "./card-action-styles";

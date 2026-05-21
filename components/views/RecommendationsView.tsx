@@ -1,4 +1,5 @@
 "use client";
+// tamtam inspected 2026-05-21
 import { useMemo } from "react";
 import CardActionStack from "@/components/CardActionStack";
 import MovieCard from "@/components/MovieCard";

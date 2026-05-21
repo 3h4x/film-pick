@@ -1,3 +1,4 @@
+<!-- tamtam inspected 2026-05-21 -->
 # CDA Refresh Scheduling Implementation Plan
 
 Status: implemented

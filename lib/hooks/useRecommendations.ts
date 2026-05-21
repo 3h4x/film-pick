@@ -1,4 +1,5 @@
 "use client";
+// tamtam inspected 2026-05-21
 import { useState, useCallback, useMemo, useEffect, useRef } from "react";
 import type { Movie, RecommendationGroup, AppTab, RecType } from "@/lib/types";
 import { REC_CATEGORIES } from "@/lib/types";

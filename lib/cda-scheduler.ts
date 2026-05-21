@@ -1,3 +1,4 @@
+// tamtam inspected 2026-05-21
 import type Database from "better-sqlite3";
 import { getSetting, setSetting } from "@/lib/db";
 import { fetchAndStoreCdaMovies } from "@/lib/cda-fetch";
@@ -8,19 +9,20 @@ export function runCdaRefreshNow(db: Database.Database): void {
   if (getSetting(db, "cda_refresh_status") === "running") return;
   setSetting(db, "cda_refresh_status", "running");
 
-  fetchAndStoreCdaMovies(db)
-    .then(() => {
+  void (async () => {
+    try {
+      await fetchAndStoreCdaMovies(db);
       const row = db
         .prepare("SELECT COUNT(*) as c FROM recommended_movies WHERE engine = 'cda'")
         .get() as { c: number };
       setSetting(db, "cda_last_refresh", new Date().toISOString());
       setSetting(db, "cda_movie_count", String(row.c));
       setSetting(db, "cda_refresh_status", "idle");
-    })
-    .catch((err) => {
+    } catch (err) {
       console.error("[cda] Refresh failed:", err);
       setSetting(db, "cda_refresh_status", "error");
-    });
+    }
+  })();
 }
 
 export function rescheduleCdaJob(db: Database.Database): void {

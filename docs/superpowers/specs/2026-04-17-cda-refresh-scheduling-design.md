@@ -1,3 +1,4 @@
+<!-- tamtam inspected 2026-05-21 -->
 # CDA Refresh Scheduling Design
 
 Date: 2026-04-17

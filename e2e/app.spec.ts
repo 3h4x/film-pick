@@ -1,5 +1,6 @@
+// tamtam inspected 2026-05-21
 import { test, expect, Page } from "@playwright/test";
-import { MOCK_MOVIES, MOCK_SETTINGS, MOCK_RECS } from "./fixtures";
+import { MOCK_MOVIES, MOCK_POSTER, MOCK_RECS, MOCK_SETTINGS } from "./fixtures";
 
 async function mockAPIs(page: Page) {
   await page.route("/api/movies", (route) => {
@@ -32,7 +33,7 @@ async function mockAPIs(page: Page) {
               year: 1999,
               genre: "Action, Science Fiction",
               rating: 8.7,
-              poster_url: null,
+              poster_url: MOCK_POSTER,
             },
           ],
         },
@@ -213,7 +214,7 @@ test.describe("movie detail", () => {
     await goToLibrary(page);
 
     // Click movie card — MovieDetail is rendered as a fixed overlay div
-    await page.getByText("The Godfather").first().click();
+    await page.getByRole("button", { name: "Open The Godfather" }).click();
     // The overlay contains a close button and movie title
     await expect(page.locator(".fixed.inset-0").getByText("The Godfather").first()).toBeVisible({ timeout: 8_000 });
   });
@@ -233,7 +234,7 @@ test.describe("movie detail", () => {
     await page.goto("/");
     await goToLibrary(page);
 
-    await page.getByText("The Godfather").first().click();
+    await page.getByRole("button", { name: "Open The Godfather" }).click();
     const overlay = page.locator(".fixed.inset-0");
     await expect(overlay).toBeVisible({ timeout: 8_000 });
 
@@ -291,7 +292,7 @@ test.describe("movie detail", () => {
             year: 1972,
             genre: "Crime, Drama",
             rating: 9.2,
-            poster_url: null,
+            poster_url: MOCK_POSTER,
             imdb_id: "tt0068646",
           },
         ],
@@ -315,7 +316,7 @@ test.describe("movie detail", () => {
     await page.goto("/");
     await goToLibrary(page);
 
-    await page.getByText("The Godfather").first().click();
+    await page.getByRole("button", { name: "Open The Godfather" }).click();
     const detailOverlay = page.locator(".fixed.inset-0").filter({
       has: page.getByTitle("Management Menu"),
     });
