@@ -1,3 +1,4 @@
+// tamtam inspected 2026-05-21
 /**
  * Re-fetch director/writer/actors from TMDb for all movies with a tmdb_id.
  * Fixes mismatched credits caused by earlier dedup bugs.
@@ -7,12 +8,11 @@
 
 import Database from "better-sqlite3";
 import path from "path";
+import { getTmdbMovieDetails } from "@/lib/tmdb";
 
-const TMDB_BASE = "https://api.themoviedb.org/3";
-const API_KEY = process.env.TMDB_API_KEY;
 const DRY_RUN = process.argv.includes("--dry-run");
 
-if (!API_KEY) {
+if (!process.env.TMDB_API_KEY) {
   console.error('TMDB_API_KEY not set. Run: eval "$(bioenv load)"');
   process.exit(1);
 }
@@ -20,34 +20,14 @@ if (!API_KEY) {
 const dbPath = path.join(__dirname, "../data/movies.db");
 const db = new Database(dbPath);
 
-async function fetchCredits(
-  tmdbId: number,
-): Promise<{
+interface MovieRow {
+  id: number;
+  title: string;
+  year: number | null;
+  tmdb_id: number;
   director: string | null;
   writer: string | null;
   actors: string | null;
-}> {
-  const res = await fetch(
-    `${TMDB_BASE}/movie/${tmdbId}?append_to_response=credits`,
-    {
-      headers: { Authorization: `Bearer ${API_KEY}` },
-    },
-  );
-  if (!res.ok) return { director: null, writer: null, actors: null };
-  const data = await res.json();
-  const director =
-    data.credits?.crew?.find((c: any) => c.job === "Director")?.name || null;
-  const writer =
-    data.credits?.crew
-      ?.filter((c: any) => ["Screenplay", "Writer", "Story"].includes(c.job))
-      .map((c: any) => c.name)
-      .join(", ") || null;
-  const actors =
-    data.credits?.cast
-      ?.slice(0, 5)
-      .map((c: any) => c.name)
-      .join(", ") || null;
-  return { director, writer, actors };
 }
 
 async function main() {
@@ -55,7 +35,7 @@ async function main() {
     .prepare(
       "SELECT id, title, year, tmdb_id, director, writer, actors FROM movies WHERE tmdb_id IS NOT NULL",
     )
-    .all() as any[];
+    .all() as MovieRow[];
 
   console.log(
     `Found ${movies.length} movies with tmdb_id. ${DRY_RUN ? "(DRY RUN)" : ""}`,
@@ -71,7 +51,7 @@ async function main() {
   for (let i = 0; i < movies.length; i++) {
     const m = movies[i];
     try {
-      const credits = await fetchCredits(m.tmdb_id);
+      const credits = await getTmdbMovieDetails(m.tmdb_id);
       if (!credits.director && !credits.writer && !credits.actors) {
         failed++;
         continue;

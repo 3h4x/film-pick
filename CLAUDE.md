@@ -1,3 +1,4 @@
+<!-- tamtam inspected 2026-05-21 -->
 # FilmPick
 
 Personal movie discovery engine with a Next.js web UI and SQLite database.
@@ -35,7 +36,7 @@ pnpm backup              # Backup SQLite DB
 │   └── api/
 │       ├── movies/route.ts           — GET/POST library
 │       ├── movies/[id]/route.ts      — GET/DELETE single movie
-│       ├── movies/[id]/full/route.ts — Full movie details with enrichment
+│       ├── movies/[id]/full/route.ts — DELETE movie from disk and DB (use ?disk_only=1 to keep DB row)
 │       ├── movies/[id]/play/route.ts — Launch local player
 │       ├── movies/[id]/stream/route.ts — Stream video file
 │       ├── movies/[id]/subtitles/route.ts — Subtitle management
@@ -152,7 +153,7 @@ pnpm backup              # Backup SQLite DB
 - **CDA integration:** `cda.ts` resolves streaming URLs; `cda-scheduler.ts` refreshes availability cache on a schedule
 - **URL hash deep-link:** `#movie/<tmdbId>` opens a TMDb-backed movie detail modal directly on page load; use `#movie/local/<dbId>` for local-only entries
 - **hasFileOnly filter:** Library can be filtered to show only movies with a local file path (`hasFileOnly=1`)
-- **Lazy enrichment:** `GET /api/movies/[id]/full` lazily fetches and stores `pl_title` and `description` from TMDb on first access
+- **Lazy enrichment:** `GET /api/movies/[id]` lazily fetches and stores `pl_title` and `description` from TMDb on first access
 - **TMDb TTL cache:** `lib/tmdb.ts` keeps an in-memory TTL cache for `getMovieLocalized` and `getTmdbMovieDetails` to reduce redundant API calls
 - **Config tabs:** Current Config sections are `Library`, `Integrations`, `Recommendations`, and `TV`
 
