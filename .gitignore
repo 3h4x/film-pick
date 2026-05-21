@@ -16,6 +16,7 @@ next-env.d.ts
 tsconfig.tsbuildinfo
 tmp/
 .superpowers/
+.claude/
 docs/superpowers/*
 !docs/superpowers/plans/
 docs/superpowers/plans/*
