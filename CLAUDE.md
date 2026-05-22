@@ -9,7 +9,7 @@ Personal movie discovery engine with a Next.js web UI and SQLite database.
 - **Database:** SQLite via `better-sqlite3`
 - **Data sources:** TMDb API, Filmweb (one-time import only — no scheduled sync)
 - **Testing:** Vitest
-- **Package manager:** pnpm 11 (do not use npm; repo currently pins `packageManager` to `pnpm@10.33.2`, so upgrade that field when practical)
+- **Package manager:** pnpm 11 (do not use npm)
 - **Secrets:** bioenv (Touch ID-protected Keychain)
 
 ## Commands
@@ -52,7 +52,7 @@ pnpm backup              # Backup SQLite DB
 │       ├── pl-title/route.ts         — Polish title lookup
 │       ├── import/route.ts           — Import from filesystem directory
 │       ├── sync/route.ts             — Re-scan library path, add/remove
-│       ├── settings/route.ts         — GET/PUT app settings
+│       ├── settings/route.ts         — GET/PATCH app settings
 │       ├── backup/route.ts           — Trigger manual DB backup
 │       ├── cda-refresh/route.ts      — Refresh CDA availability cache
 │       └── tv/
@@ -248,7 +248,7 @@ TMDB_API_KEY=<your_key> docker run -p 4000:4000 -v $(pwd)/data:/app/data -e TMDB
 
 ## Development
 
-- Use `pnpm` 11 exclusively (not npm); the current `packageManager` field is still pinned to `pnpm@10.33.2` and should be upgraded
+- Use `pnpm` 11 exclusively (not npm)
 - Conventional commits are enforced (see Scope & Safety Rules §1)
 - Type check with `pnpm type-check` before committing
 - Target the versions already in the repo: Next.js 16, React 19, TypeScript 6, Tailwind CSS 4, Node 24 (see Dockerfile). Follow current framework patterns instead of introducing legacy APIs.
