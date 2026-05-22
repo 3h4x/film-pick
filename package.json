@@ -2,7 +2,7 @@
   "name": "filmpick",
   "version": "0.1.0",
   "private": true,
-  "packageManager": "pnpm@10.33.2",
+  "packageManager": "pnpm@11.2.2",
   "scripts": {
     "dev": "next dev --port 4000",
     "dev:docker": "docker compose -f docker-compose.dev.yml up --renew-anon-volumes",
