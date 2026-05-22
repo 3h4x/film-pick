@@ -877,7 +877,7 @@ export default function ConfigPanel({
                 </div>
               </div>
 
-              <div className="flex items-center gap-3">
+              <div className="flex flex-wrap items-center gap-3">
                 <button
                   disabled={epgStatus === "running"}
                   onClick={async () => {
@@ -955,8 +955,8 @@ export default function ConfigPanel({
             ) : (
               <div className="space-y-1.5">
                 {blacklist.map((id) => (
-                  <div key={id} className="flex items-center justify-between px-3 py-2 rounded-lg bg-gray-800/30 border border-gray-700/30">
-                    <span className="text-gray-400 text-sm font-mono text-xs">{id}</span>
+                  <div key={id} className="flex items-center justify-between gap-3 px-3 py-2 rounded-lg bg-gray-800/30 border border-gray-700/30">
+                    <span className="min-w-0 break-all text-gray-400 font-mono text-xs">{id}</span>
                     <button
                       onClick={async () => {
                         const next = blacklist.filter((x) => x !== id);
@@ -967,7 +967,7 @@ export default function ConfigPanel({
                         });
                         setBlacklist(next);
                       }}
-                      className="text-xs text-gray-600 hover:text-gray-300 transition-colors px-2 py-0.5 rounded hover:bg-white/[0.05]"
+                      className="shrink-0 text-xs text-gray-600 hover:text-gray-300 transition-colors px-2 py-0.5 rounded hover:bg-white/[0.05]"
                     >
                       Unhide
                     </button>
