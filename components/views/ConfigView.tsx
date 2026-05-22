@@ -35,7 +35,7 @@ export default function ConfigView({
   setRecGroups,
   onOpenMovie,
 }: ConfigViewProps) {
-  async function handleSaveLibraryPath(path: string) {
+  async function handleSaveLibraryPath(path: string): Promise<boolean> {
     const res = await fetch("/api/settings", {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
@@ -43,10 +43,11 @@ export default function ConfigView({
     });
     if (res.ok) {
       setLibraryPath(path || null);
-    } else {
-      const data = await res.json().catch(() => ({}));
-      addToast(data.error || "Failed to save library path");
+      return true;
     }
+    const data = await res.json().catch(() => ({}));
+    addToast(data.error || "Failed to save library path");
+    return false;
   }
 
   async function handleSaveConfig(cfg: RecConfig) {
@@ -101,6 +102,7 @@ export default function ConfigView({
       onSave={handleSaveConfig}
       onToggleEngine={handleToggleEngine}
       onOpenMovie={onOpenMovie}
+      addToast={addToast}
     />
   );
 }

@@ -51,9 +51,10 @@ interface ConfigPanelProps {
   engines: { value: string; label: string }[];
   onToggleEngine: (engineKey: string) => void;
   libraryPath: string | null;
-  onSaveLibraryPath: (path: string) => Promise<void>;
+  onSaveLibraryPath: (path: string) => Promise<boolean>;
   onSync: () => void;
   onOpenMovie: (id: number) => void;
+  addToast: (message: string, variant?: "default" | "success") => void;
 }
 
 function SectionHeader({ children }: { children: React.ReactNode }) {
@@ -129,6 +130,7 @@ export default function ConfigPanel({
   onSaveLibraryPath,
   onSync,
   onOpenMovie,
+  addToast,
 }: ConfigPanelProps) {
   const [activeTab, setActiveTab] = useState<ConfigTab>("library");
   const tabsRef = useRef<HTMLDivElement | null>(null);
@@ -324,9 +326,11 @@ export default function ConfigPanel({
   }
 
   async function handleSavePath() {
+    setPathSaved(false);
     setPathSaving(true);
-    await onSaveLibraryPath(pathDraft.trim());
+    const saved = await onSaveLibraryPath(pathDraft.trim());
     setPathSaving(false);
+    if (!saved) return;
     setPathSaved(true);
     setTimeout(() => setPathSaved(false), 2000);
   }
@@ -355,14 +359,24 @@ export default function ConfigPanel({
 
   async function saveApiKey(value: string) {
     setApiKeySaving(true);
-    await fetch("/api/settings", {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ tmdb_api_key: value }),
-    });
-    setApiKeySource(value.trim() ? "db" : null);
-    setApiKey("");
-    setApiKeySaving(false);
+    try {
+      const res = await fetch("/api/settings", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ tmdb_api_key: value }),
+      });
+      const data = (await res.json().catch(() => ({}))) as { error?: string };
+      if (!res.ok) {
+        addToast(data.error || "Failed to save TMDb API key");
+        return;
+      }
+      setApiKeySource(value.trim() ? "db" : null);
+      setApiKey("");
+    } catch {
+      addToast("Failed to save TMDb API key");
+    } finally {
+      setApiKeySaving(false);
+    }
   }
 
   function handleApiKeySubmit(event: FormEvent<HTMLFormElement>) {
