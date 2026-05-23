@@ -215,14 +215,15 @@ export default function SearchView({
               <p className="text-xs font-semibold uppercase tracking-widest text-gray-500 mb-3">
                 From TMDb
               </p>
-              <div className="rounded-2xl border border-white/8 bg-white/[0.03] px-5 py-8 text-center">
-                <p className="text-gray-400 text-lg font-medium">
-                  No TMDb results for &ldquo;{searchQuery}&rdquo;
-                </p>
-                <p className="text-gray-600 text-sm mt-2">
-                  Try a different title or check spelling
-                </p>
-              </div>
+              <EmptyState
+                variant="card"
+                message={
+                  <>
+                    No TMDb results for &ldquo;{searchQuery}&rdquo;
+                  </>
+                }
+                subtext="Try a different title or check spelling"
+              />
             </div>
           )}
         </div>

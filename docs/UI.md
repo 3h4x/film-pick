@@ -104,7 +104,7 @@ import Modal from "@/components/ui/Modal";
 
 `components/ui/EmptyState.tsx`
 
-Full-page centred empty / error state with optional emoji icon, subtext, and action area.
+Centred empty / error state with optional emoji icon, subtext, and action area. Use the default section variant for full-page or full-section states; use `variant="card"` for compact inline result panels.
 
 ```tsx
 import EmptyState from "@/components/ui/EmptyState";
@@ -125,6 +125,9 @@ import EmptyState from "@/components/ui/EmptyState";
 <EmptyState message="TMDb search failed" subtext="Try again in a moment" className="mx-auto max-w-xl">
   <button onClick={retry} className="...">Retry</button>
 </EmptyState>
+
+// Compact inline panel
+<EmptyState variant="card" message="No TMDb results" subtext="Try a different title" />
 ```
 
 **Props**
@@ -132,7 +135,8 @@ import EmptyState from "@/components/ui/EmptyState";
 | Prop | Type | Default | Notes |
 |------|------|---------|-------|
 | `icon` | string | — | Emoji rendered at 4xl inside a rounded gray badge |
-| `message` | string | — | Primary line: `text-gray-400 text-lg font-medium` |
+| `message` | ReactNode | — | Primary line: `text-gray-400 text-lg font-medium` |
 | `subtext` | ReactNode | — | Secondary line: `text-gray-600 text-sm mt-2`; accepts string or JSX |
 | `children` | ReactNode | — | Action area rendered inside `<div className="mt-6">` |
-| `className` | string | — | Extra Tailwind classes on the outer `<div className="text-center py-24 …">` |
+| `className` | string | — | Extra Tailwind classes on the outer wrapper |
+| `variant` | string | `"section"` | `"section"` (py-24) or `"card"` (rounded border panel with py-8) |
