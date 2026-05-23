@@ -36,6 +36,21 @@ interface TmdbRawResult {
   poster_path: string | null;
 }
 
+interface TmdbRawMovie {
+  id: number;
+  title: string;
+  release_date: string | null;
+  genres?: { id: number; name: string }[];
+  vote_average: number;
+  poster_path: string | null;
+  imdb_id?: string | null;
+  overview?: string | null;
+  credits?: {
+    crew?: TmdbRawCrewMember[];
+    cast?: TmdbRawCastMember[];
+  };
+}
+
 interface TmdbRawCrewMember {
   id: number;
   name: string;
@@ -217,6 +232,13 @@ export interface TmdbSearchResult {
   trace?: RecommendationTrace;
 }
 
+export interface TmdbMovieSnapshot extends TmdbSearchResult {
+  director: string | null;
+  writer: string | null;
+  actors: string | null;
+  description: string | null;
+}
+
 function normalizeSearchText(value: string): string {
   return value
     .normalize("NFKD")
@@ -225,6 +247,28 @@ function normalizeSearchText(value: string): string {
     .replace(/[^\p{L}\p{N}]+/gu, " ")
     .trim()
     .toLowerCase();
+}
+
+function creditsFromMovie(data: {
+  credits?: {
+    crew?: TmdbRawCrewMember[];
+    cast?: TmdbRawCastMember[];
+  };
+}): DetailsResult {
+  const director =
+    data.credits?.crew?.find((c) => c.job === "Director")?.name || null;
+  const writer =
+    data.credits?.crew
+      ?.filter((c) => ["Screenplay", "Writer", "Story"].includes(c.job))
+      .map((c) => c.name)
+      .join(", ") || null;
+  const actors =
+    data.credits?.cast
+      ?.slice(0, 5)
+      .map((c) => c.name)
+      .join(", ") || null;
+
+  return { director, writer, actors };
 }
 
 function getSearchScore(
@@ -460,28 +504,50 @@ export async function getTmdbMovieDetails(
 
   if (!res.ok) return { director: null, writer: null, actors: null };
 
-  const data = (await res.json()) as {
-    credits?: {
-      crew?: TmdbRawCrewMember[];
-      cast?: TmdbRawCastMember[];
-    };
-  };
-  const director =
-    data.credits?.crew?.find((c) => c.job === "Director")?.name || null;
-  const writer =
-    data.credits?.crew
-      ?.filter((c) => ["Screenplay", "Writer", "Story"].includes(c.job))
-      .map((c) => c.name)
-      .join(", ") || null;
-  const actors =
-    data.credits?.cast
-      ?.slice(0, 5)
-      .map((c) => c.name)
-      .join(", ") || null;
-
-  const result: DetailsResult = { director, writer, actors };
+  const data = (await res.json()) as TmdbRawMovie;
+  const result = creditsFromMovie(data);
   detailsCache.set(tmdbId, { data: result, expiry: Date.now() + CACHE_TTL_MS });
   return result;
+}
+
+export async function getTmdbMovieSnapshot(
+  tmdbId: number,
+): Promise<TmdbMovieSnapshot | null> {
+  const apiKey = getApiKey();
+  const res = await fetchWithRetry(
+    `${TMDB_BASE}/movie/${tmdbId}?append_to_response=credits&language=en-US`,
+    apiKey,
+    3,
+    "getTmdbMovieSnapshot",
+  );
+
+  if (res.status === 404) return null;
+  if (!res.ok) {
+    const body = await res.text().catch(() => "");
+    console.error(`[TMDb] getTmdbMovieSnapshot failed: ${res.status} ${res.statusText}`, body);
+    throw new Error(`tmdb_api_error:${res.status}`);
+  }
+
+  const data = (await res.json()) as TmdbRawMovie;
+  const credits = creditsFromMovie(data);
+  const localized = await getMovieLocalized(tmdbId);
+
+  return {
+    title: data.title,
+    year: data.release_date ? parseInt(data.release_date.substring(0, 4), 10) : null,
+    genre: data.genres?.map((genre) => genre.name || TMDB_GENRE_MAP[genre.id] || "Unknown").join(", ") || "",
+    rating: Math.round((data.vote_average || 0) * 10) / 10,
+    poster_url: data.poster_path
+      ? `https://image.tmdb.org/t/p/w300${data.poster_path}`
+      : null,
+    tmdb_id: data.id,
+    imdb_id: data.imdb_id ?? null,
+    pl_title: localized.pl_title,
+    description: localized.description || data.overview || null,
+    director: credits.director,
+    writer: credits.writer,
+    actors: credits.actors,
+  };
 }
 
 export async function getTmdbRecommendations(

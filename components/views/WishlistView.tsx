@@ -6,6 +6,7 @@ import {
   CARD_ACTION_ICON_SIZE_CLASS,
   CARD_ACTION_TOUCH_TARGET_CLASS,
 } from "@/components/card-action-styles";
+import EmptyState from "@/components/ui/EmptyState";
 import type { Movie } from "@/lib/types";
 
 interface WishlistViewProps {
@@ -24,17 +25,11 @@ export default function WishlistView({
 }: WishlistViewProps) {
   if (wishlistMovies.length === 0) {
     return (
-      <div className="text-center py-24">
-        <div className="w-20 h-20 mx-auto mb-6 rounded-2xl bg-gray-800/50 flex items-center justify-center">
-          <span className="text-4xl">🔖</span>
-        </div>
-        <p className="text-gray-400 text-lg font-medium">
-          Your watchlist is empty
-        </p>
-        <p className="text-gray-600 text-sm mt-2">
-          Browse recommendations and bookmark films you want to watch
-        </p>
-      </div>
+      <EmptyState
+        icon="🔖"
+        message="Your watchlist is empty"
+        subtext="Browse recommendations and bookmark films you want to watch"
+      />
     );
   }
 

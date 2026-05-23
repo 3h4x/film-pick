@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import {
   buildHash,
   getTabNavigationState,
+  movieFromTmdbSnapshot,
   parseHashValue,
   resolvePendingMovieHash,
 } from "@/app/page";
@@ -134,6 +135,35 @@ describe("parseHashValue", () => {
       tab: "search",
       category: "%E0%A4%A",
     });
+  });
+});
+
+describe("movieFromTmdbSnapshot", () => {
+  it("creates a transient local movie shape for TMDb-backed deep links", () => {
+    const movie = movieFromTmdbSnapshot({
+      title: "Heat",
+      year: 1995,
+      genre: "Crime, Drama",
+      director: "Michael Mann",
+      writer: "Michael Mann",
+      actors: "Al Pacino, Robert De Niro",
+      rating: 8.3,
+      poster_url: "/poster.jpg",
+      tmdb_id: 949,
+      imdb_id: "tt0113277",
+      pl_title: "Goraczka",
+      description: "A detail page loaded from TMDb.",
+    });
+
+    expect(movie).toMatchObject({
+      id: -949,
+      title: "Heat",
+      source: "tmdb",
+      tmdb_id: 949,
+      user_rating: null,
+      wishlist: 0,
+    });
+    expect(movie.created_at).toEqual(expect.any(String));
   });
 });
 

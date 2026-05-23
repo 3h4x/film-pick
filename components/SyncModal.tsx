@@ -1,6 +1,8 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import Modal from "./ui/Modal";
+import Spinner from "./ui/Spinner";
 
 interface SyncResult {
   added: number;
@@ -142,26 +144,7 @@ export default function SyncModal({
       : 0;
 
   return (
-    <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-start justify-center z-50 pt-[10vh]">
-      <div
-        className="bg-gray-900 border border-gray-700/50 rounded-2xl p-6 w-full max-w-lg shadow-2xl shadow-black/50"
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby="sync-modal-title"
-      >
-        <div className="flex justify-between items-center mb-5">
-          <h2 id="sync-modal-title" className="text-white text-lg font-semibold">
-            Sync Library
-          </h2>
-          <button
-            onClick={onClose}
-            aria-label="Close sync modal"
-            className="text-gray-500 hover:text-white transition-colors w-8 h-8 rounded-lg hover:bg-gray-800 flex items-center justify-center"
-          >
-            ✕
-          </button>
-        </div>
-
+    <Modal title="Sync Library" labelId="sync-modal-title" onClose={onClose}>
         <p className="text-gray-400 text-sm mb-6">
           Re-scan your library folder to add new files and detach entries whose
           files are missing.
@@ -195,7 +178,7 @@ export default function SyncModal({
             {phase === "scanning" && (
               <>
                 <div className="flex items-center gap-3">
-                  <div className="w-5 h-5 border-2 border-indigo-500 border-t-transparent rounded-full animate-spin flex-shrink-0" />
+                  <Spinner size="md" className="flex-shrink-0" />
                   <p className="text-gray-300 text-sm">
                     Scanning files...{" "}
                     <span className="text-white font-mono">{scanCount}</span>{" "}
@@ -213,7 +196,7 @@ export default function SyncModal({
               <>
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-3">
-                    <div className="w-5 h-5 border-2 border-indigo-500 border-t-transparent rounded-full animate-spin flex-shrink-0" />
+                    <Spinner size="md" className="flex-shrink-0" />
                     <p className="text-gray-300 text-sm">Fetching metadata</p>
                   </div>
                   <span className="text-indigo-400 font-mono text-sm font-medium">
@@ -289,7 +272,6 @@ export default function SyncModal({
             {result ? "Close" : "Cancel"}
           </button>
         </div>
-      </div>
-    </div>
+    </Modal>
   );
 }

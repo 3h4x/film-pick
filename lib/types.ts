@@ -26,6 +26,7 @@ export interface Movie {
   user_rating: number | null;
   poster_url: string | null;
   source: string | null;
+  imdb_id?: string | null;
   type: string;
   tmdb_id?: number | null;
   rated_at: string | null;
