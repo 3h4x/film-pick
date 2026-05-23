@@ -23,16 +23,23 @@ import type { AppTab, ToastItem, Movie, RecConfig } from "@/lib/types";
 import { MOOD_PRESETS, type MoodKey } from "@/lib/mood-presets";
 import type { TmdbMovieSnapshot } from "@/lib/tmdb";
 
-function findMovieFromHashRef(movies: Movie[], ref: string): Movie | undefined {
+function parseLocalHashRef(ref: string): number | null {
   if (ref.startsWith("local/")) {
-    const id = parseInt(ref.substring(6), 10);
-    return movies.find((m) => m.id === id);
+    const idRef = ref.substring(6);
+    if (!/^\d+$/.test(idRef)) return null;
+    const id = Number.parseInt(idRef, 10);
+    return Number.isInteger(id) && id > 0 ? id : null;
   }
 
-  const tmdbId = parseInt(ref, 10);
-  return Number.isNaN(tmdbId)
-    ? undefined
-    : getCanonicalMovieForTmdbId(movies, tmdbId);
+  return null;
+}
+
+function findMovieFromHashRef(movies: Movie[], ref: string): Movie | undefined {
+  const localId = parseLocalHashRef(ref);
+  if (localId) return movies.find((m) => m.id === localId);
+
+  const tmdbId = parseTmdbHashRef(ref);
+  return tmdbId ? getCanonicalMovieForTmdbId(movies, tmdbId) : undefined;
 }
 
 function parseTmdbHashRef(ref: string): number | null {
