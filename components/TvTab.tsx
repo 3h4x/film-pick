@@ -3,6 +3,7 @@
 
 import { useState, useEffect, useCallback, useRef } from "react";
 import { createLatestOnlyRunner } from "@/lib/latest-only-runner";
+import Spinner from "@/components/ui/Spinner";
 
 // Polsat Box S — film channels with good quality/quantity balance
 const BOX_S_CHANNELS = [
@@ -251,7 +252,7 @@ export default function TvTab() {
   if (loading) {
     return (
       <div className="flex items-center justify-center py-24">
-        <div className="w-8 h-8 border-2 border-indigo-500 border-t-transparent rounded-full animate-spin" />
+        <Spinner />
       </div>
     );
   }
@@ -266,7 +267,7 @@ export default function TvTab() {
         </p>
         <button
           onClick={() => load(true)}
-          className="mt-2 px-4 py-2 rounded-lg bg-gray-700 text-gray-300 text-sm hover:bg-gray-600 transition-colors"
+          className="mt-2 min-h-11 rounded-lg bg-gray-700 px-4 py-2 text-sm text-gray-300 transition-colors hover:bg-gray-600"
         >
           Retry
         </button>
@@ -419,9 +420,9 @@ export default function TvTab() {
                     {channelLabel(ch?.name ?? p.channel)}
                   </span>
                 </div>
-                <div className="flex items-baseline gap-2">
+                <div className="flex min-w-0 items-baseline gap-2">
                   <span
-                    className={`font-medium text-sm leading-snug ${isNow ? "text-white" : "text-gray-200"}`}
+                    className={`min-w-0 break-words text-sm font-medium leading-snug ${isNow ? "text-white" : "text-gray-200"}`}
                   >
                     {p.title}
                   </span>

@@ -1,6 +1,7 @@
 "use client";
 // tamtam inspected 2026-05-21
 import { useEffect, useMemo, useState } from "react";
+import EmptyState from "@/components/ui/EmptyState";
 import MovieCard from "@/components/MovieCard";
 import QuickRateMode from "@/components/QuickRateMode";
 import SortFilterBar from "@/components/SortFilterBar";
@@ -114,53 +115,43 @@ export default function LibraryView({
 
   if (movies.length === 0) {
     return (
-      <div className="text-center py-24">
-        <div className="w-20 h-20 mx-auto mb-6 rounded-2xl bg-gray-800/50 flex items-center justify-center">
-          <span className="text-4xl">🎬</span>
-        </div>
-        <p className="text-gray-400 text-lg font-medium">
-          Your library is empty
-        </p>
-        <p className="text-gray-600 text-sm mt-2">
-          Import a folder or search to start building your collection
-        </p>
-        <div className="flex items-center justify-center gap-3 mt-6">
+      <EmptyState
+        icon="🎬"
+        message="Your library is empty"
+        subtext="Import a folder or search to start building your collection"
+      >
+        <div className="flex items-center justify-center gap-3">
           <button
             onClick={onImport}
-            className="bg-indigo-500 text-white px-5 py-2.5 rounded-xl hover:bg-indigo-400 transition-all shadow-lg shadow-indigo-500/20 font-medium text-sm"
+            className="min-h-11 rounded-xl bg-indigo-500 px-5 py-2.5 text-sm font-medium text-white shadow-lg shadow-indigo-500/20 transition-all hover:bg-indigo-400"
           >
             Import Folder
           </button>
           <button
             onClick={onOpenSearch}
-            className="text-gray-400 hover:text-white px-5 py-2.5 rounded-xl hover:bg-gray-800/60 transition-all font-medium text-sm border border-gray-700/50"
+            className="min-h-11 rounded-xl border border-gray-700/50 px-5 py-2.5 text-sm font-medium text-gray-400 transition-all hover:bg-gray-800/60 hover:text-white"
           >
             Search Manually
           </button>
         </div>
-      </div>
+      </EmptyState>
     );
   }
 
   if (sortedMovies.length === 0 && searchQuery) {
     return (
-      <div className="text-center py-24">
-        <div className="w-20 h-20 mx-auto mb-6 rounded-2xl bg-gray-800/50 flex items-center justify-center">
-          <span className="text-4xl">🔍</span>
-        </div>
-        <p className="text-gray-400 text-lg font-medium">
-          No results for &ldquo;{searchQuery}&rdquo;
-        </p>
-        <p className="text-gray-600 text-sm mt-2">
-          Try searching for it on TMDb to add it to your library or watchlist
-        </p>
+      <EmptyState
+        icon="🔍"
+        message={`No results for "${searchQuery}"`}
+        subtext="Try searching for it on TMDb to add it to your library or watchlist"
+      >
         <button
           onClick={() => onSearchInTMDb(searchQuery)}
-          className="mt-6 bg-indigo-500 text-white px-5 py-2.5 rounded-xl hover:bg-indigo-400 transition-all shadow-lg shadow-indigo-500/20 font-medium text-sm"
+          className="min-h-11 rounded-xl bg-indigo-500 px-5 py-2.5 text-sm font-medium text-white shadow-lg shadow-indigo-500/20 transition-all hover:bg-indigo-400"
         >
           Search in TMDb
         </button>
-      </div>
+      </EmptyState>
     );
   }
 
@@ -198,14 +189,14 @@ export default function LibraryView({
             type="button"
             onClick={() => setQuickRateOpen(true)}
             disabled={unratedMovies.length === 0}
-            className="rounded-xl border border-indigo-500/30 bg-indigo-500/10 px-3 py-2 text-xs font-semibold text-indigo-200 transition-colors hover:border-indigo-400/50 hover:bg-indigo-500/20 disabled:cursor-not-allowed disabled:border-gray-800/70 disabled:bg-gray-900/60 disabled:text-gray-600"
+            className="min-h-11 rounded-xl border border-indigo-500/30 bg-indigo-500/10 px-3 py-2 text-xs font-semibold text-indigo-200 transition-colors hover:border-indigo-400/50 hover:bg-indigo-500/20 disabled:cursor-not-allowed disabled:border-gray-800/70 disabled:bg-gray-900/60 disabled:text-gray-600"
           >
             Quick Rate ({unratedMovies.length}) · R
           </button>
           {searchQuery && (
             <button
               onClick={() => onSearchInTMDb(searchQuery)}
-              className="text-indigo-400 hover:text-indigo-300 text-xs font-medium transition-colors flex items-center gap-1.5 px-2 py-1 rounded-lg hover:bg-indigo-500/10"
+              className="flex min-h-11 items-center gap-1.5 rounded-lg px-3 py-2 text-xs font-medium text-indigo-400 transition-colors hover:bg-indigo-500/10 hover:text-indigo-300"
             >
               <span>🔍</span>
               Search &ldquo;{searchQuery}&rdquo; in TMDb
@@ -245,7 +236,7 @@ export default function LibraryView({
         <div className="text-center mt-8">
           <button
             onClick={() => setVisibleCount(visibleCount + PAGE_SIZE)}
-            className="text-gray-400 hover:text-white px-6 py-3 rounded-xl hover:bg-gray-800/60 transition-all font-medium text-sm border border-gray-700/50"
+            className="min-h-11 rounded-xl border border-gray-700/50 px-6 py-3 text-sm font-medium text-gray-400 transition-all hover:bg-gray-800/60 hover:text-white"
           >
             Load More ({sortedMovies.length - visibleCount} remaining)
           </button>

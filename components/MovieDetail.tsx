@@ -36,6 +36,7 @@ interface Movie {
   source: string | null;
   type: string;
   tmdb_id?: number | null;
+  imdb_id?: string | null;
   filmweb_url?: string | null;
   cda_url?: string | null;
   pl_title?: string | null;
@@ -140,6 +141,7 @@ export default function MovieDetail({
   const [personRatings, setPersonRatings] = useState<
     Record<string, { avg_rating: number; movie_count: number }>
   >({});
+  const isPersistedMovie = movie.id > 0;
 
   // Sync state if movie prop changes
   useEffect(() => {
@@ -212,6 +214,11 @@ export default function MovieDetail({
         .catch(() => {});
     }
 
+    if (!isPersistedMovie) {
+      setIsLoadingMetadata(false);
+      return;
+    }
+
     // Fetch full movie details including metadata
     setIsLoadingMetadata(true);
     fetchMovieDetail(movie.id)
@@ -240,10 +247,10 @@ export default function MovieDetail({
       })
       .catch(console.error)
       .finally(() => setIsLoadingMetadata(false));
-  }, [movie]);
+  }, [movie, isPersistedMovie]);
 
   useEffect(() => {
-    if (movie.id && filePath) {
+    if (isPersistedMovie && filePath) {
       fetch(`/api/movies/${movie.id}/subtitles`)
         .then((r) => r.json())
         .then((data) => {
@@ -255,7 +262,7 @@ export default function MovieDetail({
       setHasSubtitles(false);
       setSubtitlesList([]);
     }
-  }, [movie.id, filePath]);
+  }, [movie.id, filePath, isPersistedMovie]);
 
   useEffect(() => {
     fetch("/api/settings")
@@ -460,6 +467,38 @@ export default function MovieDetail({
   const handleRate = async (rating: number) => {
     setIsRating(true);
     try {
+      if (!isPersistedMovie) {
+        const createRes = await fetch("/api/movies", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            title: movieTitle,
+            year: movie.year,
+            genre: movie.genre,
+            director,
+            rating: movie.rating,
+            poster_url: posterUrl,
+            source: movie.source || "tmdb",
+            imdb_id: movie.imdb_id ?? null,
+            tmdb_id: movie.tmdb_id ?? null,
+            type: movie.type || "movie",
+            user_rating: rating,
+            wishlist: 0,
+            cda_url: movie.cda_url || null,
+          }),
+        });
+
+        if (!createRes.ok) return;
+        const { id } = (await createRes.json()) as { id: number };
+        const movieRes = await fetch(`/api/movies/${id}`);
+        const detail = (await movieRes.json()) as { movie?: Movie };
+        const updated = detail.movie ?? { ...movie, id, user_rating: rating };
+        setUserRating(rating);
+        setShowRatingPicker(false);
+        if (onUpdate) onUpdate(updated);
+        return;
+      }
+
       const res = await fetch(`/api/movies/${movie.id}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
@@ -741,21 +780,23 @@ export default function MovieDetail({
               </button>
             </div>
           )}
-          <button
-            onClick={(e) => {
-              e.stopPropagation();
-              setIsMenuOpen(!isMenuOpen);
-            }}
-            className={`w-11 h-11 rounded-xl flex items-center justify-center transition-all ${
-              isMenuOpen
-                ? "bg-indigo-500 text-white shadow-lg shadow-indigo-500/20"
-                : "bg-gray-800/80 text-gray-500 hover:text-white hover:bg-gray-800"
-            }`}
-            title="Management Menu"
-            aria-label={isMenuOpen ? "Close management menu" : "Open management menu"}
-          >
-            <span className="text-xl">⋮</span>
-          </button>
+          {isPersistedMovie && (
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                setIsMenuOpen(!isMenuOpen);
+              }}
+              className={`w-11 h-11 rounded-xl flex items-center justify-center transition-all ${
+                isMenuOpen
+                  ? "bg-indigo-500 text-white shadow-lg shadow-indigo-500/20"
+                  : "bg-gray-800/80 text-gray-500 hover:text-white hover:bg-gray-800"
+              }`}
+              title="Management Menu"
+              aria-label={isMenuOpen ? "Close management menu" : "Open management menu"}
+            >
+              <span className="text-xl">⋮</span>
+            </button>
+          )}
           <button
             onClick={onClose}
             className="w-11 h-11 bg-gray-800/80 hover:bg-gray-800 text-gray-500 hover:text-white rounded-xl flex items-center justify-center transition-all text-xl"
@@ -767,7 +808,7 @@ export default function MovieDetail({
         </div>
 
         {/* Menu Dropdown */}
-        {isMenuOpen && (
+        {isMenuOpen && isPersistedMovie && (
           <div
             className="absolute top-16 right-6 z-[90] w-64 overflow-hidden rounded-2xl border border-gray-700/50 bg-gray-900 shadow-2xl animate-in fade-in zoom-in-95 duration-200"
             onClick={(e) => e.stopPropagation()}
@@ -1248,7 +1289,7 @@ export default function MovieDetail({
                         <button
                           onClick={() => setShowRatingPicker((v) => !v)}
                           title="Click to change rating"
-                          className="bg-indigo-500 text-white font-black text-2xl px-3 py-1 rounded-xl shadow-lg shadow-indigo-500/20 flex items-center gap-2 hover:bg-indigo-400 transition-colors cursor-pointer"
+                          className="flex min-h-11 items-center gap-2 rounded-xl bg-indigo-500 px-3 py-1 text-2xl font-black text-white shadow-lg shadow-indigo-500/20 transition-colors hover:bg-indigo-400"
                         >
                           ♥ {userRating != null && userRating > 0 ? userRating : "—"}
                         </button>
@@ -1262,7 +1303,7 @@ export default function MovieDetail({
                                 onClick={() => handleRate(i + 1)}
                                 disabled={isRating}
                                 title={`Rate ${i + 1}/10`}
-                                className={`w-9 h-9 rounded-md text-[11px] font-black transition-all border ${
+                                className={`h-11 w-11 rounded-md border text-[11px] font-black transition-all sm:h-9 sm:w-9 ${
                                   isRating
                                     ? "opacity-50 cursor-not-allowed"
                                     : "hover:scale-110 active:scale-95"
@@ -1285,7 +1326,7 @@ export default function MovieDetail({
                                   onClick={() => handleRate(rating)}
                                   disabled={isRating}
                                   title={`Rate ${rating}/10`}
-                                  className={`w-9 h-9 rounded-md text-[11px] font-black transition-all border ${
+                                  className={`h-11 w-11 rounded-md border text-[11px] font-black transition-all sm:h-9 sm:w-9 ${
                                     isRating
                                       ? "opacity-50 cursor-not-allowed"
                                       : "hover:scale-110 active:scale-95"

@@ -5,6 +5,7 @@ import { EPG_PRESETS } from "@/lib/epg-presets";
 import type { TmdbHealthSnapshot } from "@/lib/tmdb-health";
 import type { RecConfig } from "@/lib/types";
 import type { Movie } from "@/lib/db";
+import Button from "@/components/ui/Button";
 
 export type { RecConfig };
 
@@ -431,13 +432,13 @@ export default function ConfigPanel({
                 placeholder="/Volumes/video/Movies"
                 className="h-11 flex-1 min-w-0 rounded-lg border border-gray-700/30 bg-gray-800/60 px-3 text-sm font-mono text-white placeholder-gray-600 focus:border-indigo-500/50 focus:outline-none"
               />
-              <button
+              <Button
                 onClick={handleSavePath}
                 disabled={pathSaving || !pathDraft.trim() || pathDraft.trim() === libraryPath}
-                className="min-h-11 shrink-0 rounded-lg bg-indigo-600 px-4 py-2 text-sm text-white transition-colors hover:bg-indigo-500 disabled:cursor-not-allowed disabled:opacity-40"
+                className="min-h-11 shrink-0 rounded-lg px-4 py-2 text-sm"
               >
                 {pathSaving ? "Saving..." : pathSaved ? "Saved" : "Save"}
-              </button>
+              </Button>
               {libraryPath && (
                 <button
                   onClick={onSync}
@@ -541,14 +542,14 @@ export default function ConfigPanel({
                       <div className="flex items-center gap-2 shrink-0">
                         <button
                           onClick={() => onOpenMovie(m.id)}
-                          className="text-xs text-indigo-400 hover:text-indigo-300 transition-colors px-2 py-1 rounded hover:bg-white/5"
+                          className="flex min-h-11 items-center rounded-lg px-3 text-xs text-indigo-400 transition-colors hover:bg-white/5 hover:text-indigo-300"
                         >
                           Open
                         </button>
                         <button
                           disabled={deletingIds.has(m.id)}
                           onClick={() => void handleDeleteDetached(m.id)}
-                          className="text-xs text-red-400 hover:text-red-300 transition-colors px-2 py-1 rounded hover:bg-red-500/10 disabled:opacity-40"
+                          className="flex min-h-11 items-center rounded-lg px-3 text-xs text-red-400 transition-colors hover:bg-red-500/10 hover:text-red-300 disabled:opacity-40"
                         >
                           {deletingIds.has(m.id) ? "Deleting…" : "Delete"}
                         </button>
@@ -593,7 +594,7 @@ export default function ConfigPanel({
               )}
             </Hint>
             {apiKeySource !== "env" && (
-              <form className="flex items-center gap-2" onSubmit={handleApiKeySubmit}>
+              <form className="flex flex-wrap items-center gap-2" onSubmit={handleApiKeySubmit}>
                 <input
                   type="text"
                   name="tmdb-username"
@@ -614,20 +615,20 @@ export default function ConfigPanel({
                   placeholder={apiKeySource === "db" ? "••••••••  (replace)" : "Paste TMDb read access token"}
                   value={apiKey}
                   onChange={(e) => setApiKey(e.target.value)}
-                  className="h-11 flex-1 rounded-lg border border-gray-700/30 bg-gray-800/60 px-3 text-sm text-white focus:border-indigo-500/50 focus:outline-none"
+                  className="h-11 min-w-0 flex-[1_1_14rem] rounded-lg border border-gray-700/30 bg-gray-800/60 px-3 text-sm text-white focus:border-indigo-500/50 focus:outline-none"
                 />
-                <button
+                <Button
                   type="submit"
                   disabled={!apiKey.trim() || apiKeySaving}
-                  className="min-h-11 rounded-lg bg-indigo-600 px-4 py-2 text-sm text-white transition-colors hover:bg-indigo-500 disabled:cursor-not-allowed disabled:opacity-40"
+                  className="min-h-11 shrink-0 rounded-lg px-4 py-2 text-sm"
                 >
                   {apiKeySaving ? "Saving..." : "Save"}
-                </button>
+                </Button>
                 {apiKeySource === "db" && (
                   <button
                     type="button"
                     onClick={() => { void saveApiKey(""); }}
-                    className="min-h-11 rounded-lg bg-red-600/20 px-3 py-2 text-sm text-red-300 transition-colors hover:bg-red-600/30"
+                    className="min-h-11 shrink-0 rounded-lg bg-red-600/20 px-3 py-2 text-sm text-red-300 transition-colors hover:bg-red-600/30"
                   >
                     Remove
                   </button>
@@ -831,7 +832,7 @@ export default function ConfigPanel({
                     placeholder="https://epgshare01.online/epgshare01/epg_ripper_PL1.xml.gz"
                     className="h-11 min-w-0 flex-1 rounded-lg border border-gray-700/30 bg-gray-800/60 px-3 text-sm font-mono text-white placeholder-gray-600 focus:border-indigo-500/50 focus:outline-none"
                   />
-                  <button
+                  <Button
                     disabled={epgUrlSaving}
                     onClick={async () => {
                       setEpgUrlSaving(true);
@@ -842,10 +843,10 @@ export default function ConfigPanel({
                       });
                       setEpgUrlSaving(false);
                     }}
-                    className="min-h-11 shrink-0 rounded-lg bg-indigo-600 px-4 py-2 text-sm text-white transition-colors hover:bg-indigo-500 disabled:opacity-40"
+                    className="min-h-11 shrink-0 rounded-lg px-4 py-2 text-sm"
                   >
                     {epgUrlSaving ? "Saving…" : "Save"}
-                  </button>
+                  </Button>
                 </div>
                 {!epgUrl && (
                   <p className="text-gray-600 text-xs mt-1">Using default: Poland</p>
@@ -943,7 +944,7 @@ export default function ConfigPanel({
                     });
                     setBlacklist([]);
                   }}
-                  className="text-xs text-gray-600 hover:text-gray-400 transition-colors"
+                  className="min-h-11 rounded-lg px-3 text-xs text-gray-600 transition-colors hover:bg-white/[0.04] hover:text-gray-400"
                 >
                   Clear all
                 </button>
@@ -967,7 +968,7 @@ export default function ConfigPanel({
                         });
                         setBlacklist(next);
                       }}
-                      className="shrink-0 text-xs text-gray-600 hover:text-gray-300 transition-colors px-2 py-0.5 rounded hover:bg-white/[0.05]"
+                      className="min-h-11 shrink-0 rounded-lg px-3 text-xs text-gray-600 transition-colors hover:bg-white/[0.05] hover:text-gray-300"
                     >
                       Unhide
                     </button>
@@ -996,7 +997,7 @@ export default function ConfigPanel({
                   <button
                     key={eng.value}
                     onClick={() => onToggleEngine(eng.value)}
-                    className={`text-xs px-3 py-1.5 rounded-lg transition-all border ${
+                    className={`min-h-11 rounded-lg border px-3 py-2 text-xs transition-all ${
                       disabled
                         ? "bg-red-500/20 text-red-300 border-red-500/30"
                         : "bg-green-500/20 text-green-300 border-green-500/30"
@@ -1028,7 +1029,7 @@ export default function ConfigPanel({
                           : [...draft.excluded_genres, "Animation"],
                       });
                     }}
-                    className={`text-xs px-3 py-1.5 rounded-lg transition-all border font-medium ${
+                    className={`min-h-11 rounded-lg border px-3 py-2 text-xs font-medium transition-all ${
                       draft.excluded_genres.includes("Animation")
                         ? "bg-orange-500/20 text-orange-300 border-orange-500/30"
                         : "bg-white/5 text-gray-400 border-white/10 hover:bg-white/10 hover:text-gray-300"
@@ -1044,7 +1045,7 @@ export default function ConfigPanel({
                       <button
                         key={genre}
                         onClick={() => toggleGenre(genre)}
-                        className={`text-xs px-3 py-1.5 rounded-lg transition-all border ${
+                        className={`min-h-11 rounded-lg border px-3 py-2 text-xs transition-all ${
                           excluded
                             ? "bg-red-500/20 text-red-300 border-red-500/30"
                             : "bg-gray-800/60 text-gray-400 border-gray-700/30 hover:border-gray-600/50 hover:text-gray-300"

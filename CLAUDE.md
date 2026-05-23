@@ -208,7 +208,7 @@ Each request is logged as `GET /path STATUS in Xms`. API errors show as 500 with
 
 Common errors:
 
-- **`better-sqlite3` native addon not found** — run `pnpm exec node-gyp rebuild` inside the `better-sqlite3` package dir (happens after `pnpm install` skips build scripts)
+- **`better-sqlite3` native addon not found** — run `pnpm rebuild better-sqlite3` from the repo root after confirming `pnpm-workspace.yaml` still allows its build script
 - **SWC binary missing** — install `@next/swc-linux-arm64-gnu` (or musl) for ARM64 Linux environments
 
 ## Docker
@@ -312,7 +312,7 @@ TMDB_API_KEY=<your_key> docker run -p 4000:4000 -v $(pwd)/data:/app/data -e TMDB
 
 1. **Always commit `pnpm-lock.yaml`.** Never install without a lock file.
 2. **Run `pnpm audit` after any dependency change** and resolve high/critical findings before committing.
-3. **Only `better-sqlite3`, `esbuild`, and `sharp` are allowed to run install scripts** (`pnpm.onlyBuiltDependencies` in `package.json`). Do not add packages with `postinstall`/`prepare` scripts without explicit user approval.
+3. **Only `better-sqlite3`, `esbuild`, and `sharp` are allowed to run install scripts** (`allowBuilds` in `pnpm-workspace.yaml`). Do not add packages with `postinstall`/`prepare` scripts without explicit user approval.
 4. **Never add a new dependency without explicit user approval.** Justify every new dep in the commit message.
 5. **Verify new packages before adding:** check npm download counts, publish date, and maintainer history to guard against typosquatting. Flag anything suspicious before installing.
 6. **Inspect lifecycle scripts before approving a dependency update.** `prepare`, `postinstall`, and `install` scripts are code execution and must be treated as a security review point.

@@ -7,6 +7,7 @@ import {
   CARD_ACTION_ICON_SIZE_CLASS,
   CARD_ACTION_TOUCH_TARGET_CLASS,
 } from "@/components/card-action-styles";
+import EmptyState from "@/components/ui/EmptyState";
 import RecommendationRow from "@/components/RecommendationRow";
 import RecommendationSkeleton from "@/components/RecommendationSkeleton";
 import { getUniqueRecommendations } from "@/lib/utils";
@@ -94,17 +95,11 @@ export default function RecommendationsView({
 
   if (!hasMovies) {
     return (
-      <div className="text-center py-24">
-        <div className="w-20 h-20 mx-auto mb-6 rounded-2xl bg-gray-800/50 flex items-center justify-center">
-          <span className="text-4xl">💡</span>
-        </div>
-        <p className="text-gray-400 text-lg font-medium">
-          No recommendations yet
-        </p>
-        <p className="text-gray-600 text-sm mt-2">
-          Add some movies to your library first
-        </p>
-      </div>
+      <EmptyState
+        icon="💡"
+        message="No recommendations yet"
+        subtext="Add some movies to your library first"
+      />
     );
   }
 
@@ -196,7 +191,7 @@ export default function RecommendationsView({
             <div className="absolute top-full left-0 mt-1 bg-gray-800 border border-gray-700 rounded-xl shadow-xl z-50 py-1 min-w-[180px]">
               {REC_CATEGORIES.filter((cat) => cat.value === "all" || !disabledEngines.includes(cat.value)).map((cat) => (
                 <button key={cat.value} onClick={() => { clearInvalidMood(); setRecCategory(cat.value); setActiveMood(null); setEngineDropdownOpen(false); }}
-                  className={`w-full flex items-center justify-between px-3 py-1.5 text-xs font-medium transition-all ${!activeMood && recCategory === cat.value ? "text-white bg-gray-700/60" : "text-gray-400 hover:text-gray-200 hover:bg-gray-700/30"}`}>
+                  className={`flex min-h-11 w-full items-center justify-between px-3 py-2 text-xs font-medium transition-all ${!activeMood && recCategory === cat.value ? "text-white bg-gray-700/60" : "text-gray-400 hover:text-gray-200 hover:bg-gray-700/30"}`}>
                   <span>{cat.label}</span>
                   {categoryCounts[cat.value] != null && <span className="tabular-nums text-gray-600 ml-3">{categoryCounts[cat.value]}</span>}
                 </button>
@@ -223,7 +218,7 @@ export default function RecommendationsView({
             <div className="absolute top-full left-0 mt-1 bg-gray-800 border border-gray-700 rounded-xl shadow-xl z-50 py-1 min-w-[180px]">
               {activeMood && (
                 <>
-                  <button onClick={() => { clearInvalidMood(); setActiveMood(null); setMoodDropdownOpen(false); }} className="w-full flex items-center px-3 py-1.5 text-xs font-medium text-gray-500 hover:text-gray-200 hover:bg-gray-700/30 transition-all">Clear mood</button>
+                  <button onClick={() => { clearInvalidMood(); setActiveMood(null); setMoodDropdownOpen(false); }} className="flex min-h-11 w-full items-center px-3 py-2 text-xs font-medium text-gray-500 transition-all hover:bg-gray-700/30 hover:text-gray-200">Clear mood</button>
                   <div className="h-px bg-gray-700/60 mx-2 my-1" />
                 </>
               )}
@@ -231,7 +226,7 @@ export default function RecommendationsView({
                 const preset = MOOD_PRESETS[key];
                 return (
                   <button key={key} onClick={() => { clearInvalidMood(); setActiveMood(key); setMoodDropdownOpen(false); }}
-                    className={`w-full flex items-center gap-2 px-3 py-1.5 text-xs font-medium transition-all ${activeMood === key ? "text-white bg-indigo-600/40" : "text-gray-400 hover:text-gray-200 hover:bg-gray-700/30"}`}>
+                    className={`flex min-h-11 w-full items-center gap-2 px-3 py-2 text-xs font-medium transition-all ${activeMood === key ? "text-white bg-indigo-600/40" : "text-gray-400 hover:text-gray-200 hover:bg-gray-700/30"}`}>
                     <span>{preset.icon}</span>
                     <span>{preset.label}</span>
                   </button>
@@ -275,17 +270,13 @@ export default function RecommendationsView({
         moodLoading ? (
           <RecommendationSkeleton />
         ) : moodError ? (
-          <div className="text-center py-24">
-            <div className="w-20 h-20 mx-auto mb-6 rounded-2xl bg-gray-800/50 flex items-center justify-center"><span className="text-4xl">⚠️</span></div>
-            <p className="text-gray-400 text-lg font-medium">Failed to load mood picks</p>
-            <p className="text-gray-600 text-sm mt-2">{moodError}</p>
-          </div>
+          <EmptyState icon="⚠️" message="Failed to load mood picks" subtext={moodError} />
         ) : moodGroups.length === 0 ? (
-          <div className="text-center py-24">
-            <div className="w-20 h-20 mx-auto mb-6 rounded-2xl bg-gray-800/50 flex items-center justify-center"><span className="text-4xl">{MOOD_PRESETS[activeMood].icon}</span></div>
-            <p className="text-gray-400 text-lg font-medium">No results for this mood</p>
-            <p className="text-gray-600 text-sm mt-2">Try adding more movies or select a different mood</p>
-          </div>
+          <EmptyState
+            icon={MOOD_PRESETS[activeMood].icon}
+            message="No results for this mood"
+            subtext="Try adding more movies or select a different mood"
+          />
         ) : (
           <div>
             <p className="text-gray-500 text-xs mb-3">{MOOD_PRESETS[activeMood].reason} — {moodPicks.length} {moodPicks.length === 1 ? "pick" : "picks"}</p>
@@ -302,11 +293,11 @@ export default function RecommendationsView({
       ) : recsLoading ? (
         <RecommendationSkeleton />
       ) : recommendations.length === 0 ? (
-        <div className="text-center py-24">
-          <div className="w-20 h-20 mx-auto mb-6 rounded-2xl bg-gray-800/50 flex items-center justify-center"><span className="text-4xl">🔍</span></div>
-          <p className="text-gray-400 text-lg font-medium">No recommendations found</p>
-          <p className="text-gray-600 text-sm mt-2">Try adding more movies to improve suggestions</p>
-        </div>
+        <EmptyState
+          icon="🔍"
+          message="No recommendations found"
+          subtext="Try adding more movies to improve suggestions"
+        />
       ) : recCategory === "all" ? (
         <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4">
           {allRecommendations.map((r) => (

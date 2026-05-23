@@ -1,6 +1,8 @@
 "use client";
 // tamtam inspected 2026-05-21
+import EmptyState from "@/components/ui/EmptyState";
 import MovieCard from "@/components/MovieCard";
+import Spinner from "@/components/ui/Spinner";
 import { buildTmdbMovieIndex, getSearchMatches, getTmdbSearchMovieState } from "@/lib/search";
 import type { Movie } from "@/lib/types";
 import type { TmdbSearchResult } from "@/lib/tmdb";
@@ -61,38 +63,32 @@ export default function SearchView({
 
       {tmdbLoading ? (
         <div className="flex items-center justify-center py-24">
-          <div className="w-8 h-8 border-2 border-indigo-500 border-t-transparent rounded-full animate-spin" />
+          <Spinner />
         </div>
       ) : tmdbError === "no_api_key" ? (
-        <div className="text-center py-24">
-          <p className="text-gray-400 text-lg font-medium">
-            TMDb API key not configured
-          </p>
-          <p className="text-gray-600 text-sm mt-2">
-            Add your key in the Config tab to enable search
-          </p>
+        <EmptyState
+          message="TMDb API key not configured"
+          subtext="Add your key in the Config tab to enable search"
+        >
           <button
             onClick={onGoToConfig}
-            className="mt-5 px-5 py-2 rounded-lg bg-indigo-600 text-white text-sm hover:bg-indigo-500 transition-colors"
+            className="px-5 py-2 rounded-lg bg-indigo-600 text-white text-sm hover:bg-indigo-500 transition-colors"
           >
             Go to Config
           </button>
-        </div>
+        </EmptyState>
       ) : tmdbError === "error" ? (
-        <div className="text-center py-24">
-          <p className="text-gray-400 text-lg font-medium">
-            TMDb search failed
-          </p>
-          <p className="text-gray-600 text-sm mt-2">
-            Try again in a moment
-          </p>
+        <EmptyState
+          message="TMDb search failed"
+          subtext="Try again in a moment"
+        >
           <button
             onClick={onSearchTmdb}
-            className="mt-5 px-5 py-2 rounded-lg bg-indigo-600 text-white text-sm hover:bg-indigo-500 transition-colors"
+            className="px-5 py-2 rounded-lg bg-indigo-600 text-white text-sm hover:bg-indigo-500 transition-colors"
           >
             Search TMDb
           </button>
-        </div>
+        </EmptyState>
       ) : (
         <div className="space-y-8">
           {libraryMatches.length > 0 && (

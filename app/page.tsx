@@ -21,6 +21,7 @@ import { getCanonicalMovieForTmdbId } from "@/lib/search";
 import { useSettings } from "@/lib/hooks/useSettings";
 import type { AppTab, ToastItem, Movie, RecConfig } from "@/lib/types";
 import { MOOD_PRESETS, type MoodKey } from "@/lib/mood-presets";
+import type { TmdbMovieSnapshot } from "@/lib/tmdb";
 
 function findMovieFromHashRef(movies: Movie[], ref: string): Movie | undefined {
   if (ref.startsWith("local/")) {
@@ -32,6 +33,37 @@ function findMovieFromHashRef(movies: Movie[], ref: string): Movie | undefined {
   return Number.isNaN(tmdbId)
     ? undefined
     : getCanonicalMovieForTmdbId(movies, tmdbId);
+}
+
+function parseTmdbHashRef(ref: string): number | null {
+  if (ref.startsWith("local/")) return null;
+  if (!/^\d+$/.test(ref)) return null;
+  const tmdbId = Number.parseInt(ref, 10);
+  return Number.isInteger(tmdbId) && tmdbId > 0 ? tmdbId : null;
+}
+
+export function movieFromTmdbSnapshot(movie: TmdbMovieSnapshot): Movie {
+  return {
+    id: -movie.tmdb_id,
+    title: movie.title,
+    year: movie.year,
+    genre: movie.genre,
+    director: movie.director,
+    writer: movie.writer,
+    actors: movie.actors,
+    rating: movie.rating,
+    user_rating: null,
+    poster_url: movie.poster_url,
+    source: "tmdb",
+    type: "movie",
+    tmdb_id: movie.tmdb_id,
+    rated_at: null,
+    created_at: new Date().toISOString(),
+    imdb_id: movie.imdb_id,
+    pl_title: movie.pl_title,
+    description: movie.description,
+    wishlist: 0,
+  };
 }
 
 function decodeHashSegment(value: string): string {
@@ -162,6 +194,7 @@ export default function Home() {
   const [syncOpen, setSyncOpen] = useState(false);
   const [invalidMoodKey, setInvalidMoodKey] = useState<string | null>(null);
   const [pendingMovieHash, setPendingMovieHash] = useState<string | null>(null);
+  const pendingTmdbLookupRef = useRef<string | null>(null);
   const [disabledEngines, setDisabledEngines] = useState<string[]>([]);
   const [recConfig, setRecConfig] = useState<RecConfig>({
     excluded_genres: [], min_year: null, min_rating: null, max_per_group: 15,
@@ -242,15 +275,49 @@ export default function Home() {
 
   // After movies load, open movie referenced in URL (e.g. shared link)
   useEffect(() => {
-    const resolved = resolvePendingMovieHash({
-      pendingMovieHash,
-      initialLoad,
-      movies,
-    });
-    if (resolved.nextPendingMovieHash !== pendingMovieHash) {
-      setPendingMovieHash(resolved.nextPendingMovieHash);
+    if (!pendingMovieHash || initialLoad) return;
+
+    const selectedMovie = findMovieFromHashRef(movies, pendingMovieHash);
+    if (selectedMovie) {
+      pendingTmdbLookupRef.current = null;
+      setSelectedMovie(selectedMovie);
+      setPendingMovieHash(null);
+      return;
     }
-    if (resolved.selectedMovie) setSelectedMovie(resolved.selectedMovie);
+
+    const tmdbId = parseTmdbHashRef(pendingMovieHash);
+    if (!tmdbId) {
+      pendingTmdbLookupRef.current = null;
+      setPendingMovieHash(null);
+      return;
+    }
+    if (pendingTmdbLookupRef.current === pendingMovieHash) return;
+
+    pendingTmdbLookupRef.current = pendingMovieHash;
+    fetch(`/api/movies/tmdb/${tmdbId}`)
+      .then(async (response) => {
+        if (!response.ok) {
+          throw new Error(`TMDb deep link failed (${response.status})`);
+        }
+        return (await response.json()) as { movie: TmdbMovieSnapshot };
+      })
+      .then(({ movie }) => {
+        if (window.location.hash !== `#movie/${pendingMovieHash}`) return;
+        setSelectedMovie(movieFromTmdbSnapshot(movie));
+      })
+      .catch(() => {
+        if (window.location.hash === `#movie/${pendingMovieHash}`) {
+          addToast("Movie link could not be loaded");
+        }
+      })
+      .finally(() => {
+        if (pendingTmdbLookupRef.current === pendingMovieHash) {
+          pendingTmdbLookupRef.current = null;
+        }
+        if (window.location.hash === `#movie/${pendingMovieHash}`) {
+          setPendingMovieHash(null);
+        }
+      });
   }, [pendingMovieHash, movies, initialLoad]);
 
   // Sync URL hash with state (movie modal takes precedence over tab hash)
@@ -278,7 +345,7 @@ export default function Home() {
         if (found) {
           setPendingMovieHash(null);
           setSelectedMovie(found);
-        } else if (initialLoad) {
+        } else if (initialLoad || parseTmdbHashRef(ref)) {
           setPendingMovieHash(ref);
           setSelectedMovie(null);
         } else {
