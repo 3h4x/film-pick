@@ -260,19 +260,24 @@ export default function TvTab() {
 
   if (data?.error) {
     return (
-      <div className="text-center py-24 space-y-3">
-        <p className="text-gray-400 font-medium">Failed to load TV guide</p>
-        <p className="text-gray-600 text-sm">{data.error}</p>
-        <p className="text-gray-700 text-xs">
-          Check the EPG source in Config (TV → EPG Source)
-        </p>
+      <EmptyState
+        message="Failed to load TV guide"
+        subtext={(
+          <>
+            <span>{data.error}</span>
+            <span className="mt-1 block text-xs text-gray-700">
+              Check the EPG source in Config (TV → EPG Source)
+            </span>
+          </>
+        )}
+      >
         <button
           onClick={() => load(true)}
           className="mt-2 min-h-11 rounded-lg bg-gray-700 px-4 py-2 text-sm text-gray-300 transition-colors hover:bg-gray-600"
         >
           Retry
         </button>
-      </div>
+      </EmptyState>
     );
   }
 
