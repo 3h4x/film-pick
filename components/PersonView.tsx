@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useMemo } from "react";
 import MovieCard from "./MovieCard";
+import EmptyState from "@/components/ui/EmptyState";
 import type { Movie } from "@/lib/types";
 
 interface PersonRating {
@@ -158,9 +159,13 @@ export default function PersonView({
 
       {/* Movie grid */}
       {personMovies.length === 0 ? (
-        <div className="text-center py-24">
-          <p className="text-gray-500 text-sm">No movies found for {name}</p>
-        </div>
+        <EmptyState
+          message={
+            <span className="text-sm font-normal text-gray-500">
+              No movies found for {name}
+            </span>
+          }
+        />
       ) : (
         <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4">
           {personMovies.map((m) => (
