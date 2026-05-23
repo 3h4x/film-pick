@@ -128,6 +128,9 @@ import EmptyState from "@/components/ui/EmptyState";
 
 // Compact inline panel
 <EmptyState variant="card" message="No TMDb results" subtext="Try a different title" />
+
+// Minimal inline message
+<EmptyState variant="plain" message="No movies match your filters" />
 ```
 
 **Props**
@@ -139,4 +142,4 @@ import EmptyState from "@/components/ui/EmptyState";
 | `subtext` | ReactNode | — | Secondary line: `text-gray-600 text-sm mt-2`; accepts string or JSX |
 | `children` | ReactNode | — | Action area rendered inside `<div className="mt-6">` |
 | `className` | string | — | Extra Tailwind classes on the outer wrapper |
-| `variant` | string | `"section"` | `"section"` (py-24) or `"card"` (rounded border panel with py-8) |
+| `variant` | string | `"section"` | `"section"` (py-24), `"card"` (rounded border panel with py-8), or `"plain"` (py-12 with smaller gray message) |
