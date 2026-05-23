@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import Modal from "./ui/Modal";
 import Spinner from "./ui/Spinner";
+import Button from "./ui/Button";
 
 interface SyncResult {
   added: number;
@@ -151,9 +152,9 @@ export default function SyncModal({
         </p>
 
         {!loading && !result && (
-          <button
+          <Button
             onClick={handleSync}
-            className="w-full bg-indigo-500 text-white px-5 py-3 rounded-xl hover:bg-indigo-400 transition-all font-medium text-sm flex items-center justify-center gap-2 mb-4"
+            className="w-full !bg-indigo-500 px-5 py-3 rounded-xl hover:!bg-indigo-400 !transition-all text-sm flex items-center justify-center gap-2 mb-4"
           >
             <svg
               className="w-4 h-4"
@@ -169,7 +170,7 @@ export default function SyncModal({
               />
             </svg>
             Start Sync
-          </button>
+          </Button>
         )}
 
         {loading && (
