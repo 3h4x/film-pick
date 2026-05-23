@@ -3,6 +3,7 @@
 
 import { useState, useEffect, useCallback, useRef } from "react";
 import { createLatestOnlyRunner } from "@/lib/latest-only-runner";
+import EmptyState from "@/components/ui/EmptyState";
 import Spinner from "@/components/ui/Spinner";
 
 // Polsat Box S — film channels with good quality/quantity balance
@@ -588,9 +589,11 @@ export default function TvTab() {
       <div>
         {toolbar}
         {filmRows.length === 0 ? (
-          <div className="text-center py-16 text-gray-600">
-            No films scheduled today
-          </div>
+          <EmptyState
+            variant="plain"
+            className="!py-16"
+            message="No films scheduled today"
+          />
         ) : (
           <div>
             {/* Column headers */}
