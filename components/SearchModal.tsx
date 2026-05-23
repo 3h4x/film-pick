@@ -5,6 +5,7 @@ import Modal from "./ui/Modal";
 import MovieCard from "./MovieCard";
 import Spinner from "./ui/Spinner";
 import Button from "./ui/Button";
+import EmptyState from "@/components/ui/EmptyState";
 import {
   CARD_ACTION_ICON_SIZE_CLASS,
   CARD_ACTION_TOUCH_TARGET_CLASS,
@@ -179,19 +180,21 @@ export default function SearchModal({
         )}
 
         {results.length === 0 && !loading && hasSearched && query && (
-          <div className="text-center py-12">
-            <p className="text-gray-500">
-              No results for &ldquo;{query}&rdquo;
-            </p>
-          </div>
+          <EmptyState
+            variant="plain"
+            message={<>No results for &ldquo;{query}&rdquo;</>}
+          />
         )}
 
         {!hasSearched && !loading && results.length === 0 && (
-          <div className="text-center py-12">
-            <p className="text-gray-600 text-sm">
-              Type a movie name and press Enter
-            </p>
-          </div>
+          <EmptyState
+            variant="plain"
+            message={
+              <span className="text-sm text-gray-600">
+                Type a movie name and press Enter
+              </span>
+            }
+          />
         )}
     </Modal>
   );
