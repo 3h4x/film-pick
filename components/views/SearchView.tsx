@@ -1,6 +1,7 @@
 "use client";
 // tamtam inspected 2026-05-21
 import EmptyState from "@/components/ui/EmptyState";
+import Button from "@/components/ui/Button";
 import MovieCard from "@/components/MovieCard";
 import Spinner from "@/components/ui/Spinner";
 import { buildTmdbMovieIndex, getSearchMatches, getTmdbSearchMovieState } from "@/lib/search";
@@ -70,24 +71,24 @@ export default function SearchView({
           message="TMDb API key not configured"
           subtext="Add your key in the Config tab to enable search"
         >
-          <button
+          <Button
             onClick={onGoToConfig}
-            className="px-5 py-2 rounded-lg bg-indigo-600 text-white text-sm hover:bg-indigo-500 transition-colors"
+            className="px-5 py-2 rounded-lg text-sm"
           >
             Go to Config
-          </button>
+          </Button>
         </EmptyState>
       ) : tmdbError === "error" ? (
         <EmptyState
           message="TMDb search failed"
           subtext="Try again in a moment"
         >
-          <button
+          <Button
             onClick={onSearchTmdb}
-            className="px-5 py-2 rounded-lg bg-indigo-600 text-white text-sm hover:bg-indigo-500 transition-colors"
+            className="px-5 py-2 rounded-lg text-sm"
           >
             Search TMDb
-          </button>
+          </Button>
         </EmptyState>
       ) : (
         <div className="space-y-8">
@@ -149,12 +150,12 @@ export default function SearchView({
                     watchlist.
                   </p>
                 </div>
-                <button
+                <Button
                   onClick={onSearchTmdb}
-                  className="rounded-xl bg-indigo-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-indigo-500"
+                  className="rounded-xl px-4 py-2 text-sm"
                 >
                   Search TMDb
-                </button>
+                </Button>
               </div>
             </div>
           ) : tmdbResults.length > 0 ? (
