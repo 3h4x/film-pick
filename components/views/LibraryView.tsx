@@ -2,6 +2,7 @@
 // tamtam inspected 2026-05-21
 import { useEffect, useMemo, useState } from "react";
 import EmptyState from "@/components/ui/EmptyState";
+import Button from "@/components/ui/Button";
 import MovieCard from "@/components/MovieCard";
 import QuickRateMode from "@/components/QuickRateMode";
 import SortFilterBar from "@/components/SortFilterBar";
@@ -121,12 +122,12 @@ export default function LibraryView({
         subtext="Import a folder or search to start building your collection"
       >
         <div className="flex items-center justify-center gap-3">
-          <button
+          <Button
             onClick={onImport}
-            className="min-h-11 rounded-xl bg-indigo-500 px-5 py-2.5 text-sm font-medium text-white shadow-lg shadow-indigo-500/20 transition-all hover:bg-indigo-400"
+            className="min-h-11 rounded-xl px-5 py-2.5 text-sm shadow-lg shadow-indigo-500/20"
           >
             Import Folder
-          </button>
+          </Button>
           <button
             onClick={onOpenSearch}
             className="min-h-11 rounded-xl border border-gray-700/50 px-5 py-2.5 text-sm font-medium text-gray-400 transition-all hover:bg-gray-800/60 hover:text-white"
@@ -145,12 +146,12 @@ export default function LibraryView({
         message={`No results for "${searchQuery}"`}
         subtext="Try searching for it on TMDb to add it to your library or watchlist"
       >
-        <button
+        <Button
           onClick={() => onSearchInTMDb(searchQuery)}
-          className="min-h-11 rounded-xl bg-indigo-500 px-5 py-2.5 text-sm font-medium text-white shadow-lg shadow-indigo-500/20 transition-all hover:bg-indigo-400"
+          className="min-h-11 rounded-xl px-5 py-2.5 text-sm shadow-lg shadow-indigo-500/20"
         >
           Search in TMDb
-        </button>
+        </Button>
       </EmptyState>
     );
   }
