@@ -256,16 +256,17 @@ export default function RecommendationsView({
 
       {/* Content */}
       {invalidMoodKey ? (
-        <div className="mx-auto max-w-xl text-center py-24">
-          <div className="w-20 h-20 mx-auto mb-6 rounded-2xl bg-gray-800/50 flex items-center justify-center">
-            <span className="text-4xl">🧭</span>
-          </div>
-          <p className="text-gray-400 text-lg font-medium">Unknown mood preset</p>
-          <p className="text-gray-600 text-sm mt-2 break-words">
-            <span className="text-gray-500">{`"${invalidMoodKey}" isn't available in this build.`}</span>{" "}
-            Choose one from the Mood menu.
-          </p>
-        </div>
+        <EmptyState
+          className="mx-auto max-w-xl"
+          icon="🧭"
+          message="Unknown mood preset"
+          subtext={
+            <span className="break-words">
+              <span className="text-gray-500">{`"${invalidMoodKey}" isn't available in this build.`}</span>{" "}
+              Choose one from the Mood menu.
+            </span>
+          }
+        />
       ) : activeMood ? (
         moodLoading ? (
           <RecommendationSkeleton />
