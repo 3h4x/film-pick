@@ -6,7 +6,7 @@ interface EmptyStateProps {
   subtext?: ReactNode;
   children?: ReactNode;
   className?: string;
-  variant?: "section" | "card";
+  variant?: "section" | "card" | "plain";
 }
 
 export default function EmptyState({
@@ -20,7 +20,11 @@ export default function EmptyState({
   const variantClassName =
     variant === "card"
       ? "rounded-2xl border border-white/8 bg-white/[0.03] px-5 py-8"
-      : "py-24";
+      : variant === "plain"
+        ? "py-12"
+        : "py-24";
+  const messageClassName =
+    variant === "plain" ? "text-gray-500" : "text-gray-400 text-lg font-medium";
 
   return (
     <div
@@ -33,7 +37,7 @@ export default function EmptyState({
           <span className="text-4xl">{icon}</span>
         </div>
       )}
-      <p className="text-gray-400 text-lg font-medium">{message}</p>
+      <p className={messageClassName}>{message}</p>
       {subtext && (
         <p className="text-gray-600 text-sm mt-2">{subtext}</p>
       )}
