@@ -119,6 +119,26 @@ describe("resolvePendingMovieHash", () => {
       }),
     ).toEqual({ selectedMovie: baseMovie, nextPendingMovieHash: null });
   });
+
+  it("does not partially resolve malformed TMDb movie hashes", () => {
+    expect(
+      resolvePendingMovieHash({
+        pendingMovieHash: "949abc",
+        initialLoad: false,
+        movies: [baseMovie],
+      }),
+    ).toEqual({ selectedMovie: null, nextPendingMovieHash: null });
+  });
+
+  it("does not partially resolve malformed local movie hashes", () => {
+    expect(
+      resolvePendingMovieHash({
+        pendingMovieHash: "local/7x",
+        initialLoad: false,
+        movies: [baseMovie],
+      }),
+    ).toEqual({ selectedMovie: null, nextPendingMovieHash: null });
+  });
 });
 
 describe("parseHashValue", () => {
