@@ -1272,17 +1272,17 @@ export default function ConfigPanel({
 
           {/* Actions */}
           <div className="flex flex-wrap items-center gap-3 pt-2">
-            <button
+            <Button
               onClick={handleSave}
               disabled={!dirty}
               className={`min-h-11 rounded-lg px-5 py-2 text-sm font-medium transition-all ${
                 dirty
-                  ? "bg-indigo-500 text-white hover:bg-indigo-400 shadow-md shadow-indigo-500/20"
-                  : "bg-gray-800/60 text-gray-600 cursor-default"
+                  ? "!bg-indigo-500 text-white hover:!bg-indigo-400 shadow-md shadow-indigo-500/20"
+                  : "disabled:!bg-gray-800/60 disabled:!text-gray-600 disabled:!opacity-100 disabled:!cursor-default"
               }`}
             >
               Save & Refresh Recommendations
-            </button>
+            </Button>
             <button
               onClick={handleReset}
               className="min-h-11 rounded-lg px-3 text-sm text-gray-500 transition-colors hover:bg-white/[0.04] hover:text-gray-300"
