@@ -4,6 +4,8 @@
 import { useState, useEffect, use } from "react";
 import { useRouter } from "next/navigation";
 import MovieCard from "@/components/MovieCard";
+import EmptyState from "@/components/ui/EmptyState";
+import Spinner from "@/components/ui/Spinner";
 import type { TmdbSearchResult } from "@/lib/tmdb";
 
 interface LibraryMovie {
@@ -84,13 +86,17 @@ export default function SearchPage({
         {/* Results */}
         {loading ? (
           <div className="flex items-center justify-center py-24">
-            <div className="w-8 h-8 border-2 border-indigo-500 border-t-transparent rounded-full animate-spin" />
+            <Spinner />
           </div>
         ) : results.length === 0 ? (
-          <div className="text-center py-24">
-            <p className="text-gray-400 text-lg font-medium">No results for &ldquo;{decoded}&rdquo;</p>
-            <p className="text-gray-600 text-sm mt-2">Try a different title or check spelling</p>
-          </div>
+          <EmptyState
+            message={
+              <>
+                No results for &ldquo;{decoded}&rdquo;
+              </>
+            }
+            subtext="Try a different title or check spelling"
+          />
         ) : (
           <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 gap-3">
             {results.map((r) => {
