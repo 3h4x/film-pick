@@ -1196,7 +1196,7 @@ export default function ConfigPanel({
                   </Hint>
                   <button
                     onClick={() => update({ use_tmdb_similar: !draft.use_tmdb_similar })}
-                    className={`px-4 py-2 text-sm rounded-lg transition-colors border ${
+                    className={`min-h-11 rounded-lg border px-4 py-2 text-sm transition-colors ${
                       draft.use_tmdb_similar
                         ? "bg-green-500/20 text-green-300 border-green-500/30 hover:bg-green-500/30"
                         : "bg-red-500/20 text-red-300 border-red-500/30 hover:bg-red-500/30"
@@ -1275,7 +1275,7 @@ export default function ConfigPanel({
             <button
               onClick={handleSave}
               disabled={!dirty}
-              className={`px-5 py-2 rounded-lg text-sm font-medium transition-all ${
+              className={`min-h-11 rounded-lg px-5 py-2 text-sm font-medium transition-all ${
                 dirty
                   ? "bg-indigo-500 text-white hover:bg-indigo-400 shadow-md shadow-indigo-500/20"
                   : "bg-gray-800/60 text-gray-600 cursor-default"
@@ -1285,7 +1285,7 @@ export default function ConfigPanel({
             </button>
             <button
               onClick={handleReset}
-              className="text-gray-500 hover:text-gray-300 text-sm transition-colors"
+              className="min-h-11 rounded-lg px-3 text-sm text-gray-500 transition-colors hover:bg-white/[0.04] hover:text-gray-300"
             >
               Reset to defaults
             </button>
