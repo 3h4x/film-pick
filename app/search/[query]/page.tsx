@@ -36,7 +36,11 @@ export default function SearchPage({
       if (searchRes.ok) setResults(await searchRes.json());
       if (libRes.ok) {
         const movies: LibraryMovie[] = await libRes.json();
-        setLibrary(new Set(movies.map((m) => m.tmdb_id).filter(Boolean) as number[]));
+        const tmdbIds: number[] = [];
+        for (const movie of movies) {
+          if (movie.tmdb_id) tmdbIds.push(movie.tmdb_id);
+        }
+        setLibrary(new Set(tmdbIds));
       }
       setLoading(false);
     }
