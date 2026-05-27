@@ -320,22 +320,23 @@ function sortSearchResults(
   results: TmdbRawResult[],
   year?: number | null,
 ): TmdbRawResult[] {
-  return [...results].sort((a, b) => {
-    const scoreDiff = getSearchScore(query, b, year) - getSearchScore(query, a, year);
-    if (scoreDiff !== 0) return scoreDiff;
+  const scored = results.map((r) => ({ r, score: getSearchScore(query, r, year) }));
+  scored.sort((a, b) => {
+    if (a.score !== b.score) return b.score - a.score;
 
-    const aYear = a.release_date ? parseInt(a.release_date.substring(0, 4), 10) : null;
-    const bYear = b.release_date ? parseInt(b.release_date.substring(0, 4), 10) : null;
+    const aYear = a.r.release_date ? parseInt(a.r.release_date.substring(0, 4), 10) : null;
+    const bYear = b.r.release_date ? parseInt(b.r.release_date.substring(0, 4), 10) : null;
     if (year && aYear && bYear && aYear !== bYear) {
       return Math.abs(aYear - year) - Math.abs(bYear - year);
     }
 
-    if (a.vote_average !== b.vote_average) {
-      return b.vote_average - a.vote_average;
+    if (a.r.vote_average !== b.r.vote_average) {
+      return b.r.vote_average - a.r.vote_average;
     }
 
-    return a.title.localeCompare(b.title);
+    return a.r.title.localeCompare(b.r.title);
   });
+  return scored.map((s) => s.r);
 }
 
 // Shared pagination helper: fetch a pre-built list of URLs sequentially,
