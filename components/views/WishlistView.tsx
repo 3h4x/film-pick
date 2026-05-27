@@ -9,6 +9,12 @@ import {
 import EmptyState from "@/components/ui/EmptyState";
 import type { Movie } from "@/lib/types";
 
+const ACTION_BASE_CLASS = `backdrop-blur-sm text-white rounded-lg ${CARD_ACTION_TOUCH_TARGET_CLASS} ${CARD_ACTION_ICON_SIZE_CLASS} flex items-center justify-center transition-colors`;
+const LIKED_CLASS = `bg-green-600/90 ${ACTION_BASE_CLASS} hover:bg-green-500`;
+const WATCHED_CLASS = `bg-gray-600/90 ${ACTION_BASE_CLASS} hover:bg-gray-500`;
+const DISLIKED_CLASS = `bg-orange-600/90 ${ACTION_BASE_CLASS} hover:bg-orange-500`;
+const REMOVE_CLASS = `bg-red-600/90 ${ACTION_BASE_CLASS} hover:bg-red-500`;
+
 interface WishlistViewProps {
   wishlistMovies: Movie[];
   onMovieClick: (movie: Movie) => void;
@@ -53,32 +59,28 @@ export default function WishlistView({
                 key: "liked",
                 label: "Watched & liked",
                 icon: "👍",
-                className:
-                  `bg-green-600/90 backdrop-blur-sm text-white rounded-lg ${CARD_ACTION_TOUCH_TARGET_CLASS} ${CARD_ACTION_ICON_SIZE_CLASS} flex items-center justify-center hover:bg-green-500 transition-colors`,
+                className: LIKED_CLASS,
                 onClick: () => onAction(m, "liked"),
               },
               {
                 key: "watched",
                 label: "Watched",
                 icon: "👁",
-                className:
-                  `bg-gray-600/90 backdrop-blur-sm text-white rounded-lg ${CARD_ACTION_TOUCH_TARGET_CLASS} ${CARD_ACTION_ICON_SIZE_CLASS} flex items-center justify-center hover:bg-gray-500 transition-colors`,
+                className: WATCHED_CLASS,
                 onClick: () => onAction(m, "watched"),
               },
               {
                 key: "disliked",
                 label: "Watched & disliked",
                 icon: "👎",
-                className:
-                  `bg-orange-600/90 backdrop-blur-sm text-white rounded-lg ${CARD_ACTION_TOUCH_TARGET_CLASS} ${CARD_ACTION_ICON_SIZE_CLASS} flex items-center justify-center hover:bg-orange-500 transition-colors`,
+                className: DISLIKED_CLASS,
                 onClick: () => onAction(m, "disliked"),
               },
               {
                 key: "remove",
                 label: "Remove from watchlist",
                 icon: "✕",
-                className:
-                  `bg-red-600/90 backdrop-blur-sm text-white rounded-lg ${CARD_ACTION_TOUCH_TARGET_CLASS} ${CARD_ACTION_ICON_SIZE_CLASS} flex items-center justify-center hover:bg-red-500 transition-colors`,
+                className: REMOVE_CLASS,
                 onClick: () => onAction(m, "remove"),
               },
             ]}
