@@ -68,6 +68,8 @@ const pendingMovieDetailRequests = new Map<
   Promise<MovieDetailResponse>
 >();
 
+const UNSAFE_PATH_CHARS = /[\\/:*?"<>|]/g;
+
 function fetchMovieDetail(movieId: number): Promise<MovieDetailResponse> {
   const pending = pendingMovieDetailRequests.get(movieId);
   if (pending) return pending;
@@ -714,7 +716,7 @@ export default function MovieDetail({
     document.addEventListener("keydown", handleKeyDown);
     return () => document.removeEventListener("keydown", handleKeyDown);
   }, [onClose]);
-  const safeTitle = movieTitle.replace(/[\\/:*?"<>|]/g, " ");
+  const safeTitle = movieTitle.replace(UNSAFE_PATH_CHARS, " ");
 
   // Standard format: Title [Year]/Title.ext
   const isStandard =
