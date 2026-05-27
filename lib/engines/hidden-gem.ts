@@ -46,11 +46,14 @@ export async function hiddenGemEngine(
     // Impression tracking is best-effort — fall back to no penalty if the
     // lookup fails (e.g. test mocks where getDb returns a stub).
   }
-  const ranked = [...filtered].sort((a, b) => {
-    const aPenalty = Math.log(1 + (impressions.get(a.tmdb_id) ?? 0)) * IMPRESSION_PENALTY_WEIGHT;
-    const bPenalty = Math.log(1 + (impressions.get(b.tmdb_id) ?? 0)) * IMPRESSION_PENALTY_WEIGHT;
-    return b.rating - bPenalty - (a.rating - aPenalty);
-  });
+  const scored = filtered.map((r) => ({
+    r,
+    score:
+      r.rating -
+      Math.log(1 + (impressions.get(r.tmdb_id) ?? 0)) * IMPRESSION_PENALTY_WEIGHT,
+  }));
+  scored.sort((a, b) => b.score - a.score);
+  const ranked = scored.map((s) => s.r);
 
   return [
     {
