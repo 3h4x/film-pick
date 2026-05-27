@@ -118,18 +118,17 @@ export function getSearchMatches(
     movie.title.toLowerCase().includes(query) ||
     movie.pl_title?.toLowerCase().includes(query);
 
-  const libraryMatches = movies
-    .filter(
-      (movie) =>
-        (movie.source !== "recommendation" ||
-          (movie.user_rating != null && movie.user_rating > 0)) &&
-        !movie.wishlist,
-    )
-    .filter(matchesQuery);
+  const libraryMatches = movies.filter(
+    (movie) =>
+      (movie.source !== "recommendation" ||
+        (movie.user_rating != null && movie.user_rating > 0)) &&
+      !movie.wishlist &&
+      matchesQuery(movie),
+  );
 
-  const wishlistMatches = movies
-    .filter((movie) => movie.wishlist === 1)
-    .filter(matchesQuery);
+  const wishlistMatches = movies.filter(
+    (movie) => movie.wishlist === 1 && matchesQuery(movie),
+  );
 
   return { libraryMatches, wishlistMatches };
 }
