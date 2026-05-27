@@ -59,8 +59,14 @@ function parseXmltvDate(s: string): Date {
   return new Date(Date.UTC(+y, +mo - 1, +d, +h, +min, +sec) - offset * 60000);
 }
 
+const attrRegexCache = new Map<string, RegExp>();
 function getAttr(s: string, attr: string): string {
-  const m = new RegExp(`\\b${attr}="([^"]*)"`, "i").exec(s);
+  let re = attrRegexCache.get(attr);
+  if (!re) {
+    re = new RegExp(`\\b${attr}="([^"]*)"`, "i");
+    attrRegexCache.set(attr, re);
+  }
+  const m = re.exec(s);
   return m ? m[1] : "";
 }
 
