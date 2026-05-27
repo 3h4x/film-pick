@@ -59,26 +59,23 @@ export function buildPersonMap(
 
   for (const movie of ratedMovies) {
     if (movie.director) {
-      for (const d of movie.director
-        .split(",")
-        .map((s: string) => s.trim())
-        .filter(Boolean)) {
+      for (const name of movie.director.split(",")) {
+        const d = name.trim();
+        if (!d) continue;
         addPerson(d, "director", movie);
       }
     }
     if (movie.writer) {
-      for (const w of movie.writer
-        .split(",")
-        .map((s: string) => s.trim())
-        .filter(Boolean)) {
+      for (const name of movie.writer.split(",")) {
+        const w = name.trim();
+        if (!w) continue;
         addPerson(w, "writer", movie);
       }
     }
     if (movie.actors) {
-      for (const a of movie.actors
-        .split(",")
-        .map((s: string) => s.trim())
-        .filter(Boolean)) {
+      for (const name of movie.actors.split(",")) {
+        const a = name.trim();
+        if (!a) continue;
         addPerson(a, "actor", movie);
       }
     }
