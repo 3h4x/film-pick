@@ -2,6 +2,8 @@ import { NextRequest } from "next/server";
 import { rateLimit } from "@/lib/rate-limit";
 import { getTmdbMovieSnapshot } from "@/lib/tmdb";
 
+const TMDB_ID_RE = /^\d+$/;
+
 export async function GET(
   request: NextRequest,
   { params }: { params: Promise<{ tmdbId: string }> },
@@ -10,7 +12,7 @@ export async function GET(
   if (limited) return limited;
 
   const { tmdbId } = await params;
-  if (!/^\d+$/.test(tmdbId)) {
+  if (!TMDB_ID_RE.test(tmdbId)) {
     return Response.json({ error: "Invalid TMDb ID" }, { status: 400 });
   }
   const id = Number.parseInt(tmdbId, 10);
