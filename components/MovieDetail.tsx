@@ -389,6 +389,7 @@ export default function MovieDetail({
     const cleanCurrentPlTitle = plTitle
       ? cleanTitle(plTitle).toLowerCase()
       : "";
+    const normalizedMergeQuery = mergeQuery.toLowerCase();
 
     return (allMovies || [])
       .filter((m) => m.id !== movie.id)
@@ -400,9 +401,9 @@ export default function MovieDetail({
 
         let score = 0;
         if (mergeQuery) {
-          if (m.title.toLowerCase().includes(mergeQuery.toLowerCase()))
+          if (m.title.toLowerCase().includes(normalizedMergeQuery))
             score += 10;
-          if (m.pl_title?.toLowerCase().includes(mergeQuery.toLowerCase()))
+          if (m.pl_title?.toLowerCase().includes(normalizedMergeQuery))
             score += 10;
         } else {
           // Auto-match score
