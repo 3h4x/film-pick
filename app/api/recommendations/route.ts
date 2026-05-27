@@ -25,6 +25,10 @@ import {
 } from "@/lib/engines";
 import { rateLimit } from "@/lib/rate-limit";
 
+// Engines that re-rank on prior impressions via getImpressionCounts. Recording
+// impressions for engines that never read them would accumulate dead rows.
+const ROTATION_AWARE_ENGINES = new Set(["hidden_gem"]);
+
 export async function GET(request: NextRequest) {
   const limited = rateLimit(request, "tmdb");
   if (limited) return limited;
@@ -177,10 +181,6 @@ export async function GET(request: NextRequest) {
       recommendations: g.recommendations.slice(0, max),
     }));
   }
-
-  // Engines that re-rank on prior impressions via getImpressionCounts. Recording
-  // impressions for engines that never read them would accumulate dead rows.
-  const ROTATION_AWARE_ENGINES = new Set(["hidden_gem"]);
 
   function recordImpressionsForGroups(groups: RecommendationGroup[]): void {
     const byEngine = new Map<string, number[]>();
