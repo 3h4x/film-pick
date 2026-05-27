@@ -23,6 +23,18 @@ import type { AppTab, ToastItem, Movie, RecConfig } from "@/lib/types";
 import { MOOD_PRESETS, type MoodKey } from "@/lib/mood-presets";
 import type { TmdbMovieSnapshot } from "@/lib/tmdb";
 
+const DEFAULT_REC_CONFIG: RecConfig = {
+  excluded_genres: [],
+  min_year: null,
+  min_rating: null,
+  max_per_group: 15,
+  movie_seed_min_rating: 7,
+  movie_seed_count: 10,
+  use_tmdb_similar: true,
+  actor_min_appearances: 2,
+  director_min_films: 2,
+};
+
 function parseLocalHashRef(ref: string): number | null {
   if (ref.startsWith("local/")) {
     const idRef = ref.substring(6);
@@ -203,11 +215,7 @@ export default function Home() {
   const [pendingMovieHash, setPendingMovieHash] = useState<string | null>(null);
   const pendingTmdbLookupRef = useRef<string | null>(null);
   const [disabledEngines, setDisabledEngines] = useState<string[]>([]);
-  const [recConfig, setRecConfig] = useState<RecConfig>({
-    excluded_genres: [], min_year: null, min_rating: null, max_per_group: 15,
-    movie_seed_min_rating: 7, movie_seed_count: 10, use_tmdb_similar: true,
-    actor_min_appearances: 2, director_min_films: 2,
-  });
+  const [recConfig, setRecConfig] = useState<RecConfig>(DEFAULT_REC_CONFIG);
 
   const [toasts, setToasts] = useState<ToastItem[]>([]);
   const toastId = useRef(0);
