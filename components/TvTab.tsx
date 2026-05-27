@@ -378,10 +378,11 @@ export default function TvTab() {
 
   // Films table view
   {
-    const nowFilms = filmRows.filter(
-      (p) => new Date(p.start) <= now && new Date(p.stop) > now,
-    );
-    const upcomingFilms = filmRows.filter((p) => new Date(p.start) > now);
+    // filmRows is sorted by start ascending and pre-filtered to stop > now,
+    // so a single split point separates now-playing from upcoming films.
+    const splitIndex = filmRows.findIndex((p) => new Date(p.start) > now);
+    const nowFilms = splitIndex === -1 ? filmRows : filmRows.slice(0, splitIndex);
+    const upcomingFilms = splitIndex === -1 ? [] : filmRows.slice(splitIndex);
 
     const renderRow = (p: EpgProgram, isNow: boolean) => {
       const isSoon =
