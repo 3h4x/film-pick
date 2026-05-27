@@ -17,6 +17,8 @@ const VIDEO_EXTENSIONS = new Set([
   ".webm",
 ]);
 
+const UNSAFE_FILENAME_CHARS = /[\\/:*?"<>|]/g;
+
 export async function POST(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> },
@@ -142,7 +144,7 @@ export async function POST(
   const libraryRoot = setting?.value || path.dirname(path.dirname(oldPath));
 
   const ext = path.extname(oldPath);
-  const safeTitle = finalTitle.replace(/[\\/:*?"<>|]/g, " ");
+  const safeTitle = finalTitle.replace(UNSAFE_FILENAME_CHARS, " ");
   const movieYear = finalYear || "";
   const folderName = movieYear ? `${safeTitle} [${movieYear}]` : safeTitle;
 
