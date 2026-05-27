@@ -84,27 +84,21 @@ export default function PersonView({
   }, [movies, nameLower]);
 
   const roles = useMemo(() => {
+    let hasDirector = false;
+    let hasWriter = false;
+    let hasActor = false;
+    const matches = (field: string | null | undefined) =>
+      field?.split(",").some((p) => p.trim().toLowerCase() === nameLower) ?? false;
+    for (const m of personMovies) {
+      if (!hasDirector && matches(m.director)) hasDirector = true;
+      if (!hasWriter && matches(m.writer)) hasWriter = true;
+      if (!hasActor && matches(m.actors)) hasActor = true;
+      if (hasDirector && hasWriter && hasActor) break;
+    }
     const r: string[] = [];
-    if (
-      personMovies.some((m) =>
-        m.director
-          ?.split(",")
-          .some((d) => d.trim().toLowerCase() === nameLower),
-      )
-    )
-      r.push("Director");
-    if (
-      personMovies.some((m) =>
-        m.writer?.split(",").some((w) => w.trim().toLowerCase() === nameLower),
-      )
-    )
-      r.push("Writer");
-    if (
-      personMovies.some((m) =>
-        m.actors?.split(",").some((a) => a.trim().toLowerCase() === nameLower),
-      )
-    )
-      r.push("Actor");
+    if (hasDirector) r.push("Director");
+    if (hasWriter) r.push("Writer");
+    if (hasActor) r.push("Actor");
     return r;
   }, [personMovies, nameLower]);
 
