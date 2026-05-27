@@ -65,13 +65,13 @@ export async function cdaEngine(
     return a.localeCompare(b);
   });
 
-  return sortedGenres
-    .filter((genre) => (genreGroups.get(genre)?.length || 0) > 0)
-    .map((genre) => ({
-      reason: `${genre} on CDA`,
-      type: "cda" as const,
-      recommendations: genreGroups
-        .get(genre)!
-        .sort((a, b) => (b.rating || 0) - (a.rating || 0)),
-    }));
+  // Every key in genreGroups was created alongside a push above, so each array
+  // is guaranteed non-empty — no need to filter empty groups here.
+  return sortedGenres.map((genre) => ({
+    reason: `${genre} on CDA`,
+    type: "cda" as const,
+    recommendations: genreGroups
+      .get(genre)!
+      .sort((a, b) => (b.rating || 0) - (a.rating || 0)),
+  }));
 }
