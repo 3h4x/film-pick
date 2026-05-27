@@ -44,6 +44,13 @@ const TYPE_ICONS: Record<string, string> = {
   random: "🎲",
 };
 
+const ACTION_BUTTON_BASE = `backdrop-blur-sm text-white rounded-lg ${CARD_ACTION_TOUCH_TARGET_CLASS} ${CARD_ACTION_ICON_SIZE_CLASS} flex items-center justify-center transition-colors`;
+const ACTION_LIKED_CLASS = `bg-green-600/90 ${ACTION_BUTTON_BASE} hover:bg-green-500`;
+const ACTION_WATCHED_CLASS = `bg-gray-600/90 ${ACTION_BUTTON_BASE} hover:bg-gray-500`;
+const ACTION_WISHLIST_CLASS = `bg-blue-600/90 ${ACTION_BUTTON_BASE} hover:bg-blue-500`;
+const ACTION_DISLIKED_CLASS = `bg-orange-600/90 ${ACTION_BUTTON_BASE} hover:bg-orange-500`;
+const ACTION_DISMISS_CLASS = `bg-red-600/90 ${ACTION_BUTTON_BASE} hover:bg-red-500`;
+
 function formatTraceValue(value: string | number | null | undefined): string | null {
   if (value == null || value === "") return null;
   return String(value);
@@ -155,40 +162,35 @@ export default function RecommendationRow({
                   key: "liked",
                   label: "Watched & liked",
                   icon: "👍",
-                  className:
-                    `bg-green-600/90 backdrop-blur-sm text-white rounded-lg ${CARD_ACTION_TOUCH_TARGET_CLASS} ${CARD_ACTION_ICON_SIZE_CLASS} flex items-center justify-center hover:bg-green-500 transition-colors`,
+                  className: ACTION_LIKED_CLASS,
                   onClick: () => onAction(r.tmdb_id, "liked", r, false, type),
                 },
                 {
                   key: "watched",
                   label: "Watched",
                   icon: "👁",
-                  className:
-                    `bg-gray-600/90 backdrop-blur-sm text-white rounded-lg ${CARD_ACTION_TOUCH_TARGET_CLASS} ${CARD_ACTION_ICON_SIZE_CLASS} flex items-center justify-center hover:bg-gray-500 transition-colors`,
+                  className: ACTION_WATCHED_CLASS,
                   onClick: () => onAction(r.tmdb_id, "watched", r, false, type),
                 },
                 {
                   key: "wishlist",
                   label: "Add to watchlist",
                   icon: "🔖",
-                  className:
-                    `bg-blue-600/90 backdrop-blur-sm text-white rounded-lg ${CARD_ACTION_TOUCH_TARGET_CLASS} ${CARD_ACTION_ICON_SIZE_CLASS} flex items-center justify-center hover:bg-blue-500 transition-colors`,
+                  className: ACTION_WISHLIST_CLASS,
                   onClick: () => onAction(r.tmdb_id, "wishlist", r, false, type),
                 },
                 {
                   key: "disliked",
                   label: "Watched & disliked",
                   icon: "👎",
-                  className:
-                    `bg-orange-600/90 backdrop-blur-sm text-white rounded-lg ${CARD_ACTION_TOUCH_TARGET_CLASS} ${CARD_ACTION_ICON_SIZE_CLASS} flex items-center justify-center hover:bg-orange-500 transition-colors`,
+                  className: ACTION_DISLIKED_CLASS,
                   onClick: () => onAction(r.tmdb_id, "disliked", r, false, type),
                 },
                 {
                   key: "dismiss",
                   label: "Don't show again",
                   icon: "✕",
-                  className:
-                    `bg-red-600/90 backdrop-blur-sm text-white rounded-lg ${CARD_ACTION_TOUCH_TARGET_CLASS} ${CARD_ACTION_ICON_SIZE_CLASS} flex items-center justify-center hover:bg-red-500 transition-colors`,
+                  className: ACTION_DISMISS_CLASS,
                   onClick: () => onAction(r.tmdb_id, "dismiss", r, false, type),
                 },
               ]}
