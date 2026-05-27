@@ -399,6 +399,25 @@ describe("movies/[id] GET handler", () => {
     expect(body.metadata).toBeNull();
   });
 
+  it("returns null metadata when file_path points to a missing file", async () => {
+    const missingFilePath = path.join(__dirname, "missing-video-file.mkv");
+    db.prepare("UPDATE movies SET file_path = ? WHERE id = ?").run(
+      missingFilePath,
+      movieId,
+    );
+
+    vi.mocked(getTmdbMovieDetails).mockResolvedValueOnce({
+      director: "Christopher Nolan",
+      writer: "Christopher Nolan",
+      actors: "Matthew McConaughey",
+    });
+
+    const res = await GET(getReq(movieId), makeParams(movieId));
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body.metadata).toBeNull();
+  });
+
   it("returns null metadata when video_metadata contains invalid JSON", async () => {
     db.prepare("UPDATE movies SET video_metadata = ? WHERE id = ?").run(
       "not-valid-json{",
