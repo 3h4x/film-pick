@@ -42,8 +42,10 @@ export async function directorEngine(
   const minFilms = ctx.config?.director_min_films ?? 2;
   const topDirectors = [...directorCounts.entries()]
     .filter(([, v]) => v.count >= minFilms || v.avgRating >= 9)
-    .sort((a, b) => b[1].count * b[1].avgRating - a[1].count * a[1].avgRating)
-    .slice(0, 8);
+    .map((entry) => ({ entry, score: entry[1].count * entry[1].avgRating }))
+    .sort((a, b) => b.score - a.score)
+    .slice(0, 8)
+    .map(({ entry }) => entry);
 
   const discoverResults = await Promise.allSettled(
     topDirectors.map(([id]) => discoverByPerson(id)),
