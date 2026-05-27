@@ -34,17 +34,12 @@ export async function POST(
     const extraFiles = movie.extra_files ? JSON.parse(movie.extra_files) : [];
     const allFiles = [filePath, ...extraFiles];
 
-    // Check if files exist
-    const missing = [];
-    for (const f of allFiles) {
-      try {
-        await fs.access(f);
-      } catch (e) {
-        missing.push(f);
-      }
-    }
+    const accessResults = await Promise.all(
+      allFiles.map((f) => fs.access(f).then(() => true, () => false)),
+    );
+    const missingCount = accessResults.filter((ok) => !ok).length;
 
-    if (missing.length === allFiles.length) {
+    if (missingCount === allFiles.length) {
       return NextResponse.json(
         {
           error: "No files found on disk",
