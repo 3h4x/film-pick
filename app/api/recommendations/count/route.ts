@@ -11,8 +11,8 @@ export async function GET() {
   const db = getDb();
   const dismissedIds = getDismissedIds(db);
   const ratedTmdbIds = getRatedTmdbIds(db, "movie");
-  // Match the movieCount used in recommendations/route.ts (library only, not
-  // recommendation-sourced rows) so the cache key is consistent across routes.
+  // Library only (exclude recommendation-sourced rows) so the cache key matches
+  // what other recommendation routes compute.
   const movieCount = db
     .prepare("SELECT COUNT(*) as c FROM movies WHERE source != 'recommendation'")
     .get() as { c: number };
