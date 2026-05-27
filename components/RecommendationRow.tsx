@@ -51,6 +51,9 @@ const ACTION_WISHLIST_CLASS = `bg-blue-600/90 ${ACTION_BUTTON_BASE} hover:bg-blu
 const ACTION_DISLIKED_CLASS = `bg-orange-600/90 ${ACTION_BUTTON_BASE} hover:bg-orange-500`;
 const ACTION_DISMISS_CLASS = `bg-red-600/90 ${ACTION_BUTTON_BASE} hover:bg-red-500`;
 
+const REORDER_BUTTON_CLASS =
+  "flex h-11 w-11 items-center justify-center rounded-lg border border-gray-800/80 bg-gray-900/70 transition-colors sm:h-8 sm:w-8 sm:border-transparent sm:bg-transparent";
+
 function formatTraceValue(value: string | number | null | undefined): string | null {
   if (value == null || value === "") return null;
   return String(value);
@@ -67,9 +70,6 @@ export default function RecommendationRow({
   isFirst,
   isLast,
 }: RecommendationRowProps) {
-  const reorderButtonClass =
-    "flex h-11 w-11 items-center justify-center rounded-lg border border-gray-800/80 bg-gray-900/70 transition-colors sm:h-8 sm:w-8 sm:border-transparent sm:bg-transparent";
-
   return (
     <div className="mb-10">
       <div className="flex items-center gap-3 mb-4">
@@ -77,7 +77,7 @@ export default function RecommendationRow({
           <button
             onClick={onMoveUp}
             disabled={isFirst}
-            className={`${reorderButtonClass} ${isFirst ? "cursor-default text-gray-700" : "text-gray-500 hover:bg-gray-800/80 hover:text-white"}`}
+            className={`${REORDER_BUTTON_CLASS} ${isFirst ? "cursor-default text-gray-700" : "text-gray-500 hover:bg-gray-800/80 hover:text-white"}`}
             title="Move up"
           >
             <svg
@@ -97,7 +97,7 @@ export default function RecommendationRow({
           <button
             onClick={onMoveDown}
             disabled={isLast}
-            className={`${reorderButtonClass} ${isLast ? "cursor-default text-gray-700" : "text-gray-500 hover:bg-gray-800/80 hover:text-white"}`}
+            className={`${REORDER_BUTTON_CLASS} ${isLast ? "cursor-default text-gray-700" : "text-gray-500 hover:bg-gray-800/80 hover:text-white"}`}
             title="Move down"
           >
             <svg
