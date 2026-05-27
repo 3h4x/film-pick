@@ -57,11 +57,19 @@ export async function genreEngine(
     .sort((a, b) => b[1] - a[1])
     .slice(0, topCount);
 
+  const fetched = await Promise.allSettled(
+    topGenres.map(async ([genreName]) => {
+      const genreId = genreNameToId(genreName);
+      if (!genreId) return null;
+      const results = await discoverByGenre(genreId);
+      return { genreName, genreId, results };
+    }),
+  );
+
   const groups: RecommendationGroup[] = [];
-  for (const [genreName] of topGenres) {
-    const genreId = genreNameToId(genreName);
-    if (!genreId) continue;
-    const results = await discoverByGenre(genreId);
+  for (const settled of fetched) {
+    if (settled.status !== "fulfilled" || !settled.value) continue;
+    const { genreName, genreId, results } = settled.value;
     const filtered = filterResults(results, ctx);
     if (filtered.length > 0) {
       groups.push({
