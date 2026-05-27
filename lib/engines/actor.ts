@@ -41,8 +41,10 @@ export async function actorEngine(
   const minAppearances = ctx.config?.actor_min_appearances ?? 2;
   const topActors = [...actorCounts.entries()]
     .filter(([, v]) => v.count >= minAppearances || v.avgRating >= 9)
-    .sort((a, b) => b[1].count * b[1].avgRating - a[1].count * a[1].avgRating)
-    .slice(0, 10);
+    .map((entry) => ({ entry, score: entry[1].count * entry[1].avgRating }))
+    .sort((a, b) => b.score - a.score)
+    .slice(0, 10)
+    .map((x) => x.entry);
 
   const discoverResults = await Promise.allSettled(
     topActors.map(([id]) => discoverByPerson(id)),
