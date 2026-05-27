@@ -29,6 +29,9 @@ interface SearchModalProps {
   targetMovieId?: number | null;
 }
 
+const ADD_ACTION_CLASS = `bg-indigo-600/90 backdrop-blur-sm text-white rounded-lg ${CARD_ACTION_TOUCH_TARGET_CLASS} ${CARD_ACTION_ICON_SIZE_CLASS} flex items-center justify-center hover:bg-indigo-500 transition-colors`;
+const WATCHLIST_ACTION_CLASS = `bg-blue-600/90 backdrop-blur-sm text-white rounded-lg ${CARD_ACTION_TOUCH_TARGET_CLASS} ${CARD_ACTION_ICON_SIZE_CLASS} flex items-center justify-center hover:bg-blue-500 transition-colors`;
+
 export default function SearchModal({
   isOpen,
   onClose,
@@ -150,7 +153,7 @@ export default function SearchModal({
                       e.stopPropagation();
                       onAdd(r, false);
                     }}
-                    className={`bg-indigo-600/90 backdrop-blur-sm text-white rounded-lg ${CARD_ACTION_TOUCH_TARGET_CLASS} ${CARD_ACTION_ICON_SIZE_CLASS} flex items-center justify-center hover:bg-indigo-500 transition-colors`}
+                    className={ADD_ACTION_CLASS}
                     aria-label={
                       targetMovieId
                         ? `Update existing movie with ${r.title}`
@@ -167,7 +170,7 @@ export default function SearchModal({
                       e.stopPropagation();
                       onAdd(r, true);
                     }}
-                    className={`bg-blue-600/90 backdrop-blur-sm text-white rounded-lg ${CARD_ACTION_TOUCH_TARGET_CLASS} ${CARD_ACTION_ICON_SIZE_CLASS} flex items-center justify-center hover:bg-blue-500 transition-colors`}
+                    className={WATCHLIST_ACTION_CLASS}
                     aria-label={`Add ${r.title} to watchlist`}
                     title="Add to watchlist"
                   >
