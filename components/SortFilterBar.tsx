@@ -104,9 +104,8 @@ export function scrollActiveSortChipIntoView(
     overflowDirection === "right"
       ? (snapPoints.find((candidate) => candidate >= targetScrollLeft) ??
         maxScrollLeft)
-      : [...snapPoints]
-          .reverse()
-          .find((candidate) => candidate <= targetScrollLeft) ?? 0;
+      : (snapPoints.findLast((candidate) => candidate <= targetScrollLeft) ??
+        0);
 
   container.scrollTo({
     left: Math.min(snappedScrollLeft, maxScrollLeft),
