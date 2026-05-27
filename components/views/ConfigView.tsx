@@ -64,9 +64,10 @@ export default function ConfigView({
     setRecConfig(cfg);
     addToast("Config saved — refreshing recommendations");
     setRecGroups({});
-    REC_CATEGORIES.slice(1)
-      .filter((c) => !disabledEngines.includes(c.value))
-      .forEach((c) => fetchEngine(c.value, true));
+    for (let i = 1; i < REC_CATEGORIES.length; i++) {
+      const c = REC_CATEGORIES[i];
+      if (!disabledEngines.includes(c.value)) fetchEngine(c.value, true);
+    }
   }
 
   async function handleToggleEngine(engineKey: string) {
