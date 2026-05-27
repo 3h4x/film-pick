@@ -9,6 +9,8 @@ import fs from "fs";
 
 const execFileAsync = promisify(execFile);
 
+const TITLE_NORMALIZE_RE = /[:;!?()[\]{}]/g;
+
 interface FfprobeStream {
   codec_type: string;
   codec_name: string;
@@ -158,14 +160,14 @@ export async function GET(
         // Find best match: exact title match (ignoring case/punctuation) or first result
         const normalizedTitle = cleanedTitle
           .toLowerCase()
-          .replace(/[:;!?()[\]{}]/g, "")
+          .replace(TITLE_NORMALIZE_RE, "")
           .trim();
         const bestMatch =
           results.find(
             (r) =>
               r.title
                 .toLowerCase()
-                .replace(/[:;!?()[\]{}]/g, "")
+                .replace(TITLE_NORMALIZE_RE, "")
                 .trim() === normalizedTitle,
           ) || results[0];
 
