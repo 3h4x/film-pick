@@ -145,6 +145,11 @@ export default function MovieDetail({
   >({});
   const isPersistedMovie = movie.id > 0;
 
+  const extraFiles = useMemo<string[]>(
+    () => (movie.extra_files ? JSON.parse(movie.extra_files) : []),
+    [movie.extra_files],
+  );
+
   // Sync state if movie prop changes
   useEffect(() => {
     setMovieTitle(movie.title);
@@ -1488,9 +1493,9 @@ export default function MovieDetail({
                     <p className="text-[10px] text-indigo-400 font-black uppercase tracking-widest">
                       Embedded Player
                     </p>
-                    {movie.extra_files && (
+                    {extraFiles.length > 0 && (
                       <div className="flex items-center gap-1 bg-gray-800 rounded-lg p-0.5">
-                        {[filePath, ...JSON.parse(movie.extra_files)].map(
+                        {[filePath, ...extraFiles].map(
                           (_, i) => (
                             <button
                               key={i}
@@ -1767,8 +1772,7 @@ export default function MovieDetail({
                         </div>
                         <p className="text-gray-300 text-xs font-mono break-all bg-gray-900/40 px-3 py-2 rounded-lg border border-gray-700/20 flex-1 leading-relaxed">
                           {filePath}
-                          {movie.extra_files &&
-                            JSON.parse(movie.extra_files).length > 0 && (
+                          {extraFiles.length > 0 && (
                               <span className="ml-2 px-1 py-0.5 bg-indigo-500/20 text-indigo-400 text-[9px] font-black rounded uppercase">
                                 Part 1
                               </span>
@@ -1800,8 +1804,7 @@ export default function MovieDetail({
                       </div>
                     </div>
 
-                    {movie.extra_files &&
-                      JSON.parse(movie.extra_files).map(
+                    {extraFiles.map(
                         (extraPath: string, idx: number) => (
                           <div
                             key={idx}
