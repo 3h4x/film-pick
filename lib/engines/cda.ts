@@ -25,16 +25,14 @@ export async function cdaEngine(
     }
   }
 
-  const libraryTitles = new Set([...ctx.libraryTitles]);
-
   // Group by TMDb genre, sorted by user preference
   const genreGroups = new Map<string, TmdbSearchResult[]>();
 
   for (const m of cdaMovies) {
     if (dismissedIds.has(m.tmdb_id)) continue;
     if (ctx.libraryTmdbIds.has(m.tmdb_id)) continue;
-    if (libraryTitles.has(normalizeTitle(m.title))) continue;
-    if (m.pl_title && libraryTitles.has(normalizeTitle(m.pl_title))) continue;
+    if (ctx.libraryTitles.has(normalizeTitle(m.title))) continue;
+    if (m.pl_title && ctx.libraryTitles.has(normalizeTitle(m.pl_title))) continue;
 
     const genres = m.genre ? parseGenreLabels(m.genre) : ["Other"];
 
