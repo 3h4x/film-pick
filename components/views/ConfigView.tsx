@@ -4,6 +4,8 @@ import ConfigPanel from "@/components/ConfigPanel";
 import type { RecConfig, RecommendationGroup } from "@/lib/types";
 import { REC_CATEGORIES } from "@/lib/types";
 
+const REC_ENGINE_CATEGORIES = REC_CATEGORIES.slice(1);
+
 interface ConfigViewProps {
   recConfig: RecConfig;
   setRecConfig: (cfg: RecConfig) => void;
@@ -64,8 +66,7 @@ export default function ConfigView({
     setRecConfig(cfg);
     addToast("Config saved — refreshing recommendations");
     setRecGroups({});
-    for (let i = 1; i < REC_CATEGORIES.length; i++) {
-      const c = REC_CATEGORIES[i];
+    for (const c of REC_ENGINE_CATEGORIES) {
       if (!disabledEngines.includes(c.value)) fetchEngine(c.value, true);
     }
   }
@@ -96,7 +97,7 @@ export default function ConfigView({
       config={recConfig}
       tmdbKeySource={tmdbKeySource}
       disabledEngines={disabledEngines}
-      engines={REC_CATEGORIES.slice(1)}
+      engines={REC_ENGINE_CATEGORIES}
       libraryPath={libraryPath}
       onSaveLibraryPath={handleSaveLibraryPath}
       onSync={() => setSyncOpen(true)}
