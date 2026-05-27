@@ -39,12 +39,16 @@ export async function actorEngine(
   });
 
   const minAppearances = ctx.config?.actor_min_appearances ?? 2;
-  const topActors = [...actorCounts.entries()]
-    .filter(([, v]) => v.count >= minAppearances || v.avgRating >= 9)
-    .map((entry) => ({ entry, score: entry[1].count * entry[1].avgRating }))
-    .sort((a, b) => b.score - a.score)
-    .slice(0, 10)
-    .map((x) => x.entry);
+  type ActorEntry = [number, { name: string; count: number; avgRating: number }];
+  const scored: Array<{ entry: ActorEntry; score: number }> = [];
+  for (const entry of actorCounts) {
+    const [, v] = entry;
+    if (v.count >= minAppearances || v.avgRating >= 9) {
+      scored.push({ entry, score: v.count * v.avgRating });
+    }
+  }
+  scored.sort((a, b) => b.score - a.score);
+  const topActors = scored.slice(0, 10).map((x) => x.entry);
 
   const discoverResults = await Promise.allSettled(
     topActors.map(([id]) => discoverByPerson(id)),
