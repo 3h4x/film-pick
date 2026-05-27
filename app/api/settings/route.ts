@@ -1,6 +1,9 @@
 import { NextRequest } from "next/server";
 import { getDb, getSetting, setSetting } from "@/lib/db";
 import { rateLimit } from "@/lib/rate-limit";
+import { rescheduleCdaJob } from "@/lib/cda-scheduler";
+import { invalidateMemCache } from "@/lib/epg-fetch";
+import { rescheduleEpgJob } from "@/lib/epg-scheduler";
 
 export async function GET() {
   const db = getDb();
@@ -74,7 +77,6 @@ export async function PATCH(request: NextRequest) {
       );
     }
     setSetting(db, "cda_refresh_interval_hours", String(val));
-    const { rescheduleCdaJob } = await import("@/lib/cda-scheduler");
     rescheduleCdaJob(db);
   }
   if (typeof body.tmdb_api_key === "string") {
@@ -90,7 +92,6 @@ export async function PATCH(request: NextRequest) {
     } else {
       db.prepare("DELETE FROM settings WHERE key = ?").run("epg_url");
     }
-    const { invalidateMemCache } = await import("@/lib/epg-fetch");
     invalidateMemCache();
   }
   if (typeof body.epg_enabled === "boolean") {
@@ -108,7 +109,6 @@ export async function PATCH(request: NextRequest) {
       );
     }
     setSetting(db, "epg_refresh_interval_hours", String(val));
-    const { rescheduleEpgJob } = await import("@/lib/epg-scheduler");
     rescheduleEpgJob(db);
   }
   return Response.json({ ok: true });
