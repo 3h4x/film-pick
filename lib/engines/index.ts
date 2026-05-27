@@ -180,8 +180,7 @@ export function filterResults(
     if (cfg?.min_year && r.year && r.year < cfg.min_year) return false;
     if (cfg?.min_rating && r.rating < cfg.min_rating) return false;
     if (excludedGenres && r.genre) {
-      const movieGenres = parseGenreLabels(r.genre).map((g) => g.toLowerCase());
-      if (movieGenres.some((g) => excludedGenres.has(g))) return false;
+      if (parseGenreLabels(r.genre).some((g) => excludedGenres.has(g.toLowerCase()))) return false;
     }
     seen.add(r.tmdb_id);
     return true;
