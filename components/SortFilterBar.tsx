@@ -41,6 +41,8 @@ const SORT_LABELS: Record<SortOption, string> = {
   rated_at: "Date Rated",
 };
 
+const SORT_KEYS = Object.keys(SORT_LABELS) as SortOption[];
+
 function getSortDirToggleLabel(sortDir: "asc" | "desc") {
   return sortDir === "desc"
     ? "Switch to ascending sort"
@@ -161,7 +163,7 @@ export default function SortFilterBar({
             ref={sortTabsRef}
             className="flex w-full items-center gap-1 bg-gray-800/40 p-1 rounded-xl overflow-x-auto pr-10 sm:w-auto [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]"
           >
-            {(Object.keys(SORT_LABELS) as SortOption[]).map((key) => (
+            {SORT_KEYS.map((key) => (
               <button
                 key={key}
                 data-active={sort === key}
