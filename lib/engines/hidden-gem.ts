@@ -28,7 +28,10 @@ export async function hiddenGemEngine(
     }
   }
 
-  const topGenre = [...genreScores.entries()].sort((a, b) => b[1] - a[1])[0];
+  let topGenre: [string, number] | undefined;
+  for (const entry of genreScores) {
+    if (!topGenre || entry[1] > topGenre[1]) topGenre = entry;
+  }
   const genreId = topGenre ? genreNameToId(topGenre[0]) : null;
 
   const gems = await discoverHiddenGems(genreId ?? undefined);
