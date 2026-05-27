@@ -138,23 +138,18 @@ export function useRecommendations({
   const categoryCounts = useMemo(() => {
     const ratedTmdbIds = getRatedMovieTmdbIds(movies);
     const counts: Record<string, number> = {};
-    for (const [key, groups] of Object.entries(recGroups)) {
-      const count = groups.reduce(
-        (acc, g) =>
-          acc +
-          g.recommendations.filter((r) => !ratedTmdbIds.has(r.tmdb_id))
-            .length,
-        0,
-      );
-      if (count > 0) counts[key] = count;
-    }
     const allSeen = new Set<number>();
-    for (const groups of Object.values(recGroups)) {
+    for (const [key, groups] of Object.entries(recGroups)) {
+      let count = 0;
       for (const g of groups) {
         for (const r of g.recommendations) {
-          if (!ratedTmdbIds.has(r.tmdb_id)) allSeen.add(r.tmdb_id);
+          if (!ratedTmdbIds.has(r.tmdb_id)) {
+            count++;
+            allSeen.add(r.tmdb_id);
+          }
         }
       }
+      if (count > 0) counts[key] = count;
     }
     if (allSeen.size > 0) counts["all"] = allSeen.size;
     return counts;
