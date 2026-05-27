@@ -76,6 +76,13 @@ function Hint({ children }: { children: React.ReactNode }) {
   return <p className="text-gray-500 text-xs mb-3">{children}</p>;
 }
 
+const PILL_ACTIVE_CLASS = {
+  indigo: "bg-indigo-500/20 text-indigo-300 border-indigo-500/30",
+  yellow: "bg-yellow-500/20 text-yellow-300 border-yellow-500/30",
+  green: "bg-green-500/20 text-green-300 border-green-500/30",
+  red: "bg-red-500/20 text-red-300 border-red-500/30",
+} as const;
+
 function PillButton({
   active,
   onClick,
@@ -87,12 +94,7 @@ function PillButton({
   children: React.ReactNode;
   color?: "indigo" | "yellow" | "green" | "red";
 }) {
-  const activeClass = {
-    indigo: "bg-indigo-500/20 text-indigo-300 border-indigo-500/30",
-    yellow: "bg-yellow-500/20 text-yellow-300 border-yellow-500/30",
-    green: "bg-green-500/20 text-green-300 border-green-500/30",
-    red: "bg-red-500/20 text-red-300 border-red-500/30",
-  }[color];
+  const activeClass = PILL_ACTIVE_CLASS[color];
   return (
     <button
       onClick={onClick}
