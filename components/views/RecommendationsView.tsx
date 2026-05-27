@@ -311,8 +311,7 @@ export default function RecommendationsView({
       ) : (
         <div className="space-y-4">
           {(() => {
-            const filtered = recommendations.filter((g) => g.type === recCategory);
-            const sorted = [...filtered].sort((a, b) => {
+            const sorted = recommendations.filter((g) => g.type === recCategory).sort((a, b) => {
               const ai = groupOrder.indexOf(a.reason);
               const bi = groupOrder.indexOf(b.reason);
               if (ai === -1 && bi === -1) return 0;
