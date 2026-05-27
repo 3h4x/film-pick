@@ -19,6 +19,12 @@ import type { useRecommendations } from "@/lib/hooks/useRecommendations";
 
 type RecsState = ReturnType<typeof useRecommendations>;
 
+const LIKED_ACTION_CLASS = `bg-green-600/90 backdrop-blur-sm text-white rounded-lg ${CARD_ACTION_TOUCH_TARGET_CLASS} ${CARD_ACTION_ICON_SIZE_CLASS} flex items-center justify-center hover:bg-green-500 transition-colors`;
+const WATCHED_ACTION_CLASS = `bg-gray-600/90 backdrop-blur-sm text-white rounded-lg ${CARD_ACTION_TOUCH_TARGET_CLASS} ${CARD_ACTION_ICON_SIZE_CLASS} flex items-center justify-center hover:bg-gray-500 transition-colors`;
+const WISHLIST_ACTION_CLASS = `bg-blue-600/90 backdrop-blur-sm text-white rounded-lg ${CARD_ACTION_TOUCH_TARGET_CLASS} ${CARD_ACTION_ICON_SIZE_CLASS} flex items-center justify-center hover:bg-blue-500 transition-colors`;
+const DISLIKED_ACTION_CLASS = `bg-orange-600/90 backdrop-blur-sm text-white rounded-lg ${CARD_ACTION_TOUCH_TARGET_CLASS} ${CARD_ACTION_ICON_SIZE_CLASS} flex items-center justify-center hover:bg-orange-500 transition-colors`;
+const DISMISS_ACTION_CLASS = `bg-red-600/90 backdrop-blur-sm text-white rounded-lg ${CARD_ACTION_TOUCH_TARGET_CLASS} ${CARD_ACTION_ICON_SIZE_CLASS} flex items-center justify-center hover:bg-red-500 transition-colors`;
+
 function formatRefreshTime(iso: string): string {
   const date = new Date(iso);
   const now = new Date();
@@ -115,40 +121,35 @@ export default function RecommendationsView({
             key: "liked",
             label: "Watched & liked",
             icon: "👍",
-            className:
-              `bg-green-600/90 backdrop-blur-sm text-white rounded-lg ${CARD_ACTION_TOUCH_TARGET_CLASS} ${CARD_ACTION_ICON_SIZE_CLASS} flex items-center justify-center hover:bg-green-500 transition-colors`,
+            className: LIKED_ACTION_CLASS,
             onClick: () => handleRecAction(r.tmdb_id, "liked", r, fromMood, engine),
           },
           {
             key: "watched",
             label: "Watched",
             icon: "👁",
-            className:
-              `bg-gray-600/90 backdrop-blur-sm text-white rounded-lg ${CARD_ACTION_TOUCH_TARGET_CLASS} ${CARD_ACTION_ICON_SIZE_CLASS} flex items-center justify-center hover:bg-gray-500 transition-colors`,
+            className: WATCHED_ACTION_CLASS,
             onClick: () => handleRecAction(r.tmdb_id, "watched", r, fromMood, engine),
           },
           {
             key: "wishlist",
             label: "Add to watchlist",
             icon: "🔖",
-            className:
-              `bg-blue-600/90 backdrop-blur-sm text-white rounded-lg ${CARD_ACTION_TOUCH_TARGET_CLASS} ${CARD_ACTION_ICON_SIZE_CLASS} flex items-center justify-center hover:bg-blue-500 transition-colors`,
+            className: WISHLIST_ACTION_CLASS,
             onClick: () => handleRecAction(r.tmdb_id, "wishlist", r, fromMood, engine),
           },
           {
             key: "disliked",
             label: "Watched & disliked",
             icon: "👎",
-            className:
-              `bg-orange-600/90 backdrop-blur-sm text-white rounded-lg ${CARD_ACTION_TOUCH_TARGET_CLASS} ${CARD_ACTION_ICON_SIZE_CLASS} flex items-center justify-center hover:bg-orange-500 transition-colors`,
+            className: DISLIKED_ACTION_CLASS,
             onClick: () => handleRecAction(r.tmdb_id, "disliked", r, fromMood, engine),
           },
           {
             key: "dismiss",
             label: "Don't show again",
             icon: "✕",
-            className:
-              `bg-red-600/90 backdrop-blur-sm text-white rounded-lg ${CARD_ACTION_TOUCH_TARGET_CLASS} ${CARD_ACTION_ICON_SIZE_CLASS} flex items-center justify-center hover:bg-red-500 transition-colors`,
+            className: DISMISS_ACTION_CLASS,
             onClick: () => handleRecAction(r.tmdb_id, "dismiss", r, fromMood, engine),
           },
         ]}
