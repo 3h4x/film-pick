@@ -22,9 +22,9 @@ export default function SearchPage({
   const router = useRouter();
 
   const [results, setResults] = useState<TmdbSearchResult[]>([]);
-  const [library, setLibrary] = useState<Set<number>>(new Set());
+  const [library, setLibrary] = useState<Set<number>>(() => new Set());
   const [loading, setLoading] = useState(true);
-  const [added, setAdded] = useState<Set<number>>(new Set());
+  const [added, setAdded] = useState<Set<number>>(() => new Set());
 
   useEffect(() => {
     async function load() {
