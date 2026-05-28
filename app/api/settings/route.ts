@@ -5,6 +5,8 @@ import { rescheduleCdaJob } from "@/lib/cda-scheduler";
 import { invalidateMemCache } from "@/lib/epg-fetch";
 import { rescheduleEpgJob } from "@/lib/epg-scheduler";
 
+const VALID_REFRESH_INTERVAL_HOURS = [0, 6, 12, 24];
+
 export async function GET() {
   const db = getDb();
   const libraryPath = getSetting(db, "library_path");
@@ -70,7 +72,7 @@ export async function PATCH(request: NextRequest) {
   }
   if (body.cda_refresh_interval_hours !== undefined) {
     const val = Number(body.cda_refresh_interval_hours);
-    if (![0, 6, 12, 24].includes(val)) {
+    if (!VALID_REFRESH_INTERVAL_HOURS.includes(val)) {
       return Response.json(
         { error: "cda_refresh_interval_hours must be 0, 6, 12, or 24" },
         { status: 400 },
@@ -102,7 +104,7 @@ export async function PATCH(request: NextRequest) {
   }
   if (body.epg_refresh_interval_hours !== undefined) {
     const val = Number(body.epg_refresh_interval_hours);
-    if (![0, 6, 12, 24].includes(val)) {
+    if (!VALID_REFRESH_INTERVAL_HOURS.includes(val)) {
       return Response.json(
         { error: "epg_refresh_interval_hours must be 0, 6, 12, or 24" },
         { status: 400 },
