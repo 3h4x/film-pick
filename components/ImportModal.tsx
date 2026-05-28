@@ -103,9 +103,6 @@ export default function ImportModal({
             if (update.type === "discovery") {
               setDiscoveryCount(update.count);
               setDiscoveryFile(update.filename);
-              // Clear progress when discovery is active to show "Scanning" state
-              // But with interleaved, they might arrive together.
-              // We'll prioritize progress display if it's available.
             } else if (update.type === "progress") {
               setProgress(update);
             } else if (update.type === "complete") {
