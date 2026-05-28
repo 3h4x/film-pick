@@ -5,6 +5,12 @@ import { searchTmdbPl } from "@/lib/tmdb";
 const CDA_BASE = "https://www.cda.pl";
 const USER_AGENT =
   "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36";
+const PREMIUM_MOVIE_RE =
+  /<li class="mb-slide" title="([^"]*)">\s*<a href="([^"]*vfilm)">\s*<img[^>]*src="([^"]*)"/g;
+const CATEGORY_POSTER_RE =
+  /<img class="cover-img" title="([^"]*)"[^>]*src="([^"]*)"/g;
+const CATEGORY_TITLE_RE =
+  /<a href="(https:\/\/www\.cda\.pl\/video\/[^"]*\/vfilm)" class="kino-title">([^<]*)<\/a>/g;
 
 interface CdaMovie {
   title: string;
@@ -62,11 +68,10 @@ async function scrapePremium(): Promise<CdaMovie[]> {
   const movies: CdaMovie[] = [];
   const seen = new Set<string>();
 
-  const regex =
-    /<li class="mb-slide" title="([^"]*)">\s*<a href="([^"]*vfilm)">\s*<img[^>]*src="([^"]*)"/g;
   let match;
 
-  while ((match = regex.exec(html)) !== null) {
+  PREMIUM_MOVIE_RE.lastIndex = 0;
+  while ((match = PREMIUM_MOVIE_RE.exec(html)) !== null) {
     const rawTitle = match[1];
     const url = match[2].startsWith("http")
       ? match[2]
@@ -147,10 +152,9 @@ async function scrapeCategory(category: string): Promise<CdaMovie[]> {
   const seen = new Set<string>();
 
   const posterMap = new Map<string, string>();
-  const posterRegex =
-    /<img class="cover-img" title="([^"]*)"[^>]*src="([^"]*)"/g;
   let match;
-  while ((match = posterRegex.exec(html)) !== null) {
+  CATEGORY_POSTER_RE.lastIndex = 0;
+  while ((match = CATEGORY_POSTER_RE.exec(html)) !== null) {
     const imgTitle = decodeEntities(match[1]).trim();
     const posterUrl = match[2].startsWith("//")
       ? `https:${match[2]}`
@@ -158,9 +162,8 @@ async function scrapeCategory(category: string): Promise<CdaMovie[]> {
     posterMap.set(imgTitle, posterUrl);
   }
 
-  const titleRegex =
-    /<a href="(https:\/\/www\.cda\.pl\/video\/[^"]*\/vfilm)" class="kino-title">([^<]*)<\/a>/g;
-  while ((match = titleRegex.exec(html)) !== null) {
+  CATEGORY_TITLE_RE.lastIndex = 0;
+  while ((match = CATEGORY_TITLE_RE.exec(html)) !== null) {
     const url = match[1];
     const rawTitle = decodeEntities(match[2]).trim();
 
