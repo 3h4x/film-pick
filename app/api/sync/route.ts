@@ -190,6 +190,15 @@ export async function POST(request?: NextRequest) {
           "SELECT id, file_path, extra_files FROM movies WHERE file_path IS NOT NULL AND file_path != ''",
         )
         .all() as { id: number; file_path: string; extra_files: string | null }[];
+      const updateExtrasStmt = db.prepare(
+        "UPDATE movies SET extra_files = ?, video_metadata = NULL WHERE id = ?",
+      );
+      const promoteExtraStmt = db.prepare(
+        "UPDATE movies SET file_path = ?, extra_files = ?, video_metadata = NULL WHERE id = ?",
+      );
+      const detachStmt = db.prepare(
+        "UPDATE movies SET file_path = NULL, extra_files = NULL, video_metadata = NULL WHERE id = ?",
+      );
       for (const movie of currentMovies) {
         const existingExtras = parseExtraFiles(movie.extra_files).filter(
           (extraPath) => filePathSet.has(extraPath),
@@ -199,18 +208,14 @@ export async function POST(request?: NextRequest) {
           const nextExtraFiles =
             existingExtras.length > 0 ? JSON.stringify(existingExtras) : null;
           if (nextExtraFiles !== movie.extra_files) {
-            db.prepare(
-              "UPDATE movies SET extra_files = ?, video_metadata = NULL WHERE id = ?",
-            ).run(nextExtraFiles, movie.id);
+            updateExtrasStmt.run(nextExtraFiles, movie.id);
           }
           continue;
         }
 
         if (existingExtras.length > 0) {
           const [promotedPath, ...remainingExtras] = existingExtras;
-          db.prepare(
-            "UPDATE movies SET file_path = ?, extra_files = ?, video_metadata = NULL WHERE id = ?",
-          ).run(
+          promoteExtraStmt.run(
             promotedPath,
             remainingExtras.length > 0 ? JSON.stringify(remainingExtras) : null,
             movie.id,
@@ -218,9 +223,7 @@ export async function POST(request?: NextRequest) {
           continue;
         }
 
-        db.prepare(
-          "UPDATE movies SET file_path = NULL, extra_files = NULL, video_metadata = NULL WHERE id = ?",
-        ).run(movie.id);
+        detachStmt.run(movie.id);
         detached++;
       }
 
