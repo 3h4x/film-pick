@@ -34,18 +34,27 @@ function compareCanonicalMovies(a: Movie, b: Movie): number {
 }
 
 export function getCanonicalMovie(movies: Movie[]): Movie | undefined {
-  if (movies.length === 0) {
-    return undefined;
+  let best: Movie | undefined;
+  for (const movie of movies) {
+    if (!best || compareCanonicalMovies(movie, best) < 0) {
+      best = movie;
+    }
   }
-
-  return [...movies].sort(compareCanonicalMovies)[0];
+  return best;
 }
 
 export function getCanonicalMatchingMovie(
   movies: Movie[],
   matches: (movie: Movie) => boolean,
 ): Movie | undefined {
-  return getCanonicalMovie(movies.filter(matches));
+  let best: Movie | undefined;
+  for (const movie of movies) {
+    if (!matches(movie)) continue;
+    if (!best || compareCanonicalMovies(movie, best) < 0) {
+      best = movie;
+    }
+  }
+  return best;
 }
 
 export function buildTmdbMovieIndex(movies: Movie[]): Map<number, Movie[]> {
