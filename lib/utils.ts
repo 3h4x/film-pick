@@ -222,17 +222,18 @@ export function extractYears(movies: Movie[]): number[] {
 export function getRatedMovieTmdbIds(
   movies: Movie[],
 ): Set<number | null | undefined> {
-  return new Set(
-    movies
-      .filter(
-        (m) =>
-          m.type === "movie" &&
-          m.user_rating != null &&
-          (m.user_rating as number) > 0 &&
-          m.tmdb_id,
-      )
-      .map((m) => m.tmdb_id),
-  );
+  const ids = new Set<number | null | undefined>();
+  for (const m of movies) {
+    if (
+      m.type === "movie" &&
+      m.user_rating != null &&
+      (m.user_rating as number) > 0 &&
+      m.tmdb_id
+    ) {
+      ids.add(m.tmdb_id);
+    }
+  }
+  return ids;
 }
 
 export function filterRatedRecommendations(
