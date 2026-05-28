@@ -87,12 +87,20 @@ export async function GET(
           streams: FfprobeStream[];
           format?: { format_long_name?: string; size?: string; duration?: string; bit_rate?: string };
         };
-        const videoStream = ffprobeData.streams.find(
-          (s) => s.codec_type === "video",
-        );
-        const audioStreams = ffprobeData.streams.filter(
-          (s) => s.codec_type === "audio",
-        );
+        let videoStream: FfprobeStream | undefined;
+        const audio: VideoMetadata["audio"] = [];
+        for (const s of ffprobeData.streams) {
+          if (s.codec_type === "video") {
+            if (!videoStream) videoStream = s;
+          } else if (s.codec_type === "audio") {
+            audio.push({
+              codec: s.codec_name,
+              channels: s.channels,
+              language: s.tags?.language,
+              title: s.tags?.title,
+            });
+          }
+        }
 
         return {
           format: ffprobeData.format?.format_long_name ?? "",
@@ -110,12 +118,7 @@ export async function GET(
                 bitrate: parseInt(videoStream.bit_rate || "0"),
               }
             : null,
-          audio: audioStreams.map((s) => ({
-            codec: s.codec_name,
-            channels: s.channels,
-            language: s.tags?.language,
-            title: s.tags?.title,
-          })),
+          audio,
         };
       };
 
