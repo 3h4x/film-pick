@@ -57,10 +57,11 @@ function epgWords(name: string): string[] {
   return name.toLowerCase().replace(/[^a-z0-9]+/g, " ").trim().split(" ").filter(Boolean);
 }
 
+const BOX_S_CHANNEL_WORDS = BOX_S_CHANNELS.map(epgWords);
+
 function matchesBoxS(epgName: string): boolean {
   const ew = epgWords(epgName);
-  for (const ch of BOX_S_CHANNELS) {
-    const bw = epgWords(ch);
+  for (const bw of BOX_S_CHANNEL_WORDS) {
     if (!bw.length || ew.length < bw.length) continue;
     if (!bw.every((w, i) => ew[i] === w)) continue;
     // Extra words in EPG name must all be harmless suffixes (HD, TV, 4K, etc.)
