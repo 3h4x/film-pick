@@ -1,7 +1,6 @@
 // tamtam inspected 2026-05-21
 /**
  * Re-fetch director/writer/actors from TMDb for all movies with a tmdb_id.
- * Fixes mismatched credits caused by earlier dedup bugs.
  *
  * Usage: eval "$(bioenv load)" && pnpm dlx tsx scripts/fix-credits.ts [--dry-run]
  */
