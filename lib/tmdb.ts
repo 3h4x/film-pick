@@ -255,20 +255,21 @@ function creditsFromMovie(data: {
     cast?: TmdbRawCastMember[];
   };
 }): DetailsResult {
-  const director =
-    data.credits?.crew?.find((c) => c.job === "Director")?.name || null;
-  const writer =
-    data.credits?.crew
-      ?.filter((c) => ["Screenplay", "Writer", "Story"].includes(c.job))
-      .map((c) => c.name)
-      .join(", ") || null;
+  let director: string | null = null;
+  const writers: string[] = [];
+  for (const c of data.credits?.crew ?? []) {
+    if (!director && c.job === "Director") director = c.name;
+    if (c.job === "Screenplay" || c.job === "Writer" || c.job === "Story") {
+      writers.push(c.name);
+    }
+  }
   const actors =
     data.credits?.cast
       ?.slice(0, 5)
       .map((c) => c.name)
       .join(", ") || null;
 
-  return { director, writer, actors };
+  return { director, writer: writers.length ? writers.join(", ") : null, actors };
 }
 
 function getSearchScore(
