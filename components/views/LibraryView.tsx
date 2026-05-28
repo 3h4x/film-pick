@@ -11,6 +11,9 @@ import { PAGE_SIZE } from "@/lib/types";
 import type { useLibrary } from "@/lib/hooks/useLibrary";
 import { isUnratedMovie } from "@/lib/quick-rate";
 
+const MOVIE_GRID_CLASS =
+  "grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-5";
+
 type LibraryState = ReturnType<typeof useLibrary>;
 
 interface LibraryViewProps {
@@ -96,7 +99,7 @@ export default function LibraryView({
           <div className="h-9 w-full max-w-sm bg-gray-800/30 rounded-xl" />
           <div className="h-9 w-28 bg-gray-800/30 rounded-xl" />
         </div>
-        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-5">
+        <div className={MOVIE_GRID_CLASS}>
           {Array.from({ length: 12 }).map((_, i) => (
             <div
               key={i}
@@ -208,7 +211,7 @@ export default function LibraryView({
       {sortedMovies.length === 0 ? (
         <EmptyState variant="plain" message="No movies match your filters" />
       ) : (
-        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-5">
+        <div className={MOVIE_GRID_CLASS}>
           {visibleMovies.map((m) => (
             <MovieCard
               key={m.id}
