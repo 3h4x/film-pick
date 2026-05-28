@@ -16,14 +16,22 @@ export function nextUnratedMovie(
   movies: Movie[],
   currentId: number | null,
 ): Movie | null {
-  const unratedMovies = movies.filter(isUnratedMovie);
-  if (unratedMovies.length === 0) return null;
-  if (currentId == null) return unratedMovies[0] ?? null;
+  let firstUnratedMovie: Movie | null = null;
+  let returnNextUnrated = currentId == null;
+  let foundCurrentMovie = false;
 
-  const currentIndex = unratedMovies.findIndex((movie) => movie.id === currentId);
-  if (currentIndex === -1) return unratedMovies[0] ?? null;
+  for (const movie of movies) {
+    if (!isUnratedMovie(movie)) continue;
 
-  return unratedMovies[currentIndex + 1] ?? null;
+    firstUnratedMovie ??= movie;
+    if (returnNextUnrated) return movie;
+    if (movie.id === currentId) {
+      foundCurrentMovie = true;
+      returnNextUnrated = true;
+    }
+  }
+
+  return foundCurrentMovie ? null : firstUnratedMovie;
 }
 
 export function mapQuickRateKey(key: string): QuickRateAction | null {
