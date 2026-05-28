@@ -6,6 +6,21 @@ import { rateLimit } from "@/lib/rate-limit";
 import fs from "fs";
 import path from "path";
 
+const SUBTITLE_EXTENSIONS = [".srt", ".ass", ".sub", ".txt", ".vtt"];
+const PROTECTED_FOLDER_NAMES = [
+  "movies",
+  "video",
+  "volumes",
+  "00_new",
+  "downloads",
+  "desktop",
+  "documents",
+  "applications",
+  "library",
+  "system",
+  "users",
+];
+
 export async function DELETE(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> },
@@ -65,8 +80,7 @@ export async function DELETE(
         // Also try to find and delete subtitles (same name, diff extension)
         const baseExt = path.extname(filePath);
         const baseName = path.basename(filePath, baseExt);
-        const subExtensions = [".srt", ".ass", ".sub", ".txt", ".vtt"];
-        for (const ext of subExtensions) {
+        for (const ext of SUBTITLE_EXTENSIONS) {
           const subPath = path.join(parentDir, baseName + ext);
           if (fs.existsSync(subPath)) {
             fs.unlinkSync(subPath);
@@ -92,20 +106,7 @@ export async function DELETE(
           if (fs.existsSync(parentDir)) {
             // Safety check against deleting sensitive system/library folders
             const folderName = path.basename(parentDir).toLowerCase();
-            const forbidden = [
-              "movies",
-              "video",
-              "volumes",
-              "00_new",
-              "downloads",
-              "desktop",
-              "documents",
-              "Applications",
-              "Library",
-              "System",
-              "Users",
-            ];
-            if (forbidden.some((f) => folderName === f.toLowerCase())) {
+            if (PROTECTED_FOLDER_NAMES.includes(folderName)) {
               throw new Error(
                 `Folder name "${folderName}" is protected and cannot be deleted.`,
               );
