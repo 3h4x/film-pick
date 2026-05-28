@@ -8,6 +8,9 @@ import { buildTmdbMovieIndex, getSearchMatches, getTmdbSearchMovieState } from "
 import type { Movie } from "@/lib/types";
 import type { TmdbSearchResult } from "@/lib/tmdb";
 
+const RESULTS_GRID_CLASS =
+  "grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6";
+
 interface SearchViewProps {
   searchQuery: string;
   movies: Movie[];
@@ -44,8 +47,6 @@ export default function SearchView({
     searchQuery,
   );
   const movieIndex = buildTmdbMovieIndex(movies);
-  const resultsGridClassName =
-    "grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6";
 
   return (
     <div>
@@ -97,7 +98,7 @@ export default function SearchView({
               <p className="text-xs font-semibold uppercase tracking-widest text-gray-500 mb-3">
                 In your library
               </p>
-              <div className={resultsGridClassName}>
+              <div className={RESULTS_GRID_CLASS}>
                 {libraryMatches.map((m) => (
                   <MovieCard
                     key={m.id}
@@ -120,7 +121,7 @@ export default function SearchView({
               <p className="text-xs font-semibold uppercase tracking-widest text-gray-500 mb-3">
                 In your watchlist
               </p>
-              <div className={resultsGridClassName}>
+              <div className={RESULTS_GRID_CLASS}>
                 {wishlistMatches.map((m) => (
                   <MovieCard
                     key={m.id}
@@ -163,7 +164,7 @@ export default function SearchView({
               <p className="text-xs font-semibold uppercase tracking-widest text-gray-500 mb-3">
                 From TMDb
               </p>
-              <div className={resultsGridClassName}>
+              <div className={RESULTS_GRID_CLASS}>
                 {tmdbResults.map((r) => {
                   const { existingMovie, existingLabel } = getTmdbSearchMovieState(
                     movieIndex,
