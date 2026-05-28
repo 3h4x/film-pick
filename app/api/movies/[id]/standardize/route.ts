@@ -19,6 +19,8 @@ const VIDEO_EXTENSIONS = new Set([
 
 const UNSAFE_FILENAME_CHARS = /[\\/:*?"<>|]/g;
 
+const SUBTITLE_EXTENSIONS = new Set([".srt", ".sub", ".txt", ".ass"]);
+
 export async function POST(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> },
@@ -363,14 +365,13 @@ export async function POST(
       const oldFileNameNoExt = path.basename(oldPath, ext);
       const filesInOldDir = await fs.readdir(oldDir);
 
-      const subtitleExts = [".srt", ".sub", ".txt", ".ass"]; // common subtitle extensions
       for (const file of filesInOldDir) {
         const fileExt = path.extname(file).toLowerCase();
         const fileNameNoExt = path.basename(file, path.extname(file));
 
         // If subtitle matches the old movie filename or starts with it
         if (
-          subtitleExts.includes(fileExt) &&
+          SUBTITLE_EXTENSIONS.has(fileExt) &&
           (fileNameNoExt === oldFileNameNoExt ||
             fileNameNoExt.startsWith(oldFileNameNoExt))
         ) {
