@@ -678,8 +678,7 @@ export function recordRecommendationEvent(
 
 // Records that a set of tmdb_ids were surfaced by an engine. On the first call
 // per (tmdb_id, engine) inserts a row with shown_count=1; subsequent calls
-// increment shown_count and refresh last_shown_at. Used by the rotation
-// post-processor to penalize titles that have been surfaced repeatedly.
+// increment shown_count and refresh last_shown_at for ranking penalties.
 export function recordImpressions(
   db: Database.Database,
   engine: string,
