@@ -43,13 +43,14 @@ export async function GET(request: NextRequest) {
     return Response.json({ error: message }, { status: 500 });
   }
 
-  const enriched = groups.map((g) => ({
-    ...g,
-    recommendations: enrichWithCda(g.recommendations, cdaLookup).filter((r) => {
-      if (preset.comfortRewatch) return true;
-      return !ratedTmdbIds.has(r.tmdb_id);
-    }),
-  })).filter((g) => g.recommendations.length > 0);
+  const allowRated = preset.comfortRewatch;
+  const enriched: typeof groups = [];
+  for (const g of groups) {
+    const recommendations = enrichWithCda(g.recommendations, cdaLookup).filter(
+      (r) => allowRated || !ratedTmdbIds.has(r.tmdb_id),
+    );
+    if (recommendations.length > 0) enriched.push({ ...g, recommendations });
+  }
 
   return Response.json(enriched);
 }
