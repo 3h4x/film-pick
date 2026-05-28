@@ -493,7 +493,14 @@ export default function Home() {
             const res = await fetch(`/api/movies/${targetId}`);
             const data = await res.json();
             if (data.movie) {
-              setMovies((prev) => prev.filter((m) => m.id !== sourceId).map((m) => (m.id === targetId ? data.movie : m)));
+              setMovies((prev) => {
+                const next: Movie[] = [];
+                for (const movie of prev) {
+                  if (movie.id === sourceId) continue;
+                  next.push(movie.id === targetId ? data.movie : movie);
+                }
+                return next;
+              });
               setSelectedMovie(data.movie); addToast("Movies merged successfully");
             } else { setMovies((prev) => prev.filter((m) => m.id !== sourceId)); setSelectedMovie(null); fetchMovies(); }
           }}
