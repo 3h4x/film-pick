@@ -11,7 +11,7 @@ interface BucketConfig {
   windowMs: number;
 }
 
-// Defaults per the issue acceptance criteria: mutations <=10 rpm, TMDb-hitting <=30 rpm.
+// Mutations 10 rpm, TMDb-hitting 30 rpm (TMDb's own quota is higher; this protects our key from runaway loops).
 const DEFAULTS: Record<RateLimitBucket, BucketConfig> = {
   mutation: { limit: 10, windowMs: 60_000 },
   tmdb: { limit: 30, windowMs: 60_000 },
