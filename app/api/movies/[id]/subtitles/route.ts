@@ -36,22 +36,25 @@ export async function GET(
 
   try {
     const files = await fs.readdir(movieDir);
-    const subtitles = files.filter((file) => {
+    const subtitles: { name: string; path: string }[] = [];
+    for (const file of files) {
       const ext = path.extname(file).toLowerCase();
       const nameNoExt = path.basename(file, ext);
-      return (
+      if (
         SUBTITLE_EXTENSIONS.includes(ext) &&
         (nameNoExt === movieFileNameNoExt ||
           nameNoExt.startsWith(movieFileNameNoExt))
-      );
-    });
+      ) {
+        subtitles.push({
+          name: file,
+          path: path.join(movieDir, file),
+        });
+      }
+    }
 
     return Response.json({
       hasSubtitles: subtitles.length > 0,
-      subtitles: subtitles.map((s) => ({
-        name: s,
-        path: path.join(movieDir, s),
-      })),
+      subtitles,
     });
   } catch (e) {
     return Response.json({
