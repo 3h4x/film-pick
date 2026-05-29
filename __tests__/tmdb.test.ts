@@ -1,8 +1,8 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 
 // Prevent tmdb.ts from opening the real production DB when resolving the API key
-// via getDbApiKey(). All tests in this file set process.env.TMDB_API_KEY so the
-// env-var path is always taken; the DB path is never needed.
+// via getDbApiKey(). Tests that resolve the API key set process.env.TMDB_API_KEY
+// so the env-var path is taken; the DB path is never needed.
 vi.mock("@/lib/db", () => ({
   getDb: vi.fn(() => { throw new Error("no db in tmdb tests"); }),
   getSetting: vi.fn(() => null),
