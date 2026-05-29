@@ -38,7 +38,7 @@ vi.mock("fs", async (importOriginal) => {
   };
 });
 
-// Patch only getDb so the handler uses our in-memory database.
+// Patch only getDb so the handler uses our test database.
 vi.mock("@/lib/db", async (importOriginal) => {
   const actual = await importOriginal<typeof import("@/lib/db")>();
   return { ...actual, getDb: vi.fn() };
