@@ -17,7 +17,7 @@ Streaming platforms recommend what they want you to watch. This recommends what 
 
 ### Smart Recommendations
 
-Seven recommendation engines, all powered by your personal ratings:
+Recommendation engines powered by your personal ratings, including:
 
 - **By Director** — loved 3 Villeneuve films? Here's every other movie he directed
 - **By Actor** — tracks which actors keep showing up in your highest-rated movies
