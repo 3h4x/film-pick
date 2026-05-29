@@ -64,6 +64,7 @@ async function searchTmdb(
   const url = `${TMDB_BASE}/search/movie?query=${encodeURIComponent(title)}&year=${year}&language=en-US&page=1`;
   const res = await fetch(url, {
     headers: { Authorization: `Bearer ${apiKey}` },
+    signal: AbortSignal.timeout(15000),
   });
   if (!res.ok) return null;
 
