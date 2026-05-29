@@ -7,6 +7,8 @@ import {
 } from "@/app/api/tv/enrich/cache";
 import { rateLimit } from "@/lib/rate-limit";
 
+const TV_ENRICH_BATCH_SIZE = 8;
+
 export async function POST(request: Request) {
   const limited = rateLimit(request, "tmdb");
   if (limited) return limited;
@@ -33,8 +35,9 @@ export async function POST(request: Request) {
 
     const result: Record<string, TvEnrichResult> = {};
 
-    await Promise.all(
-      titles.map(async (rawTitle: string) => {
+    for (let index = 0; index < titles.length; index += TV_ENRICH_BATCH_SIZE) {
+      const batch = titles.slice(index, index + TV_ENRICH_BATCH_SIZE);
+      await Promise.all(batch.map(async (rawTitle: string) => {
         const title = rawTitle.trim();
         if (!title) {
           result[rawTitle] = { rating: null, year: null };
@@ -62,8 +65,8 @@ export async function POST(request: Request) {
           console.error("[TV enrich] Failed to enrich title", { title, error });
           result[rawTitle] = { rating: null, year: null };
         }
-      }),
-    );
+      }));
+    }
 
     return Response.json(result);
   } catch (error) {
