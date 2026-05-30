@@ -120,11 +120,12 @@ export function initDb(db: Database.Database): void {
     .prepare("SELECT 1 FROM _migrations WHERE name = 'add_credits'")
     .get();
   if (!hasCredits) {
-    try {
+    const cols = (db.pragma("table_info(movies)") as { name: string }[]).map((c) => c.name);
+    if (!cols.includes("writer")) {
       db.exec("ALTER TABLE movies ADD COLUMN writer TEXT");
+    }
+    if (!cols.includes("actors")) {
       db.exec("ALTER TABLE movies ADD COLUMN actors TEXT");
-    } catch {
-      // Column already exists
     }
     db.prepare(
       "INSERT OR IGNORE INTO _migrations (name) VALUES ('add_credits')",
