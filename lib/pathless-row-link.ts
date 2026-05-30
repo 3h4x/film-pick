@@ -19,7 +19,7 @@ type PathlessRowTmdbMatch = {
 // Match priority:
 //   1. tmdb_id (when TMDb gave us one)
 //   2. exact LOWER(title) + year IS ?
-//   3. cleanTitle equality + year tolerance (±1)
+//   3. cleanTitle equality + year tolerance (±1 when both years are known)
 export function linkToExistingPathlessRow(
   db: Database.Database,
   file: ScannedFile,
