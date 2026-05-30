@@ -3,6 +3,7 @@ import type Database from "better-sqlite3";
 import { searchTmdbPl } from "@/lib/tmdb";
 
 const CDA_BASE = "https://www.cda.pl";
+const CDA_FETCH_TIMEOUT_MS = 30000;
 const USER_AGENT =
   "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36";
 const PREMIUM_MOVIE_RE =
@@ -54,17 +55,39 @@ function hashCode(str: string): number {
   return hash;
 }
 
+async function fetchCdaHtml(
+  url: string,
+  context: string,
+  options: { logHttpFailure?: boolean } = {},
+): Promise<string | null> {
+  try {
+    const res = await fetch(url, {
+      headers: { "User-Agent": USER_AGENT },
+      redirect: "follow",
+      signal: AbortSignal.timeout(CDA_FETCH_TIMEOUT_MS),
+    });
+    if (!res.ok) {
+      if (options.logHttpFailure) {
+        console.error(`[cda] Failed to fetch ${context}: ${res.status}`);
+      }
+      return null;
+    }
+
+    return await res.text();
+  } catch (err) {
+    console.error(`[cda] Failed to fetch ${context}:`, err);
+    return null;
+  }
+}
+
 async function scrapePremium(): Promise<CdaMovie[]> {
-  const res = await fetch(`${CDA_BASE}/premium`, {
-    headers: { "User-Agent": USER_AGENT },
-    redirect: "follow",
+  const html = await fetchCdaHtml(`${CDA_BASE}/premium`, "premium page", {
+    logHttpFailure: true,
   });
-  if (!res.ok) {
-    console.error(`[cda] Failed to fetch premium page: ${res.status}`);
+  if (html === null) {
     return [];
   }
 
-  const html = await res.text();
   const movies: CdaMovie[] = [];
   const seen = new Set<string>();
 
@@ -141,13 +164,12 @@ const CATEGORIES = [
 ];
 
 async function scrapeCategory(category: string): Promise<CdaMovie[]> {
-  const res = await fetch(`${CDA_BASE}/premium/${category}`, {
-    headers: { "User-Agent": USER_AGENT },
-    redirect: "follow",
-  });
-  if (!res.ok) return [];
+  const html = await fetchCdaHtml(
+    `${CDA_BASE}/premium/${category}`,
+    `category ${category}`,
+  );
+  if (html === null) return [];
 
-  const html = await res.text();
   const movies: CdaMovie[] = [];
   const seen = new Set<string>();
 
