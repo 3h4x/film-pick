@@ -64,7 +64,7 @@ describe("movies/[id]/stream GET handler", () => {
   beforeEach(() => {
     db = new Database(TEST_DB);
     initDb(db);
-    vi.mocked(getDb).mockReturnValue(db as unknown as ReturnType<typeof getDb>);
+    vi.mocked(getDb).mockReturnValue(db);
     mockCreateReadStream.mockReturnValue(FAKE_STREAM);
   });
 
