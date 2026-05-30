@@ -5,6 +5,13 @@ import { fetchAndCacheEpg } from "@/lib/epg-fetch";
 
 let activeTimer: ReturnType<typeof setInterval> | null = null;
 
+function clearEpgTimer(): void {
+  if (activeTimer !== null) {
+    clearInterval(activeTimer);
+    activeTimer = null;
+  }
+}
+
 export function runEpgRefreshNow(db: Database.Database): void {
   if (getSetting(db, "epg_status") === "running") return;
 
@@ -19,10 +26,7 @@ export function runEpgRefreshNow(db: Database.Database): void {
 }
 
 export function rescheduleEpgJob(db: Database.Database): void {
-  if (activeTimer !== null) {
-    clearInterval(activeTimer);
-    activeTimer = null;
-  }
+  clearEpgTimer();
 
   const enabled = getSetting(db, "epg_enabled");
   if (enabled === "false") return;

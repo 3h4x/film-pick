@@ -4,7 +4,6 @@ import { getSetting, setSetting } from "@/lib/db";
 import { fetchAndStoreCdaMovies } from "@/lib/cda-fetch";
 
 let activeTimer: ReturnType<typeof setInterval> | null = null;
-let shutdownRegistered = false;
 
 function clearCdaTimer(): void {
   if (activeTimer !== null) {
@@ -44,10 +43,6 @@ export function rescheduleCdaJob(db: Database.Database): void {
   activeTimer = setInterval(() => {
     runCdaRefreshNow(db);
   }, ms);
-  if (!shutdownRegistered) {
-    process.once("SIGTERM", clearCdaTimer);
-    shutdownRegistered = true;
-  }
 }
 
 export function initCdaScheduler(db: Database.Database): void {
