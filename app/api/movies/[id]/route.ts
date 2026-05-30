@@ -82,7 +82,7 @@ export async function GET(
           "-show_format",
           "-show_streams",
           filePath,
-        ]);
+        ], { timeout: 30000 });
         const ffprobeData = JSON.parse(stdout) as {
           streams: FfprobeStream[];
           format?: { format_long_name?: string; size?: string; duration?: string; bit_rate?: string };
