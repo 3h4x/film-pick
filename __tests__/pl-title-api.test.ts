@@ -11,7 +11,7 @@ import {
   getRecommendedMovies,
 } from "@/lib/db";
 
-// Patch only getDb so the route uses our in-memory DB
+// Patch only getDb so the route uses our test DB.
 vi.mock("@/lib/db", async (importOriginal) => {
   const actual = await importOriginal<typeof import("@/lib/db")>();
   return { ...actual, getDb: vi.fn() };

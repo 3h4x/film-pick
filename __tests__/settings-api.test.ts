@@ -6,7 +6,7 @@ import fs from "fs";
 import path from "path";
 import { initDb, getSetting, setSetting } from "@/lib/db";
 
-// Patch only getDb so the route uses our in-memory DB; keep all other db functions real.
+// Patch only getDb so the route uses our test DB; keep all other db functions real.
 vi.mock("@/lib/db", async (importOriginal) => {
   const actual = await importOriginal<typeof import("@/lib/db")>();
   return { ...actual, getDb: vi.fn() };
