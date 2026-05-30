@@ -3,6 +3,7 @@ import type { RecommendationTrace } from "@/lib/recommendation-trace";
 import type { TmdbHealthSnapshot } from "@/lib/tmdb-health";
 
 const TMDB_BASE = "https://api.themoviedb.org/3";
+const TMDB_REQUEST_TIMEOUT_MS = 15000;
 const TMDB_GENRE_MAP: Record<number, string> = {
   28: "Action",
   12: "Adventure",
@@ -381,6 +382,7 @@ async function fetchWithRetry(
     try {
       res = await fetch(url, {
         headers: { Authorization: `Bearer ${apiKey}` },
+        signal: AbortSignal.timeout(TMDB_REQUEST_TIMEOUT_MS),
       });
     } catch (error) {
       const message = error instanceof Error ? error.message : "TMDb request failed";
@@ -404,7 +406,10 @@ async function fetchWithRetry(
     return res;
   }
   // Should never reach here, but satisfies TypeScript
-  return fetch(url, { headers: { Authorization: `Bearer ${apiKey}` } });
+  return fetch(url, {
+    headers: { Authorization: `Bearer ${apiKey}` },
+    signal: AbortSignal.timeout(TMDB_REQUEST_TIMEOUT_MS),
+  });
 }
 
 export async function searchTmdb(
