@@ -4,6 +4,7 @@ import { getSetting, setSetting } from "@/lib/db";
 import { fetchAndStoreCdaMovies } from "@/lib/cda-fetch";
 
 let activeTimer: ReturnType<typeof setInterval> | null = null;
+let shutdownHandlerInstalled = false;
 
 function clearCdaTimer(): void {
   if (activeTimer !== null) {
@@ -46,6 +47,11 @@ export function rescheduleCdaJob(db: Database.Database): void {
 }
 
 export function initCdaScheduler(db: Database.Database): void {
+  if (!shutdownHandlerInstalled) {
+    process.once("SIGTERM", clearCdaTimer);
+    shutdownHandlerInstalled = true;
+  }
+
   // Reset stale "running" status left over from a previous crash
   if (getSetting(db, "cda_refresh_status") === "running") {
     setSetting(db, "cda_refresh_status", "idle");
