@@ -142,6 +142,39 @@ describe("EPG scheduler", () => {
       vi.advanceTimersByTime(6 * 60 * 60 * 1000 + 1);
       expect(fetchAndCacheEpg).not.toHaveBeenCalled();
     });
+
+    it("uses only the latest interval after repeated reschedules", () => {
+      setSetting(db, "epg_enabled", "true");
+      setSetting(db, "epg_refresh_interval_hours", "6");
+      vi.mocked(fetchAndCacheEpg).mockResolvedValue({
+        channels: [],
+        programs: [],
+        cachedAt: new Date().toISOString(),
+        epgUrl: "https://example.com/epg.xml.gz",
+      });
+
+      rescheduleEpgJob(db);
+      setSetting(db, "epg_refresh_interval_hours", "12");
+      rescheduleEpgJob(db);
+
+      vi.advanceTimersByTime(6 * 60 * 60 * 1000);
+      expect(fetchAndCacheEpg).not.toHaveBeenCalled();
+
+      vi.advanceTimersByTime(6 * 60 * 60 * 1000);
+      expect(fetchAndCacheEpg).toHaveBeenCalledOnce();
+    });
+
+    it("does not install a SIGTERM handler during scheduling", () => {
+      const onceSpy = vi.spyOn(process, "once");
+      setSetting(db, "epg_enabled", "true");
+      setSetting(db, "epg_refresh_interval_hours", "6");
+
+      rescheduleEpgJob(db);
+      rescheduleEpgJob(db);
+
+      expect(onceSpy).not.toHaveBeenCalledWith("SIGTERM", expect.any(Function));
+      onceSpy.mockRestore();
+    });
   });
 
   describe("initEpgScheduler", () => {

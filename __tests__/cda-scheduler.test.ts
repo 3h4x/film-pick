@@ -106,6 +106,31 @@ describe("cda-scheduler", () => {
       expect(fetchAndStoreCdaMovies).not.toHaveBeenCalled();
     });
 
+    it("uses only the latest interval after repeated reschedules", () => {
+      setSetting(db, "cda_refresh_interval_hours", "6");
+
+      rescheduleCdaJob(db);
+      setSetting(db, "cda_refresh_interval_hours", "12");
+      rescheduleCdaJob(db);
+
+      vi.advanceTimersByTime(6 * 60 * 60 * 1000);
+      expect(fetchAndStoreCdaMovies).not.toHaveBeenCalled();
+
+      vi.advanceTimersByTime(6 * 60 * 60 * 1000);
+      expect(fetchAndStoreCdaMovies).toHaveBeenCalledOnce();
+    });
+
+    it("does not install a SIGTERM handler during scheduling", () => {
+      const onceSpy = vi.spyOn(process, "once");
+      setSetting(db, "cda_refresh_interval_hours", "6");
+
+      rescheduleCdaJob(db);
+      rescheduleCdaJob(db);
+
+      expect(onceSpy).not.toHaveBeenCalledWith("SIGTERM", expect.any(Function));
+      onceSpy.mockRestore();
+    });
+
     it("does not fire when no interval setting is stored", () => {
       // No cda_refresh_interval_hours set — falls back to 0
       rescheduleCdaJob(db);
