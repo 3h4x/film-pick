@@ -4,6 +4,7 @@ import { getSetting, setSetting } from "@/lib/db";
 import { fetchAndCacheEpg } from "@/lib/epg-fetch";
 
 let activeTimer: ReturnType<typeof setInterval> | null = null;
+let shutdownHandlerInstalled = false;
 
 function clearEpgTimer(): void {
   if (activeTimer !== null) {
@@ -42,6 +43,11 @@ export function rescheduleEpgJob(db: Database.Database): void {
 }
 
 export function initEpgScheduler(db: Database.Database): void {
+  if (!shutdownHandlerInstalled) {
+    process.once("SIGTERM", clearEpgTimer);
+    shutdownHandlerInstalled = true;
+  }
+
   if (getSetting(db, "epg_status") === "running") {
     setSetting(db, "epg_status", "idle");
   }
