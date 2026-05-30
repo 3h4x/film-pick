@@ -284,11 +284,10 @@ export default function TvTab() {
 
   const programs = data?.programs ?? [];
   const channels = data?.channels ?? [];
+  const programChannelIds = new Set(programs.map((p) => p.channel));
 
   // Only channels that have any programs today
-  const withPrograms = channels.filter((ch) =>
-    programs.some((p) => p.channel === ch.id),
-  );
+  const withPrograms = channels.filter((ch) => programChannelIds.has(ch.id));
 
   // Deduplicate SD/HD pairs — prefer HD, keep one per base name
   const seenBase = new Set<string>();
