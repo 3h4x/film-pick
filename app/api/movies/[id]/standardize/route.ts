@@ -135,9 +135,6 @@ export async function POST(
   const finalYear = movie.year || cleanedYear;
 
   // Standard format: Movie Name [Year]/Movie Name.ext
-  // Let's assume the root directory is /Volumes/video/Movies/ as per user's example
-  // or the current parent of the movie file if it's deeper.
-  // Actually, let's use the library_path setting from the DB if available.
   const setting = db
     .prepare("SELECT value FROM settings WHERE key = 'library_path'")
     .get() as { value: string } | undefined;

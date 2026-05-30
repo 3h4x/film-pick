@@ -145,7 +145,7 @@ export function filterMovies(movies: Movie[], filters: MovieFilters): Movie[] {
   for (const m of movies) {
     if (
       m.source === "recommendation" &&
-      !(m.user_rating != null && (m.user_rating as number) > 0)
+      !(m.user_rating != null && m.user_rating > 0)
     )
       continue;
     if (
@@ -225,7 +225,7 @@ export function getRatedMovieTmdbIds(
     if (
       m.type === "movie" &&
       m.user_rating != null &&
-      (m.user_rating as number) > 0 &&
+      m.user_rating > 0 &&
       m.tmdb_id
     ) {
       ids.add(m.tmdb_id);
