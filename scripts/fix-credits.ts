@@ -83,7 +83,8 @@ async function main() {
   console.log(
     `\nDone. Fixed: ${fixed}, Unchanged: ${unchanged}, Failed: ${failed}`,
   );
-  db.close();
 }
 
-main();
+main().finally(() => {
+  db.close();
+});
