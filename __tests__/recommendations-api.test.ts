@@ -40,7 +40,7 @@ vi.mock("@/lib/engines", () => ({
   overrideTraceSource: vi.fn((groups: RecommendationGroup[]) => groups),
 }));
 
-// Patch only getDb; every other DB function runs against the real in-memory DB.
+// Patch only getDb; every other DB function runs against the real test DB.
 vi.mock("@/lib/db", async (importOriginal) => {
   const actual = await importOriginal<typeof import("@/lib/db")>();
   return { ...actual, getDb: vi.fn() };
