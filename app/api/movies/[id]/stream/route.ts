@@ -77,6 +77,7 @@ export async function GET(
 
       const chunksize = end - start + 1;
       const file = fs.createReadStream(activeFilePath, { start, end });
+      file.on?.("error", (err) => console.error("[Stream API Error]", err));
 
       const head = {
         "Content-Range": `bytes ${start}-${end}/${fileStat.size}`,
@@ -99,6 +100,7 @@ export async function GET(
           : "video/mp4",
       };
       const file = fs.createReadStream(activeFilePath);
+      file.on?.("error", (err) => console.error("[Stream API Error]", err));
       return new NextResponse(file as unknown as BodyInit, {
         status: 200,
         headers: head,
