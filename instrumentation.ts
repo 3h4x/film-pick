@@ -24,7 +24,8 @@ export async function register() {
 
   // Back up first so users have a pre-dedup snapshot if anything looks off.
   await run();
-  setInterval(run, INTERVAL_MS);
+  const backupTimer = setInterval(run, INTERVAL_MS);
+  process.once("SIGTERM", () => clearInterval(backupTimer));
 
   try {
     const result = dedupeMoviesByTmdbId(getDb());
