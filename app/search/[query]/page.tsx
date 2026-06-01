@@ -3,7 +3,12 @@
 
 import { useState, useEffect, use } from "react";
 import { useRouter } from "next/navigation";
+import CardActionStack from "@/components/CardActionStack";
 import MovieCard from "@/components/MovieCard";
+import {
+  CARD_ACTION_ICON_SIZE_CLASS,
+  CARD_ACTION_TOUCH_TARGET_CLASS,
+} from "@/components/card-action-styles";
 import EmptyState from "@/components/ui/EmptyState";
 import Spinner from "@/components/ui/Spinner";
 import type { TmdbSearchResult } from "@/lib/tmdb";
@@ -11,6 +16,10 @@ import type { TmdbSearchResult } from "@/lib/tmdb";
 interface LibraryMovie {
   tmdb_id: number | null;
 }
+
+const ACTION_BASE_CLASS = `backdrop-blur-sm text-white rounded-lg ${CARD_ACTION_TOUCH_TARGET_CLASS} ${CARD_ACTION_ICON_SIZE_CLASS} flex items-center justify-center transition-colors`;
+const ADD_TO_LIBRARY_CLASS = `bg-indigo-600/95 ${ACTION_BASE_CLASS} hover:bg-indigo-500`;
+const ADD_TO_WATCHLIST_CLASS = `bg-blue-600/95 ${ACTION_BASE_CLASS} hover:bg-blue-500`;
 
 export default function SearchPage({
   params,
@@ -107,7 +116,7 @@ export default function SearchPage({
               const inLibrary = library.has(r.tmdb_id);
               const justAdded = added.has(r.tmdb_id);
               return (
-                <div key={r.tmdb_id} className="relative group/card">
+                <div key={r.tmdb_id} className="relative group/rec">
                   <MovieCard
                     title={r.title}
                     year={r.year}
@@ -122,24 +131,24 @@ export default function SearchPage({
                       {justAdded ? "Added" : "In library"}
                     </div>
                   ) : (
-                    <div className="absolute bottom-14 right-1 flex flex-col gap-1 rounded-xl border border-gray-800/70 bg-black/35 p-1 opacity-100 shadow-lg backdrop-blur-sm transition-all duration-200 sm:border-transparent sm:bg-transparent sm:p-0 sm:opacity-0 sm:shadow-none sm:backdrop-blur-0 sm:group-hover/card:opacity-100">
-                      <button
-                        onClick={() => addMovie(r, false)}
-                        aria-label={`Add ${r.title} to library`}
-                        className="flex h-8 w-8 items-center justify-center rounded-lg bg-indigo-600/95 text-sm text-white transition-colors hover:bg-indigo-500 sm:h-7 sm:w-7"
-                        title="Add to library"
-                      >
-                        ➕
-                      </button>
-                      <button
-                        onClick={() => addMovie(r, true)}
-                        aria-label={`Add ${r.title} to watchlist`}
-                        className="flex h-8 w-8 items-center justify-center rounded-lg bg-blue-600/95 text-sm text-white transition-colors hover:bg-blue-500 sm:h-7 sm:w-7"
-                        title="Add to watchlist"
-                      >
-                        🔖
-                      </button>
-                    </div>
+                    <CardActionStack
+                      actions={[
+                        {
+                          key: "library",
+                          label: `Add ${r.title} to library`,
+                          icon: "➕",
+                          className: ADD_TO_LIBRARY_CLASS,
+                          onClick: () => addMovie(r, false),
+                        },
+                        {
+                          key: "watchlist",
+                          label: `Add ${r.title} to watchlist`,
+                          icon: "🔖",
+                          className: ADD_TO_WATCHLIST_CLASS,
+                          onClick: () => addMovie(r, true),
+                        },
+                      ]}
+                    />
                   )}
                 </div>
               );
