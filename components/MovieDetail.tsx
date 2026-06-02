@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useMemo } from "react";
 import path from "path";
+import Button from "@/components/ui/Button";
 import { cleanTitle, getErrorMessage, parseGenreLabels } from "@/lib/utils";
 
 interface VideoAudioTrack {
@@ -762,10 +763,10 @@ export default function MovieDetail({
         <div className="shrink-0 flex items-center justify-end gap-2 px-3 sm:px-6 pt-3 pb-3">
           {filePath && (
             <div className="flex items-center gap-2 mr-2">
-              <button
+              <Button
                 onClick={() => handlePlay("play")}
                 disabled={isPlaying}
-                className="flex items-center gap-2 bg-indigo-500 hover:bg-indigo-600 text-white px-3.5 py-2 rounded-xl font-bold transition-all shadow-lg shadow-indigo-500/20 disabled:opacity-50 group min-h-11"
+                className="group flex min-h-11 items-center gap-2 rounded-xl bg-indigo-500 px-3.5 py-2 font-bold text-white shadow-lg shadow-indigo-500/20 transition-all hover:bg-indigo-600 disabled:opacity-50"
                 title="Play Movie"
                 aria-label="Play movie"
               >
@@ -775,7 +776,7 @@ export default function MovieDetail({
                 <span className="text-xs uppercase tracking-wider hidden sm:inline">
                   Play
                 </span>
-              </button>
+              </Button>
               <button
                 onClick={() => handlePlay("folder")}
                 className="flex items-center justify-center w-11 h-11 bg-gray-800 hover:bg-gray-700 text-gray-400 hover:text-white rounded-xl transition-all border border-gray-700/50 group"
@@ -983,14 +984,14 @@ export default function MovieDetail({
               {filePath && !showEmbedded && (
                 <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity bg-black/40 rounded-2xl backdrop-blur-[2px]">
                   <div className="flex flex-col gap-3">
-                    <button
+                    <Button
                       onClick={() => handlePlay("play")}
                       disabled={isPlaying}
-                      className="bg-indigo-500 hover:bg-indigo-600 text-white px-6 py-3 rounded-xl font-black uppercase tracking-widest shadow-xl shadow-indigo-500/20 flex items-center gap-3 transition-transform hover:scale-105 active:scale-95 disabled:opacity-50"
+                      className="flex items-center gap-3 rounded-xl bg-indigo-500 px-6 py-3 font-black uppercase tracking-widest text-white shadow-xl shadow-indigo-500/20 transition-transform hover:scale-105 hover:bg-indigo-600 active:scale-95 disabled:opacity-50"
                     >
                       <span className="text-xl">{isPlaying ? "⏳" : "▶️"}</span>
                       {isPlaying ? "Opening..." : "Play in VLC"}
-                    </button>
+                    </Button>
                     <button
                       onClick={() => setShowEmbedded(true)}
                       className="bg-white/10 hover:bg-white/20 text-white px-6 py-3 rounded-xl font-black uppercase tracking-widest backdrop-blur-md border border-white/10 flex items-center gap-3 transition-transform hover:scale-105 active:scale-95"
