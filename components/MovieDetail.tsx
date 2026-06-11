@@ -2,19 +2,10 @@
 
 import { useState, useEffect, useMemo } from "react";
 import path from "path";
-import CreditsSection from "@/components/movie-detail/CreditsSection";
-import EmbeddedPlayer from "@/components/movie-detail/EmbeddedPlayer";
 import ManagementBar from "@/components/movie-detail/ManagementBar";
 import ManagementMenu from "@/components/movie-detail/ManagementMenu";
-import MergeTargetSelector from "@/components/movie-detail/MergeTargetSelector";
-import MovieMetadataBadges from "@/components/movie-detail/MovieMetadataBadges";
-import MoviePoster from "@/components/movie-detail/MoviePoster";
-import MovieTimestamps from "@/components/movie-detail/MovieTimestamps";
-import QuickLinks from "@/components/movie-detail/QuickLinks";
-import RatingControls from "@/components/movie-detail/RatingControls";
-import StorageSection from "@/components/movie-detail/StorageSection";
-import SubtitlesSection from "@/components/movie-detail/SubtitlesSection";
-import TechnicalDetails from "@/components/movie-detail/TechnicalDetails";
+import MovieInfoColumn from "@/components/movie-detail/MovieInfoColumn";
+import MovieSidebar from "@/components/movie-detail/MovieSidebar";
 import type {
   MovieDetailMovie,
   PersonRating,
@@ -22,7 +13,7 @@ import type {
   SubtitleTrack,
   VideoMetadata,
 } from "@/components/movie-detail/types";
-import { cleanTitle, getErrorMessage, parseGenreLabels } from "@/lib/utils";
+import { cleanTitle, getErrorMessage } from "@/lib/utils";
 
 type Movie = MovieDetailMovie;
 
@@ -765,191 +756,65 @@ export default function MovieDetail({
         />
 
         <div className="overflow-y-auto flex-1 px-4 sm:px-8 pb-6 pt-3">
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
-          {/* Left Column: Poster, Credits & Technical Info */}
-          <div className="order-2 lg:order-1 lg:col-span-4 space-y-6">
-            <MoviePoster
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
+            <MovieSidebar
               title={movie.title}
               posterUrl={posterUrl}
               filePath={filePath}
               showEmbedded={showEmbedded}
               isPlaying={isPlaying}
-              onPlay={() => handlePlay("play")}
-              onEmbed={() => setShowEmbedded(true)}
-            />
-
-            {playError && (
-              <div className="bg-red-500/10 border border-red-500/20 rounded-xl p-3 text-red-400 text-[10px] font-bold uppercase tracking-wider text-center animate-in fade-in slide-in-from-top-2">
-                ⚠️ {playError}
-              </div>
-            )}
-
-            <CreditsSection
+              playError={playError}
               director={director}
               writer={writer}
               actors={actors}
               isLoadingMetadata={isLoadingMetadata}
+              videoMetadata={videoMetadata}
               personRatings={personRatings}
+              onPlay={() => handlePlay("play")}
+              onEmbed={() => setShowEmbedded(true)}
               onPersonClick={onPersonClick}
             />
 
-            <TechnicalDetails
-              videoMetadata={videoMetadata}
-              isLoadingMetadata={isLoadingMetadata}
-            />
-          </div>
-
-          <div className="order-1 lg:order-2 lg:col-span-8 space-y-6 sm:space-y-8">
-            <MoviePoster title={movie.title} posterUrl={posterUrl} size="mobile" />
-
-            {/* Title & Actions */}
-            <div className="space-y-2 sm:space-y-1">
-              <h2
-                id="movie-detail-title"
-                className="text-xl leading-tight sm:text-3xl lg:text-4xl font-black text-white tracking-tight"
-              >
-                {movieTitle}
-              </h2>
-              {plTitle && plTitle !== movieTitle && (
-                <p className="text-base leading-snug text-gray-400 font-medium sm:text-xl">
-                  {plTitle}
-                </p>
-              )}
-            </div>
-
-            <MovieMetadataBadges
-              year={movie.year}
-              source={movie.source}
+            <MovieInfoColumn
+              movie={movie}
+              movieTitle={movieTitle}
+              plTitle={plTitle}
+              description={description}
+              posterUrl={posterUrl}
               filePath={filePath}
-            />
-
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-              <div className="space-y-6">
-                <RatingControls
-                  globalRating={movie.rating}
-                  userRating={userRating}
-                  isRating={isRating}
-                  showRatingPicker={showRatingPicker}
-                  onTogglePicker={() => setShowRatingPicker((v) => !v)}
-                  onRate={handleRate}
-                />
-
-                {/* Genre */}
-                <div className="space-y-4">
-                  {movie.genre && (
-                    <div className="space-y-2">
-                      <p className="text-[10px] text-gray-500 font-black uppercase tracking-widest">
-                        Genres
-                      </p>
-                      <div className="flex flex-wrap gap-2">
-                        {parseGenreLabels(movie.genre).map((g) => (
-                          <span
-                            key={g}
-                            className="text-xs px-3 py-1 bg-gray-800 text-gray-300 rounded-lg border border-gray-700/50"
-                          >
-                            {g}
-                          </span>
-                        ))}
-                      </div>
-                    </div>
-                  )}
-                </div>
-              </div>
-
-              <div className="space-y-6">
-                {isMergeMode && (
-                  <MergeTargetSelector
-                    variant="compact"
-                    mergeQuery={mergeQuery}
-                    potentialMerges={potentialMerges}
-                    isMerging={isMerging}
-                    onQueryChange={setMergeQuery}
-                    onCancel={() => setIsMergeMode(false)}
-                    onMerge={handleMerge}
-                  />
-                )}
-
-                <QuickLinks
-                  title={movie.title}
-                  year={movie.year}
-                  tmdbId={movie.tmdb_id}
-                  filmwebUrl={movie.filmweb_url}
-                  cdaUrl={movie.cda_url}
-                  plTitle={plTitle}
-                />
-              </div>
-            </div>
-
-            {/* Description or Embedded Player */}
-            {showEmbedded && filePath ? (
-              <EmbeddedPlayer
-                movieId={movie.id}
-                posterUrl={posterUrl}
-                filePath={filePath}
-                extraFiles={extraFiles}
-                activePart={activePart}
-                subtitlesList={subtitlesList}
-                onSelectPart={setActivePart}
-                onClose={() => setShowEmbedded(false)}
-              />
-            ) : (
-              description && (
-                <div className="space-y-2">
-                  <p className="text-[10px] text-gray-500 font-black uppercase tracking-widest">
-                    Plot Summary
-                  </p>
-                  <p className="text-gray-300 text-base leading-relaxed font-normal">
-                    {description}
-                  </p>
-                </div>
-              )
-            )}
-
-            {isMergeMode && (
-              <MergeTargetSelector
-                variant="full"
-                mergeQuery={mergeQuery}
-                potentialMerges={potentialMerges}
-                isMerging={isMerging}
-                onQueryChange={setMergeQuery}
-                onCancel={() => setIsMergeMode(false)}
-                onMerge={handleMerge}
-              />
-            )}
-
-            <SubtitlesSection
-              movieTitle={movie.title}
-              filePath={filePath}
-              hasSubtitles={hasSubtitles}
+              extraFiles={extraFiles}
+              userRating={userRating}
+              isRating={isRating}
+              showRatingPicker={showRatingPicker}
+              isMergeMode={isMergeMode}
+              mergeQuery={mergeQuery}
+              potentialMerges={potentialMerges}
+              isMerging={isMerging}
+              showEmbedded={showEmbedded}
+              activePart={activePart}
               subtitlesList={subtitlesList}
+              hasSubtitles={hasSubtitles}
               isSubtitleUploading={isSubtitleUploading}
               isDraggingSub={isDraggingSub}
               subtitleError={subtitleError}
-              onDragOver={onDragOverSub}
-              onDragLeave={onDragLeaveSub}
-              onDrop={onDropSub}
+              isStandard={isStandard}
+              isStandardNoYear={isStandardNoYear}
+              isStandardizing={isStandardizing}
+              standardizeMsg={standardizeMsg}
+              onToggleRatingPicker={() => setShowRatingPicker((v) => !v)}
+              onRate={handleRate}
+              onMergeQueryChange={setMergeQuery}
+              onCancelMerge={() => setIsMergeMode(false)}
+              onMerge={handleMerge}
+              onSelectPart={setActivePart}
+              onCloseEmbedded={() => setShowEmbedded(false)}
+              onDragOverSub={onDragOverSub}
+              onDragLeaveSub={onDragLeaveSub}
+              onDropSub={onDropSub}
               onSubtitleUpload={handleSubtitleUpload}
-            />
-
-            {/* File Path Management */}
-            {filePath && (
-              <StorageSection
-                filePath={filePath}
-                extraFiles={extraFiles}
-                isStandard={isStandard}
-                isStandardNoYear={isStandardNoYear}
-                isStandardizing={isStandardizing}
-                standardizeMsg={standardizeMsg}
-                onStandardize={handleStandardize}
-              />
-            )}
-
-            <MovieTimestamps
-              createdAt={movie.created_at}
-              ratedAt={movie.rated_at}
+              onStandardize={handleStandardize}
             />
           </div>
-        </div>
         </div>
       </div>
     </div>
