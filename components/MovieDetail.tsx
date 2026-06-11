@@ -6,14 +6,14 @@ import ManagementBar from "@/components/movie-detail/ManagementBar";
 import ManagementMenu from "@/components/movie-detail/ManagementMenu";
 import MovieInfoColumn from "@/components/movie-detail/MovieInfoColumn";
 import MovieSidebar from "@/components/movie-detail/MovieSidebar";
+import { useMovieDetailMetadata } from "@/components/movie-detail/useMovieDetailMetadata";
+import { useMovieSubtitles } from "@/components/movie-detail/useMovieSubtitles";
+import { usePersonRatings } from "@/components/movie-detail/usePersonRatings";
 import type {
   MovieDetailMovie,
-  PersonRating,
   StandardizeMessage,
-  SubtitleTrack,
-  VideoMetadata,
 } from "@/components/movie-detail/types";
-import { cleanTitle, getErrorMessage } from "@/lib/utils";
+import { cleanTitle } from "@/lib/utils";
 
 type Movie = MovieDetailMovie;
 
@@ -27,31 +27,7 @@ interface MovieDetailProps {
   allMovies?: Movie[];
 }
 
-interface MovieDetailResponse {
-  movie?: Movie;
-  metadata?: VideoMetadata | { error: string } | null;
-}
-
-const pendingMovieDetailRequests = new Map<
-  number,
-  Promise<MovieDetailResponse>
->();
-
 const UNSAFE_PATH_CHARS = /[\\/:*?"<>|]/g;
-
-function fetchMovieDetail(movieId: number): Promise<MovieDetailResponse> {
-  const pending = pendingMovieDetailRequests.get(movieId);
-  if (pending) return pending;
-
-  const request = fetch(`/api/movies/${movieId}`)
-    .then((r) => r.json() as Promise<MovieDetailResponse>)
-    .finally(() => {
-      pendingMovieDetailRequests.delete(movieId);
-    });
-
-  pendingMovieDetailRequests.set(movieId, request);
-  return request;
-}
 
 export default function MovieDetail({
   movie,
@@ -63,20 +39,6 @@ export default function MovieDetail({
   allMovies,
 }: MovieDetailProps) {
   const [libraryRoot, setLibraryRoot] = useState<string | null>(null);
-  const [plTitle, setPlTitle] = useState<string | null>(movie.pl_title || null);
-  const [description, setDescription] = useState<string | null>(
-    movie.description || null,
-  );
-  const [director, setDirector] = useState<string | null>(
-    movie.director || null,
-  );
-  const [writer, setWriter] = useState<string | null>(movie.writer || null);
-  const [actors, setActors] = useState<string | null>(movie.actors || null);
-  const [filePath, setFilePath] = useState<string | null>(
-    movie.file_path || null,
-  );
-  const [movieTitle, setMovieTitle] = useState<string>(movie.title);
-  const [posterUrl, setPosterUrl] = useState<string | null>(movie.poster_url || null);
   const [isStandardizing, setIsStandardizing] = useState(false);
   const [isRemoving, setIsRemoving] = useState(false);
   const [isMerging, setIsMerging] = useState(false);
@@ -85,8 +47,6 @@ export default function MovieDetail({
     useState<StandardizeMessage | null>(null);
   const [mergeQuery, setMergeQuery] = useState("");
   const [isMergeMode, setIsMergeMode] = useState(false);
-  const [videoMetadata, setVideoMetadata] = useState<VideoMetadata | null>(null);
-  const [isLoadingMetadata, setIsLoadingMetadata] = useState(false);
   const [isRating, setIsRating] = useState(false);
   const [showRatingPicker, setShowRatingPicker] = useState(false);
   const [userRating, setUserRating] = useState<number | null>(
@@ -98,142 +58,55 @@ export default function MovieDetail({
   const [activePart, setActivePart] = useState(0);
   const [playError, setPlayError] = useState<string | null>(null);
 
-  // Subtitle state
-  const [hasSubtitles, setHasSubtitles] = useState<boolean>(false);
-  const [subtitlesList, setSubtitlesList] = useState<SubtitleTrack[]>([]);
-  const [isSubtitleUploading, setIsSubtitleUploading] = useState(false);
-  const [subtitleError, setSubtitleError] = useState<string | null>(null);
-  const [isDraggingSub, setIsDraggingSub] = useState(false);
-  const [personRatings, setPersonRatings] = useState<
-    Record<string, PersonRating>
-  >({});
   const isPersistedMovie = movie.id > 0;
+  const {
+    plTitle,
+    setPlTitle,
+    description,
+    setDescription,
+    director,
+    writer,
+    actors,
+    filePath,
+    setFilePath,
+    movieTitle,
+    setMovieTitle,
+    posterUrl,
+    videoMetadata,
+    isLoadingMetadata,
+  } = useMovieDetailMetadata({ movie, isPersistedMovie, onUpdate });
+  const personRatings = usePersonRatings(movie);
+  const {
+    hasSubtitles,
+    subtitlesList,
+    isSubtitleUploading,
+    subtitleError,
+    isDraggingSub,
+    handleSubtitleUpload,
+    onDragOverSub,
+    onDragLeaveSub,
+    onDropSub,
+  } = useMovieSubtitles({
+    movieId: movie.id,
+    filePath,
+    isPersistedMovie,
+  });
 
   const extraFiles = useMemo<string[]>(
     () => (movie.extra_files ? JSON.parse(movie.extra_files) : []),
     [movie.extra_files],
   );
 
-  // Sync state if movie prop changes
   useEffect(() => {
-    setMovieTitle(movie.title);
-    setPosterUrl(movie.poster_url || null);
-    setFilePath(movie.file_path || null);
-    setPlTitle(movie.pl_title || null);
-    setDescription(movie.description || null);
-    setDirector(movie.director || null);
-    setWriter(movie.writer || null);
-    setActors(movie.actors || null);
     setStandardizeMsg(null);
     setIsMergeMode(false);
     setMergeQuery("");
-    setSubtitleError(null);
-    setVideoMetadata(null);
     setUserRating(movie.user_rating || null);
     setIsMenuOpen(false);
     setShowEmbedded(false);
     setActivePart(0);
     setPlayError(null);
-    setPersonRatings({});
-
-    // Fetch person ratings for all credits (single batch request)
-    const allPeople = [
-      ...(movie.director || "")
-        .split(",")
-        .map((s) => s.trim())
-        .filter(Boolean),
-      ...(movie.writer || "")
-        .split(",")
-        .map((s) => s.trim())
-        .filter(Boolean),
-      ...(movie.actors || "")
-        .split(",")
-        .map((s) => s.trim())
-        .filter(Boolean),
-    ];
-    const uniquePeople = [...new Set(allPeople)];
-    if (uniquePeople.length > 0) {
-      const params = new URLSearchParams();
-      uniquePeople.forEach((n) => params.append("names", n));
-      fetch(`/api/person-ratings?${params}`)
-        .then((r) => r.json())
-        .then(
-          (
-            results: {
-              name: string;
-              avg_rating: number;
-              movie_count: number;
-            }[],
-          ) => {
-            const map: Record<
-              string,
-              { avg_rating: number; movie_count: number }
-            > = {};
-            for (const r of results) {
-              if (r.movie_count >= 1) {
-                if (!map[r.name] || r.movie_count > map[r.name].movie_count) {
-                  map[r.name] = {
-                    avg_rating: r.avg_rating,
-                    movie_count: r.movie_count,
-                  };
-                }
-              }
-            }
-            setPersonRatings(map);
-          },
-        )
-        .catch(() => {});
-    }
-
-    if (!isPersistedMovie) {
-      setIsLoadingMetadata(false);
-      return;
-    }
-
-    // Fetch full movie details including metadata
-    setIsLoadingMetadata(true);
-    fetchMovieDetail(movie.id)
-      .then((data) => {
-        if (data.metadata) {
-          if (data.metadata.error) {
-            setVideoMetadata({ error: data.metadata.error });
-          } else {
-            setVideoMetadata(data.metadata);
-          }
-        }
-        if (data.movie) {
-          // Auto-link may have detected this row was a duplicate of another canonical movie
-          // and merged us into it. Tell the parent so it can swap the selected movie.
-          if (data.movie.id !== movie.id && onUpdate) {
-            onUpdate(data.movie);
-            return;
-          }
-          if (data.movie.pl_title) setPlTitle(data.movie.pl_title);
-          if (data.movie.description) setDescription(data.movie.description);
-          if (data.movie.director) setDirector(data.movie.director);
-          if (data.movie.writer) setWriter(data.movie.writer);
-          if (data.movie.actors) setActors(data.movie.actors);
-          if (data.movie.poster_url) setPosterUrl(data.movie.poster_url);
-        }
-      })
-      .catch(console.error)
-      .finally(() => setIsLoadingMetadata(false));
-  }, [movie, isPersistedMovie]);
-
-  useEffect(() => {
-    if (isPersistedMovie && filePath) {
-      fetch(`/api/movies/${movie.id}/subtitles`)
-        .then((r) => r.json())
-        .then((data) => {
-          setHasSubtitles(data.hasSubtitles);
-          setSubtitlesList(data.subtitles || []);
-        })
-        .catch(console.error);
-    } else {
-      setHasSubtitles(false);
-      setSubtitlesList([]);
-    }
-  }, [movie.id, filePath, isPersistedMovie]);
+  }, [movie]);
 
   useEffect(() => {
     fetch("/api/settings")
@@ -282,76 +155,6 @@ export default function MovieDetail({
       alert("Merge failed");
     } finally {
       setIsMerging(false);
-    }
-  };
-
-  const handleSubtitleUpload = async (file: File) => {
-    console.log(
-      `[Subtitles] Starting upload: ${file.name} (${file.size} bytes)`,
-    );
-    setIsSubtitleUploading(true);
-    setSubtitleError(null);
-    const formData = new FormData();
-    formData.append("file", file);
-
-    try {
-      console.log(`[Subtitles] POST /api/movies/${movie.id}/subtitles`);
-      const res = await fetch(`/api/movies/${movie.id}/subtitles`, {
-        method: "POST",
-        body: formData,
-      });
-
-      const text = await res.text();
-      console.log(`[Subtitles] Response received:`, text.slice(0, 100));
-
-      let data;
-      try {
-        data = JSON.parse(text);
-      } catch (e) {
-        console.error(`[Subtitles] Failed to parse JSON:`, text);
-        throw new Error("Invalid server response");
-      }
-
-      if (data.ok) {
-        console.log(`[Subtitles] Upload successful: ${data.fileName}`);
-        setHasSubtitles(true);
-        setSubtitlesList((prev) => [
-          ...prev,
-          { name: data.fileName, path: data.path },
-        ]);
-      } else {
-        console.warn(`[Subtitles] Upload failed: ${data.error}`);
-        setSubtitleError(data.error || "Upload failed");
-      }
-    } catch (e) {
-      console.error(`[Subtitles] Network error:`, e);
-      setSubtitleError(`Network error: ${getErrorMessage(e) || "Check console"}`);
-    } finally {
-      setIsSubtitleUploading(false);
-    }
-  };
-
-  const onDragOverSub = (e: React.DragEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
-    setIsDraggingSub(true);
-  };
-
-  const onDragLeaveSub = (e: React.DragEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
-    setIsDraggingSub(false);
-  };
-
-  const onDropSub = (e: React.DragEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
-    setIsDraggingSub(false);
-
-    const file = e.dataTransfer.files?.[0];
-    if (file) {
-      console.log(`[Subtitles] File dropped: ${file.name}`);
-      handleSubtitleUpload(file);
     }
   };
 
