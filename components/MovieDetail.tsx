@@ -2,52 +2,18 @@
 
 import { useState, useEffect, useMemo } from "react";
 import path from "path";
+import CreditsSection from "@/components/movie-detail/CreditsSection";
+import MoviePoster from "@/components/movie-detail/MoviePoster";
+import TechnicalDetails from "@/components/movie-detail/TechnicalDetails";
+import type {
+  MovieDetailMovie,
+  PersonRating,
+  VideoMetadata,
+} from "@/components/movie-detail/types";
 import Button from "@/components/ui/Button";
 import { cleanTitle, getErrorMessage, parseGenreLabels } from "@/lib/utils";
 
-interface VideoAudioTrack {
-  codec: string;
-  channels: number;
-  language?: string;
-}
-
-interface VideoMetadata {
-  error?: string;
-  size?: number;
-  bitrate?: number;
-  video?: {
-    width?: number;
-    height?: number;
-    codec?: string;
-  };
-  audio?: VideoAudioTrack[];
-}
-
-interface Movie {
-  id: number;
-  title: string;
-  year: number | null;
-  genre: string | null;
-  director: string | null;
-  writer: string | null;
-  actors: string | null;
-  rating: number | null;
-  user_rating: number | null;
-  poster_url: string | null;
-  source: string | null;
-  type: string;
-  tmdb_id?: number | null;
-  imdb_id?: string | null;
-  filmweb_url?: string | null;
-  cda_url?: string | null;
-  pl_title?: string | null;
-  description?: string | null;
-  rated_at: string | null;
-  created_at: string;
-  file_path?: string | null;
-  extra_files?: string | null;
-  video_metadata?: string | null;
-}
+type Movie = MovieDetailMovie;
 
 interface MovieDetailProps {
   movie: Movie;
@@ -142,7 +108,7 @@ export default function MovieDetail({
   const [subtitleError, setSubtitleError] = useState<string | null>(null);
   const [isDraggingSub, setIsDraggingSub] = useState(false);
   const [personRatings, setPersonRatings] = useState<
-    Record<string, { avg_rating: number; movie_count: number }>
+    Record<string, PersonRating>
   >({});
   const isPersistedMovie = movie.id > 0;
 
@@ -948,61 +914,15 @@ export default function MovieDetail({
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
           {/* Left Column: Poster, Credits & Technical Info */}
           <div className="order-2 lg:order-1 lg:col-span-4 space-y-6">
-            <div className="hidden lg:block flex-shrink-0 relative group">
-              {posterUrl ? (
-                <div className="relative aspect-[2/3]">
-                  <img
-                    src={posterUrl}
-                    alt={movie.title}
-                    className="w-full h-full object-cover rounded-2xl shadow-2xl border border-gray-700/30"
-                    onError={(e) => {
-                      // If TMDB image fails, try a fallback or just show the placeholder
-                      (e.target as HTMLImageElement).style.display = "none";
-                      (
-                        e.target as HTMLImageElement
-                      ).parentElement?.classList.add(
-                        "flex",
-                        "items-center",
-                        "justify-center",
-                        "bg-gray-800",
-                      );
-                      const span = document.createElement("span");
-                      span.className = "text-6xl opacity-30";
-                      span.innerText = "🎬";
-                      (e.target as HTMLImageElement).parentElement?.appendChild(
-                        span,
-                      );
-                    }}
-                  />
-                </div>
-              ) : (
-                <div className="w-full aspect-[2/3] bg-gray-800 rounded-2xl flex items-center justify-center border border-gray-700/30">
-                  <span className="text-6xl opacity-30">🎬</span>
-                </div>
-              )}
-
-              {filePath && !showEmbedded && (
-                <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity bg-black/40 rounded-2xl backdrop-blur-[2px]">
-                  <div className="flex flex-col gap-3">
-                    <Button
-                      onClick={() => handlePlay("play")}
-                      disabled={isPlaying}
-                      className="flex items-center gap-3 rounded-xl bg-indigo-500 px-6 py-3 font-black uppercase tracking-widest text-white shadow-xl shadow-indigo-500/20 transition-transform hover:scale-105 hover:bg-indigo-600 active:scale-95 disabled:opacity-50"
-                    >
-                      <span className="text-xl">{isPlaying ? "⏳" : "▶️"}</span>
-                      {isPlaying ? "Opening..." : "Play in VLC"}
-                    </Button>
-                    <button
-                      onClick={() => setShowEmbedded(true)}
-                      className="bg-white/10 hover:bg-white/20 text-white px-6 py-3 rounded-xl font-black uppercase tracking-widest backdrop-blur-md border border-white/10 flex items-center gap-3 transition-transform hover:scale-105 active:scale-95"
-                    >
-                      <span className="text-xl">📺</span>
-                      Embed Player
-                    </button>
-                  </div>
-                </div>
-              )}
-            </div>
+            <MoviePoster
+              title={movie.title}
+              posterUrl={posterUrl}
+              filePath={filePath}
+              showEmbedded={showEmbedded}
+              isPlaying={isPlaying}
+              onPlay={() => handlePlay("play")}
+              onEmbed={() => setShowEmbedded(true)}
+            />
 
             {playError && (
               <div className="bg-red-500/10 border border-red-500/20 rounded-xl p-3 text-red-400 text-[10px] font-bold uppercase tracking-wider text-center animate-in fade-in slide-in-from-top-2">
@@ -1010,246 +930,23 @@ export default function MovieDetail({
               </div>
             )}
 
-            {/* Credits Info */}
-            <div className="bg-gray-800/40 rounded-2xl p-5 border border-gray-700/30 space-y-4">
-              {director && (
-                <div className="space-y-1.5">
-                  <p className="text-[10px] text-gray-500 font-black uppercase tracking-widest">
-                    Director
-                  </p>
-                  <div className="flex flex-col gap-1">
-                    {director.split(",").map((d, i) => {
-                      const name = d.trim();
-                      const pr = personRatings[name];
-                      return (
-                        <div key={i} className="flex items-center gap-2">
-                          <button
-                            onClick={() => onPersonClick?.(name)}
-                            className="text-white text-sm font-medium hover:text-indigo-400 transition-colors text-left"
-                          >
-                            {name}
-                          </button>
-                          {pr && (
-                            <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-md bg-indigo-500/20 text-indigo-400">
-                              {pr.avg_rating}/10 ({pr.movie_count})
-                            </span>
-                          )}
-                        </div>
-                      );
-                    })}
-                  </div>
-                </div>
-              )}
-              {writer && (
-                <div className="space-y-1.5">
-                  <p className="text-[10px] text-gray-500 font-black uppercase tracking-widest">
-                    Scenario
-                  </p>
-                  <div className="flex flex-col gap-1">
-                    {writer.split(",").map((w, i) => {
-                      const name = w.trim();
-                      const pr = personRatings[name];
-                      return (
-                        <div key={i} className="flex items-center gap-2">
-                          <button
-                            onClick={() => onPersonClick?.(name)}
-                            className="text-white text-sm font-medium hover:text-indigo-400 transition-colors text-left"
-                          >
-                            {name}
-                          </button>
-                          {pr && (
-                            <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-md bg-indigo-500/20 text-indigo-400">
-                              {pr.avg_rating}/10 ({pr.movie_count})
-                            </span>
-                          )}
-                        </div>
-                      );
-                    })}
-                  </div>
-                </div>
-              )}
-              {actors && (
-                <div className="space-y-1.5">
-                  <p className="text-[10px] text-gray-500 font-black uppercase tracking-widest">
-                    Actors
-                  </p>
-                  <div className="flex flex-col gap-1">
-                    {actors.split(",").map((actor, i) => {
-                      const name = actor.trim();
-                      const pr = personRatings[name];
-                      return (
-                        <div key={i} className="flex items-center gap-2">
-                          <button
-                            onClick={() => onPersonClick?.(name)}
-                            className="text-white text-sm font-medium hover:text-indigo-400 transition-colors text-left"
-                          >
-                            {name}
-                          </button>
-                          {pr && (
-                            <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-md bg-indigo-500/20 text-indigo-400">
-                              {pr.avg_rating}/10 ({pr.movie_count})
-                            </span>
-                          )}
-                        </div>
-                      );
-                    })}
-                  </div>
-                </div>
-              )}
-              {!director && !writer && !actors && isLoadingMetadata && (
-                <div className="animate-pulse space-y-4">
-                  <div className="h-3 bg-gray-700 rounded w-1/2"></div>
-                  <div className="h-4 bg-gray-700 rounded w-3/4"></div>
-                </div>
-              )}
-            </div>
+            <CreditsSection
+              director={director}
+              writer={writer}
+              actors={actors}
+              isLoadingMetadata={isLoadingMetadata}
+              personRatings={personRatings}
+              onPersonClick={onPersonClick}
+            />
 
-            {/* Technical Metadata */}
-            {(videoMetadata || isLoadingMetadata) && (
-              <div className="bg-gray-800/40 rounded-2xl p-5 border border-gray-700/30 space-y-4">
-                <div className="flex items-center justify-between">
-                  <h3 className="text-xs font-bold uppercase tracking-widest text-indigo-400">
-                    Technical Details
-                  </h3>
-                  {isLoadingMetadata && (
-                    <span className="animate-pulse text-[10px] text-gray-500 font-bold uppercase">
-                      Loading...
-                    </span>
-                  )}
-                </div>
-
-                {videoMetadata?.error && (
-                  <div className="bg-red-500/10 border border-red-500/20 rounded-xl p-3">
-                    <p className="text-red-400 text-xs">
-                      {videoMetadata.error}
-                    </p>
-                  </div>
-                )}
-
-                {videoMetadata && !videoMetadata.error && (
-                  <div className="grid grid-cols-2 gap-y-4 gap-x-2">
-                    <div className="space-y-1">
-                      <p className="text-[10px] text-gray-500 font-bold uppercase tracking-tighter">
-                        Resolution
-                      </p>
-                      <div className="text-sm text-gray-200 font-medium flex items-center gap-1.5 flex-wrap">
-                        {videoMetadata.video?.width} ×{" "}
-                        {videoMetadata.video?.height}
-                        {(videoMetadata.video?.width ?? 0) >= 3840 ? (
-                          <span className="px-1 py-0.5 bg-yellow-500/10 text-yellow-500 text-[9px] font-black rounded border border-yellow-500/20">
-                            4K
-                          </span>
-                        ) : (videoMetadata.video?.width ?? 0) >= 1920 ? (
-                          <span className="px-1 py-0.5 bg-blue-500/10 text-blue-500 text-[9px] font-black rounded border border-blue-500/20">
-                            FHD
-                          </span>
-                        ) : (videoMetadata.video?.width ?? 0) >= 1280 ? (
-                          <span className="px-1 py-0.5 bg-green-500/10 text-green-400 text-[9px] font-black rounded border border-green-500/20">
-                            HD
-                          </span>
-                        ) : (
-                          <span className="px-1 py-0.5 bg-gray-500/10 text-gray-400 text-[9px] font-black rounded border border-gray-500/20 uppercase">
-                            SD
-                          </span>
-                        )}
-                      </div>
-                    </div>
-                    <div className="space-y-1">
-                      <p className="text-[10px] text-gray-500 font-bold uppercase tracking-tighter">
-                        Video Codec
-                      </p>
-                      <p className="text-sm text-gray-200 font-medium uppercase">
-                        {videoMetadata.video?.codec}
-                      </p>
-                    </div>
-                    <div className="space-y-1">
-                      <p className="text-[10px] text-gray-500 font-bold uppercase tracking-tighter">
-                        File Size
-                      </p>
-                      <p className="text-sm text-gray-200 font-medium">
-                        {((videoMetadata.size ?? 0) / (1024 * 1024 * 1024)).toFixed(2)}{" "}
-                        GB
-                      </p>
-                    </div>
-                    <div className="space-y-1">
-                      <p className="text-[10px] text-gray-500 font-bold uppercase tracking-tighter">
-                        Bitrate
-                      </p>
-                      <p className="text-sm text-gray-200 font-medium">
-                        {((videoMetadata.bitrate ?? 0) / 1000).toFixed(0)} kbps
-                      </p>
-                    </div>
-
-                    {videoMetadata.audio && videoMetadata.audio.length > 0 && (
-                      <div className="col-span-2 space-y-2 pt-2 border-t border-gray-700/30">
-                        <p className="text-[10px] text-gray-500 font-bold uppercase tracking-tighter">
-                          Audio Tracks
-                        </p>
-                        <div className="space-y-2">
-                          {videoMetadata.audio.map(
-                            (audio: VideoAudioTrack, idx: number) => (
-                              <div
-                                key={idx}
-                                className="flex items-center justify-between bg-gray-900/40 px-2.5 py-1.5 rounded-lg border border-gray-700/20"
-                              >
-                                <span className="text-xs text-gray-300 font-medium uppercase">
-                                  {audio.codec}
-                                </span>
-                                <div className="flex items-center gap-2">
-                                  <span className="text-[10px] text-gray-500 font-bold">
-                                    {audio.channels} ch
-                                  </span>
-                                  {audio.language && (
-                                    <span className="px-1 py-0.5 bg-indigo-500/10 text-indigo-400 text-[9px] font-black rounded border border-indigo-500/20 uppercase">
-                                      {audio.language}
-                                    </span>
-                                  )}
-                                </div>
-                              </div>
-                            ),
-                          )}
-                        </div>
-                      </div>
-                    )}
-                  </div>
-                )}
-              </div>
-            )}
+            <TechnicalDetails
+              videoMetadata={videoMetadata}
+              isLoadingMetadata={isLoadingMetadata}
+            />
           </div>
 
           <div className="order-1 lg:order-2 lg:col-span-8 space-y-6 sm:space-y-8">
-            <div className="lg:hidden mx-auto w-full max-w-[220px]">
-              {posterUrl ? (
-                <div className="relative aspect-[2/3]">
-                  <img
-                    src={posterUrl}
-                    alt={movie.title}
-                    className="w-full h-full object-cover rounded-2xl shadow-2xl border border-gray-700/30"
-                    onError={(e) => {
-                      (e.target as HTMLImageElement).style.display = "none";
-                      (
-                        e.target as HTMLImageElement
-                      ).parentElement?.classList.add(
-                        "flex",
-                        "items-center",
-                        "justify-center",
-                        "bg-gray-800",
-                      );
-                      const span = document.createElement("span");
-                      span.className = "text-6xl opacity-30";
-                      span.innerText = "🎬";
-                      (e.target as HTMLImageElement).parentElement?.appendChild(
-                        span,
-                      );
-                    }}
-                  />
-                </div>
-              ) : (
-                <div className="w-full aspect-[2/3] bg-gray-800 rounded-2xl flex items-center justify-center border border-gray-700/30">
-                  <span className="text-6xl opacity-30">🎬</span>
-                </div>
-              )}
-            </div>
+            <MoviePoster title={movie.title} posterUrl={posterUrl} size="mobile" />
 
             {/* Title & Actions */}
             <div className="space-y-2 sm:space-y-1">
