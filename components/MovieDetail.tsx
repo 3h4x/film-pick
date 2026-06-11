@@ -4,10 +4,14 @@ import { useState, useEffect, useMemo } from "react";
 import path from "path";
 import CreditsSection from "@/components/movie-detail/CreditsSection";
 import MoviePoster from "@/components/movie-detail/MoviePoster";
+import StorageSection from "@/components/movie-detail/StorageSection";
+import SubtitlesSection from "@/components/movie-detail/SubtitlesSection";
 import TechnicalDetails from "@/components/movie-detail/TechnicalDetails";
 import type {
   MovieDetailMovie,
   PersonRating,
+  StandardizeMessage,
+  SubtitleTrack,
   VideoMetadata,
 } from "@/components/movie-detail/types";
 import Button from "@/components/ui/Button";
@@ -79,11 +83,8 @@ export default function MovieDetail({
   const [isRemoving, setIsRemoving] = useState(false);
   const [isMerging, setIsMerging] = useState(false);
   const [isDeletingDisk, setIsDeletingDisk] = useState(false);
-  const [standardizeMsg, setStandardizeMsg] = useState<{
-    type: "success" | "error";
-    text: string;
-    code?: string;
-  } | null>(null);
+  const [standardizeMsg, setStandardizeMsg] =
+    useState<StandardizeMessage | null>(null);
   const [mergeQuery, setMergeQuery] = useState("");
   const [isMergeMode, setIsMergeMode] = useState(false);
   const [videoMetadata, setVideoMetadata] = useState<VideoMetadata | null>(null);
@@ -101,9 +102,7 @@ export default function MovieDetail({
 
   // Subtitle state
   const [hasSubtitles, setHasSubtitles] = useState<boolean>(false);
-  const [subtitlesList, setSubtitlesList] = useState<
-    { name: string; path: string }[]
-  >([]);
+  const [subtitlesList, setSubtitlesList] = useState<SubtitleTrack[]>([]);
   const [isSubtitleUploading, setIsSubtitleUploading] = useState(false);
   const [subtitleError, setSubtitleError] = useState<string | null>(null);
   const [isDraggingSub, setIsDraggingSub] = useState(false);
@@ -691,28 +690,30 @@ export default function MovieDetail({
   const safeTitle = movieTitle.replace(UNSAFE_PATH_CHARS, " ");
 
   // Standard format: Title [Year]/Title.ext
-  const isStandard =
+  const isStandard = Boolean(
     filePath &&
-    movie.year &&
-    libraryRoot &&
-    filePath ===
-      path.join(
-        libraryRoot,
-        `${safeTitle} [${movie.year}]`,
-        `${safeTitle}${path.extname(filePath)}`,
-      );
+      movie.year &&
+      libraryRoot &&
+      filePath ===
+        path.join(
+          libraryRoot,
+          `${safeTitle} [${movie.year}]`,
+          `${safeTitle}${path.extname(filePath)}`,
+        ),
+  );
 
   // Also check for standard format WITHOUT year in folder if movie.year is missing: Title/Title.ext
-  const isStandardNoYear =
+  const isStandardNoYear = Boolean(
     filePath &&
-    !movie.year &&
-    libraryRoot &&
-    filePath ===
-      path.join(
-        libraryRoot,
-        safeTitle,
-        `${safeTitle}${path.extname(filePath)}`,
-      );
+      !movie.year &&
+      libraryRoot &&
+      filePath ===
+        path.join(
+          libraryRoot,
+          safeTitle,
+          `${safeTitle}${path.extname(filePath)}`,
+        ),
+  );
 
   return (
     <div
@@ -1330,225 +1331,31 @@ export default function MovieDetail({
               </div>
             )}
 
-            {/* Subtitles Section */}
-            <div className="space-y-3">
-              <p className="text-[10px] text-gray-500 font-black uppercase tracking-widest">
-                Subtitle Management
-              </p>
-              <div className="bg-gray-800/30 rounded-2xl p-5 border border-gray-700/30">
-                <div className="flex items-center justify-between mb-4">
-                  <div className="flex items-center gap-2">
-                    <span className="text-lg">⌨️</span>
-                    <span className="text-xs font-bold text-gray-300 uppercase tracking-widest">
-                      Available Tracks
-                    </span>
-                  </div>
-                  {hasSubtitles && (
-                    <span className="text-[9px] font-black uppercase tracking-widest px-2 py-0.5 rounded-full bg-green-500/10 text-green-400 border border-green-500/20">
-                      Standardized
-                    </span>
-                  )}
-                </div>
-
-                {filePath ? (
-                  <div className="space-y-4">
-                    {subtitlesList.length > 0 ? (
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                        {subtitlesList.map((sub, i) => (
-                          <div
-                            key={i}
-                            className="flex items-center gap-3 bg-gray-900/60 px-3 py-2 rounded-xl border border-gray-700/20 group"
-                          >
-                            <span className="text-indigo-500 font-black text-[9px] tracking-tighter">
-                              POL
-                            </span>
-                            <span className="text-xs text-gray-400 truncate flex-1">
-                              {sub.name}
-                            </span>
-                            <span className="text-[10px] opacity-0 group-hover:opacity-100 transition-opacity text-gray-600">
-                              .srt
-                            </span>
-                          </div>
-                        ))}
-                      </div>
-                    ) : (
-                      <div className="text-center py-6 bg-gray-900/40 rounded-2xl border border-dashed border-gray-700/50">
-                        <p className="text-gray-500 text-xs font-medium">
-                          No localized subtitles found in movie folder.
-                        </p>
-                      </div>
-                    )}
-
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-2">
-                      <a
-                        href={`https://www.opensubtitles.org/en/search2/moviename-${encodeURIComponent(movie.title)}/sublanguageid-pol`}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="flex items-center justify-center gap-2 bg-indigo-500/10 hover:bg-indigo-500/20 border border-indigo-500/20 py-3 rounded-xl transition-all"
-                      >
-                        <span className="text-xs font-black text-indigo-400 uppercase tracking-widest">
-                          Search OpenSubtitles
-                        </span>
-                        <span className="text-sm">↗</span>
-                      </a>
-
-                      <label
-                        className={`cursor-pointer border-2 border-dashed rounded-xl transition-all flex items-center justify-center gap-3 py-3 ${
-                          isSubtitleUploading
-                            ? "bg-gray-800/50 border-gray-700 text-gray-500 cursor-not-allowed"
-                            : isDraggingSub
-                              ? "bg-indigo-500/10 border-indigo-500 text-indigo-400 scale-[1.02]"
-                              : "bg-gray-800/30 border-gray-700/50 text-gray-400 hover:bg-indigo-500/5 hover:border-indigo-500/30 hover:text-indigo-300"
-                        }`}
-                        onDragOver={onDragOverSub}
-                        onDragLeave={onDragLeaveSub}
-                        onDrop={onDropSub}
-                      >
-                        <span className="text-lg">
-                          {isSubtitleUploading
-                            ? "⏳"
-                            : isDraggingSub
-                              ? "✨"
-                              : "📁"}
-                        </span>
-                        <span className="text-xs font-black uppercase tracking-widest">
-                          {isSubtitleUploading
-                            ? "Uploading..."
-                            : isDraggingSub
-                              ? "Drop Subtitle"
-                              : "Drop .srt here"}
-                        </span>
-                        <input
-                          type="file"
-                          accept=".srt,.sub,.txt,.ass"
-                          className="hidden"
-                          onChange={(e) => {
-                            const file = e.target.files?.[0];
-                            if (file) handleSubtitleUpload(file);
-                          }}
-                          disabled={isSubtitleUploading}
-                        />
-                      </label>
-                    </div>
-                  </div>
-                ) : (
-                  <div className="text-center py-8">
-                    <p className="text-gray-500 text-sm mb-4 italic">
-                      Metadata only. Link a local file to manage subtitles.
-                    </p>
-                    <a
-                      href={`https://www.opensubtitles.org/en/search2/moviename-${encodeURIComponent(movie.title)}/sublanguageid-pol`}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="inline-flex items-center gap-2 text-xs font-black text-indigo-400 uppercase tracking-widest hover:text-indigo-300 transition-colors"
-                    >
-                      OpenSubtitles.org ↗
-                    </a>
-                  </div>
-                )}
-
-                {subtitleError && (
-                  <p className="mt-3 px-3 py-2 bg-red-500/10 text-red-400 text-[10px] font-bold uppercase rounded-lg border border-red-500/20 text-center">
-                    {subtitleError}
-                  </p>
-                )}
-              </div>
-            </div>
+            <SubtitlesSection
+              movieTitle={movie.title}
+              filePath={filePath}
+              hasSubtitles={hasSubtitles}
+              subtitlesList={subtitlesList}
+              isSubtitleUploading={isSubtitleUploading}
+              isDraggingSub={isDraggingSub}
+              subtitleError={subtitleError}
+              onDragOver={onDragOverSub}
+              onDragLeave={onDragLeaveSub}
+              onDrop={onDropSub}
+              onSubtitleUpload={handleSubtitleUpload}
+            />
 
             {/* File Path Management */}
             {filePath && (
-              <div className="space-y-3">
-                <p className="text-[10px] text-gray-500 font-black uppercase tracking-widest">
-                  Storage & File System
-                </p>
-                <div className="bg-gray-800/40 rounded-2xl p-5 border border-gray-700/30 space-y-4">
-                  <div className="flex flex-col gap-4">
-                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-                      <div className="flex items-start gap-2 flex-1 min-w-0">
-                        <div className="p-2 bg-gray-900/60 rounded-lg shrink-0">
-                          <span className="text-sm">📂</span>
-                        </div>
-                        <p className="text-gray-300 text-xs font-mono break-all bg-gray-900/40 px-3 py-2 rounded-lg border border-gray-700/20 flex-1 leading-relaxed">
-                          {filePath}
-                          {extraFiles.length > 0 && (
-                              <span className="ml-2 px-1 py-0.5 bg-indigo-500/20 text-indigo-400 text-[9px] font-black rounded uppercase">
-                                Part 1
-                              </span>
-                            )}
-                        </p>
-                      </div>
-                      <div className="shrink-0 flex justify-end">
-                        {isStandard || isStandardNoYear ? (
-                          <div className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-green-500/10 border border-green-500/20">
-                            <span className="text-xs">✅</span>
-                            <span className="text-[10px] font-black uppercase tracking-widest text-green-400">
-                              Standard
-                            </span>
-                          </div>
-                        ) : (
-                          <button
-                            onClick={handleStandardize}
-                            disabled={isStandardizing}
-                            className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-indigo-500/10 hover:bg-indigo-500/20 border border-indigo-500/20 text-indigo-400 transition-colors disabled:opacity-50"
-                          >
-                            <span className="text-xs">
-                              {isStandardizing ? "⏳" : "✨"}
-                            </span>
-                            <span className="text-[10px] font-black uppercase tracking-widest">
-                              Standardize
-                            </span>
-                          </button>
-                        )}
-                      </div>
-                    </div>
-
-                    {extraFiles.map(
-                        (extraPath: string, idx: number) => (
-                          <div
-                            key={idx}
-                            className="flex items-start gap-2 pl-4 border-l-2 border-gray-700/50"
-                          >
-                            <div className="p-2 bg-gray-900/60 rounded-lg shrink-0">
-                              <span className="text-sm">🎞️</span>
-                            </div>
-                            <p className="text-gray-400 text-[10px] font-mono break-all bg-gray-900/20 px-3 py-2 rounded-lg border border-gray-700/10 flex-1 leading-relaxed">
-                              {extraPath}
-                              <span className="ml-2 px-1 py-0.5 bg-indigo-500/10 text-indigo-500/60 text-[9px] font-black rounded uppercase">
-                                Part {idx + 2}
-                              </span>
-                            </p>
-                          </div>
-                        ),
-                      )}
-                  </div>
-
-                  {standardizeMsg && (
-                    <div
-                      className={`p-4 rounded-xl border animate-in fade-in slide-in-from-top-2 duration-300 ${
-                        standardizeMsg.type === "success"
-                          ? "bg-green-500/5 border-green-500/20 text-green-400"
-                          : "bg-red-500/5 border-red-500/20 text-red-400"
-                      }`}
-                    >
-                      <div className="flex items-start gap-3">
-                        <span className="text-sm mt-0.5">
-                          {standardizeMsg.type === "success" ? "✨" : "⚠️"}
-                        </span>
-                        <div className="flex-1">
-                          <p className="text-[10px] font-black uppercase tracking-widest mb-1">
-                            {standardizeMsg.type === "success"
-                              ? "Library Synced"
-                              : "Action Required"}
-                          </p>
-                          <p className="text-xs font-medium leading-relaxed">
-                            {standardizeMsg.text}
-                          </p>
-                        </div>
-                      </div>
-                    </div>
-                  )}
-                </div>
-              </div>
+              <StorageSection
+                filePath={filePath}
+                extraFiles={extraFiles}
+                isStandard={isStandard}
+                isStandardNoYear={isStandardNoYear}
+                isStandardizing={isStandardizing}
+                standardizeMsg={standardizeMsg}
+                onStandardize={handleStandardize}
+              />
             )}
 
             {/* Timestamps */}

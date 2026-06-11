@@ -46,3 +46,14 @@ export interface PersonRating {
   avg_rating: number;
   movie_count: number;
 }
+
+export interface SubtitleTrack {
+  name: string;
+  path: string;
+}
+
+export interface StandardizeMessage {
+  type: "success" | "error";
+  text: string;
+  code?: string;
+}
