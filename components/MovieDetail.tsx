@@ -4,7 +4,12 @@ import { useState, useEffect, useMemo } from "react";
 import path from "path";
 import CreditsSection from "@/components/movie-detail/CreditsSection";
 import EmbeddedPlayer from "@/components/movie-detail/EmbeddedPlayer";
+import ManagementBar from "@/components/movie-detail/ManagementBar";
+import ManagementMenu from "@/components/movie-detail/ManagementMenu";
+import MergeTargetSelector from "@/components/movie-detail/MergeTargetSelector";
+import MovieMetadataBadges from "@/components/movie-detail/MovieMetadataBadges";
 import MoviePoster from "@/components/movie-detail/MoviePoster";
+import MovieTimestamps from "@/components/movie-detail/MovieTimestamps";
 import QuickLinks from "@/components/movie-detail/QuickLinks";
 import RatingControls from "@/components/movie-detail/RatingControls";
 import StorageSection from "@/components/movie-detail/StorageSection";
@@ -17,7 +22,6 @@ import type {
   SubtitleTrack,
   VideoMetadata,
 } from "@/components/movie-detail/types";
-import Button from "@/components/ui/Button";
 import { cleanTitle, getErrorMessage, parseGenreLabels } from "@/lib/utils";
 
 type Movie = MovieDetailMovie;
@@ -730,189 +734,35 @@ export default function MovieDetail({
         aria-modal="true"
         aria-labelledby="movie-detail-title"
       >
-        <div className="shrink-0 flex items-center justify-end gap-2 px-3 sm:px-6 pt-3 pb-3">
-          {filePath && (
-            <div className="flex items-center gap-2 mr-2">
-              <Button
-                onClick={() => handlePlay("play")}
-                disabled={isPlaying}
-                className="group flex min-h-11 items-center gap-2 rounded-xl bg-indigo-500 px-3.5 py-2 font-bold text-white shadow-lg shadow-indigo-500/20 transition-all hover:bg-indigo-600 disabled:opacity-50"
-                title="Play Movie"
-                aria-label="Play movie"
-              >
-                <span className="text-base group-hover:scale-110 transition-transform">
-                  {isPlaying ? "⏳" : "▶️"}
-                </span>
-                <span className="text-xs uppercase tracking-wider hidden sm:inline">
-                  Play
-                </span>
-              </Button>
-              <button
-                onClick={() => handlePlay("folder")}
-                className="flex items-center justify-center w-11 h-11 bg-gray-800 hover:bg-gray-700 text-gray-400 hover:text-white rounded-xl transition-all border border-gray-700/50 group"
-                title="Open in Finder"
-                aria-label="Open in Finder"
-              >
-                <span className="text-lg group-hover:scale-110 transition-transform">
-                  📂
-                </span>
-              </button>
-            </div>
-          )}
-          {isPersistedMovie && (
-            <button
-              onClick={(e) => {
-                e.stopPropagation();
-                setIsMenuOpen(!isMenuOpen);
-              }}
-              className={`w-11 h-11 rounded-xl flex items-center justify-center transition-all ${
-                isMenuOpen
-                  ? "bg-indigo-500 text-white shadow-lg shadow-indigo-500/20"
-                  : "bg-gray-800/80 text-gray-500 hover:text-white hover:bg-gray-800"
-              }`}
-              title="Management Menu"
-              aria-label={isMenuOpen ? "Close management menu" : "Open management menu"}
-            >
-              <span className="text-xl">⋮</span>
-            </button>
-          )}
-          <button
-            onClick={onClose}
-            className="w-11 h-11 bg-gray-800/80 hover:bg-gray-800 text-gray-500 hover:text-white rounded-xl flex items-center justify-center transition-all text-xl"
-            title="Close"
-            aria-label="Close"
-          >
-            ✕
-          </button>
-        </div>
+        <ManagementBar
+          filePath={filePath}
+          isPlaying={isPlaying}
+          isPersistedMovie={isPersistedMovie}
+          isMenuOpen={isMenuOpen}
+          onPlay={() => handlePlay("play")}
+          onOpenFolder={() => handlePlay("folder")}
+          onToggleMenu={() => setIsMenuOpen((open) => !open)}
+          onClose={onClose}
+        />
 
-        {/* Menu Dropdown */}
-        {isMenuOpen && isPersistedMovie && (
-          <div
-            className="absolute top-16 right-6 z-[90] w-64 overflow-hidden rounded-2xl border border-gray-700/50 bg-gray-900 shadow-2xl animate-in fade-in zoom-in-95 duration-200"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div className="p-2 space-y-1">
-              {onSearchTMDb && (
-                <button
-                  onClick={() => {
-                    setIsMenuOpen(false);
-                    onSearchTMDb(movie.title, movie.id);
-                  }}
-                  className="w-full text-left px-4 py-3 hover:bg-indigo-500/10 rounded-xl transition-colors flex items-center gap-3 group"
-                >
-                  <span className="text-base group-hover:scale-110 transition-transform">
-                    🔄
-                  </span>
-                  <div className="flex flex-col">
-                    <span className="text-xs font-bold text-indigo-400 uppercase tracking-wider">
-                      Fix Metadata
-                    </span>
-                    <span className="text-[9px] text-indigo-500/60 font-bold uppercase tracking-tight">
-                      Search TMDb for correct match
-                    </span>
-                  </div>
-                </button>
-              )}
-
-              {!isMergeMode && (
-                <button
-                  onClick={() => {
-                    setIsMenuOpen(false);
-                    setIsMergeMode(true);
-                  }}
-                  className="w-full text-left px-4 py-3 hover:bg-indigo-500/10 rounded-xl transition-colors flex items-center gap-3 group"
-                >
-                  <span className="text-base group-hover:scale-110 transition-transform">
-                    🔗
-                  </span>
-                  <div className="flex flex-col">
-                    <div className="flex items-center gap-2">
-                      <span className="text-xs font-bold text-indigo-400 uppercase tracking-wider">
-                        Merge Duplicates
-                      </span>
-                      {hasMatches && (
-                        <span className="flex h-1.5 w-1.5 rounded-full bg-indigo-500 animate-pulse" />
-                      )}
-                    </div>
-                    <span className="text-[9px] text-indigo-500/60 font-bold uppercase tracking-tight">
-                      Combine two entries into one
-                    </span>
-                  </div>
-                </button>
-              )}
-
-              {standardizeMsg?.code === "FILE_NOT_FOUND" && (
-                <button
-                  onClick={() => {
-                    setIsMenuOpen(false);
-                    handleRemoveMissing();
-                  }}
-                  disabled={isRemoving}
-                  className="w-full text-left px-4 py-3 hover:bg-red-500/10 rounded-xl transition-colors flex items-center gap-3 group"
-                >
-                  <span className="text-base group-hover:scale-110 transition-transform">
-                    🗑️
-                  </span>
-                  <div className="flex flex-col">
-                    <span className="text-xs font-bold text-red-400 uppercase tracking-wider">
-                      Remove Missing Entry
-                    </span>
-                    <span className="text-[9px] text-red-500/60 font-bold uppercase tracking-tight">
-                      File not found, clean up library
-                    </span>
-                  </div>
-                </button>
-              )}
-
-              {filePath && (
-                <button
-                  onClick={() => {
-                    setIsMenuOpen(false);
-                    handleDeleteDiskOnly();
-                  }}
-                  disabled={isDeletingDisk}
-                  className="w-full text-left px-4 py-3 hover:bg-orange-500/10 rounded-xl transition-colors flex items-center gap-3 group"
-                >
-                  <span className="text-base group-hover:scale-110 transition-transform">
-                    📂
-                  </span>
-                  <div className="flex flex-col">
-                    <span className="text-xs font-bold text-orange-400 uppercase tracking-wider">
-                      Delete Files
-                    </span>
-                    <span className="text-[9px] text-orange-500/60 font-bold uppercase tracking-tight">
-                      Remove from disk, keep in library
-                    </span>
-                  </div>
-                </button>
-              )}
-
-              {filePath && (
-                <button
-                  onClick={() => {
-                    setIsMenuOpen(false);
-                    handleDeleteFull();
-                  }}
-                  disabled={isDeletingDisk}
-                  className="w-full text-left px-4 py-3 hover:bg-red-500/10 rounded-xl transition-colors flex items-center gap-3 group"
-                >
-                  <span className="text-base group-hover:scale-110 transition-transform">
-                    🔥
-                  </span>
-                  <div className="flex flex-col">
-                    <span className="text-xs font-bold text-red-400 uppercase tracking-wider">
-                      Remove from Library
-                    </span>
-                    <span className="text-[9px] text-red-500/60 font-bold uppercase tracking-tight">
-                      Delete files and library entry
-                    </span>
-                  </div>
-                </button>
-              )}
-            </div>
-          </div>
-        )}
+        <ManagementMenu
+          isOpen={isMenuOpen}
+          isPersistedMovie={isPersistedMovie}
+          movieTitle={movie.title}
+          movieId={movie.id}
+          hasMatches={hasMatches}
+          isMergeMode={isMergeMode}
+          standardizeMsg={standardizeMsg}
+          filePath={filePath}
+          isRemoving={isRemoving}
+          isDeletingDisk={isDeletingDisk}
+          onSearchTMDb={onSearchTMDb}
+          onCloseMenu={() => setIsMenuOpen(false)}
+          onStartMerge={() => setIsMergeMode(true)}
+          onRemoveMissing={handleRemoveMissing}
+          onDeleteDiskOnly={handleDeleteDiskOnly}
+          onDeleteFull={handleDeleteFull}
+        />
 
         <div className="overflow-y-auto flex-1 px-4 sm:px-8 pb-6 pt-3">
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
@@ -967,25 +817,11 @@ export default function MovieDetail({
               )}
             </div>
 
-            <div className="flex items-center gap-3 flex-wrap">
-              {movie.year && (
-                <span className="px-2 py-1 bg-white/5 text-gray-300 text-sm font-bold rounded-lg border border-white/10">
-                  {movie.year}
-                </span>
-              )}
-              {movie.source && (
-                <span className="text-[10px] font-black px-2.5 py-1 bg-indigo-500/10 text-indigo-400 rounded-lg uppercase tracking-widest border border-indigo-500/20">
-                  {movie.source === "tmdb"
-                    ? "TMDb"
-                    : movie.source.toUpperCase()}
-                </span>
-              )}
-              {filePath && (
-                <span className="text-[10px] font-black px-2.5 py-1 bg-emerald-500/10 text-emerald-400 rounded-lg uppercase tracking-widest border border-emerald-500/20 flex items-center gap-1">
-                  <span className="text-[12px]">📂</span> FILE
-                </span>
-              )}
-            </div>
+            <MovieMetadataBadges
+              year={movie.year}
+              source={movie.source}
+              filePath={filePath}
+            />
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
               <div className="space-y-6">
@@ -1021,49 +857,16 @@ export default function MovieDetail({
               </div>
 
               <div className="space-y-6">
-                {/* Merge Input (Active State) */}
                 {isMergeMode && (
-                  <div className="bg-gray-800 p-4 rounded-2xl border border-indigo-500/30 animate-in fade-in zoom-in-95 duration-200 shadow-xl">
-                    <div className="flex items-center justify-between mb-3">
-                      <span className="text-[10px] font-black uppercase text-indigo-400 tracking-widest">
-                        Merge target:
-                      </span>
-                      <button
-                        onClick={() => setIsMergeMode(false)}
-                        className="text-gray-500 hover:text-white text-[10px] font-bold uppercase tracking-wider"
-                      >
-                        cancel
-                      </button>
-                    </div>
-                    <input
-                      autoFocus
-                      type="text"
-                      value={mergeQuery}
-                      onChange={(e) => setMergeQuery(e.target.value)}
-                      placeholder="Search movie..."
-                      className="w-full bg-gray-900 border border-gray-700 rounded-xl px-4 py-2 text-sm text-white focus:outline-none focus:ring-2 focus:ring-indigo-500/50 mb-3"
-                    />
-                    <div className="space-y-1 max-h-40 overflow-y-auto pr-1 custom-scrollbar">
-                      {potentialMerges.map((m) => (
-                        <button
-                          key={m.id}
-                          onClick={() => handleMerge(m.id)}
-                          disabled={isMerging}
-                          className="w-full text-left px-3 py-2 hover:bg-indigo-500/10 rounded-xl text-xs text-gray-300 hover:text-white flex items-center justify-between group transition-colors"
-                        >
-                          <span className="truncate">
-                            {m.title}{" "}
-                            <span className="text-gray-500 font-bold ml-1">
-                              [{m.year}]
-                            </span>
-                          </span>
-                          <span className="flex-shrink-0 opacity-0 group-hover:opacity-100 text-indigo-400 font-black uppercase text-[9px] ml-2 tracking-tighter">
-                            Merge →
-                          </span>
-                        </button>
-                      ))}
-                    </div>
-                  </div>
+                  <MergeTargetSelector
+                    variant="compact"
+                    mergeQuery={mergeQuery}
+                    potentialMerges={potentialMerges}
+                    isMerging={isMerging}
+                    onQueryChange={setMergeQuery}
+                    onCancel={() => setIsMergeMode(false)}
+                    onMerge={handleMerge}
+                  />
                 )}
 
                 <QuickLinks
@@ -1102,74 +905,16 @@ export default function MovieDetail({
               )
             )}
 
-            {/* Merge Interface */}
             {isMergeMode && (
-              <div className="bg-gray-800/40 rounded-2xl p-6 border border-indigo-500/30 space-y-4 animate-in fade-in slide-in-from-top-4 duration-300">
-                <div className="flex items-center justify-between">
-                  <h4 className="text-[10px] font-black uppercase tracking-[0.2em] text-indigo-400">
-                    Merge movie records
-                  </h4>
-                  <button
-                    onClick={() => setIsMergeMode(false)}
-                    className="text-gray-500 hover:text-white transition-colors"
-                  >
-                    ✕
-                  </button>
-                </div>
-
-                <div className="relative">
-                  <input
-                    type="text"
-                    placeholder="Search library to find target movie..."
-                    value={mergeQuery}
-                    onChange={(e) => setMergeQuery(e.target.value)}
-                    className="w-full bg-gray-900 border border-gray-700 rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-indigo-500 transition-all pl-10"
-                    autoFocus
-                  />
-                  <span className="absolute left-4 top-1/2 -translate-y-1/2 opacity-30">
-                    🔍
-                  </span>
-                </div>
-
-                <div className="space-y-2 max-h-60 overflow-y-auto pr-2 custom-scrollbar">
-                  {potentialMerges.length > 0 ? (
-                    potentialMerges.map((m) => (
-                      <button
-                        key={m.id}
-                        onClick={() => handleMerge(m.id)}
-                        disabled={isMerging}
-                        className="w-full flex items-center justify-between p-3 rounded-xl bg-gray-900/40 hover:bg-indigo-500/10 border border-gray-700/30 hover:border-indigo-500/30 transition-all group text-left"
-                      >
-                        <div>
-                          <p className="text-xs font-bold text-gray-200 group-hover:text-indigo-300 transition-colors">
-                            {m.title}{" "}
-                            {m.year && (
-                              <span className="text-gray-500">({m.year})</span>
-                            )}
-                          </p>
-                          <p className="text-[10px] text-gray-500 font-medium">
-                            {m.source} • {m.file_path ? "Local" : "Remote"}
-                          </p>
-                        </div>
-                        <span className="text-indigo-500/50 group-hover:text-indigo-500 transition-colors">
-                          →
-                        </span>
-                      </button>
-                    ))
-                  ) : (
-                    <p className="text-center py-4 text-gray-500 text-xs italic">
-                      {mergeQuery
-                        ? "No matching movies found."
-                        : "Search or select from suggestions below..."}
-                    </p>
-                  )}
-                </div>
-
-                <p className="text-[9px] text-gray-500 leading-relaxed italic">
-                  Note: Metadata from this record will be moved to the target if
-                  it's more complete. This record will be permanently deleted.
-                </p>
-              </div>
+              <MergeTargetSelector
+                variant="full"
+                mergeQuery={mergeQuery}
+                potentialMerges={potentialMerges}
+                isMerging={isMerging}
+                onQueryChange={setMergeQuery}
+                onCancel={() => setIsMergeMode(false)}
+                onMerge={handleMerge}
+              />
             )}
 
             <SubtitlesSection
@@ -1199,29 +944,10 @@ export default function MovieDetail({
               />
             )}
 
-            {/* Timestamps */}
-            <div className="flex items-center gap-6 pt-4 border-t border-gray-800">
-              {movie.created_at && (
-                <div className="space-y-1">
-                  <p className="text-[9px] text-gray-600 font-black uppercase tracking-widest">
-                    Added to Library
-                  </p>
-                  <p className="text-[11px] text-gray-500 font-medium">
-                    {new Date(movie.created_at).toLocaleDateString()}
-                  </p>
-                </div>
-              )}
-              {movie.rated_at && (
-                <div className="space-y-1">
-                  <p className="text-[9px] text-gray-600 font-black uppercase tracking-widest">
-                    Last Rated
-                  </p>
-                  <p className="text-[11px] text-gray-500 font-medium">
-                    {new Date(movie.rated_at).toLocaleDateString()}
-                  </p>
-                </div>
-              )}
-            </div>
+            <MovieTimestamps
+              createdAt={movie.created_at}
+              ratedAt={movie.rated_at}
+            />
           </div>
         </div>
         </div>
