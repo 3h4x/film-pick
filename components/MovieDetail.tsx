@@ -3,7 +3,10 @@
 import { useState, useEffect, useMemo } from "react";
 import path from "path";
 import CreditsSection from "@/components/movie-detail/CreditsSection";
+import EmbeddedPlayer from "@/components/movie-detail/EmbeddedPlayer";
 import MoviePoster from "@/components/movie-detail/MoviePoster";
+import QuickLinks from "@/components/movie-detail/QuickLinks";
+import RatingControls from "@/components/movie-detail/RatingControls";
 import StorageSection from "@/components/movie-detail/StorageSection";
 import SubtitlesSection from "@/components/movie-detail/SubtitlesSection";
 import TechnicalDetails from "@/components/movie-detail/TechnicalDetails";
@@ -986,85 +989,14 @@ export default function MovieDetail({
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
               <div className="space-y-6">
-                {/* Ratings */}
-                <div className="flex flex-wrap items-center gap-4 sm:gap-6">
-                  <div className="space-y-1.5">
-                      <p className="text-[10px] text-gray-500 font-black uppercase tracking-widest">
-                        My Rating
-                      </p>
-                      <div className="flex items-center gap-3">
-                        <button
-                          onClick={() => setShowRatingPicker((v) => !v)}
-                          title="Click to change rating"
-                          className="flex min-h-11 items-center gap-2 rounded-xl bg-indigo-500 px-3 py-1 text-2xl font-black text-white shadow-lg shadow-indigo-500/20 transition-colors hover:bg-indigo-400"
-                        >
-                          ♥ {userRating != null && userRating > 0 ? userRating : "—"}
-                        </button>
-                      </div>
-                      {showRatingPicker && (
-                        <div className="flex flex-col gap-1 mt-2">
-                          <div className="flex items-center gap-1">
-                            {[...Array(5)].map((_, i) => (
-                              <button
-                                key={i}
-                                onClick={() => handleRate(i + 1)}
-                                disabled={isRating}
-                                title={`Rate ${i + 1}/10`}
-                                className={`h-11 w-11 rounded-md border text-[11px] font-black transition-all sm:h-9 sm:w-9 ${
-                                  isRating
-                                    ? "opacity-50 cursor-not-allowed"
-                                    : "hover:scale-110 active:scale-95"
-                                } ${
-                                  userRating === i + 1
-                                    ? "bg-indigo-500 border-indigo-400 text-white"
-                                    : "bg-gray-800 border-gray-700 text-gray-400 hover:border-indigo-500 hover:text-indigo-400"
-                                }`}
-                              >
-                                {i + 1}
-                              </button>
-                            ))}
-                          </div>
-                          <div className="flex items-center gap-1">
-                            {[...Array(5)].map((_, i) => {
-                              const rating = i + 6;
-                              return (
-                                <button
-                                  key={rating}
-                                  onClick={() => handleRate(rating)}
-                                  disabled={isRating}
-                                  title={`Rate ${rating}/10`}
-                                  className={`h-11 w-11 rounded-md border text-[11px] font-black transition-all sm:h-9 sm:w-9 ${
-                                    isRating
-                                      ? "opacity-50 cursor-not-allowed"
-                                      : "hover:scale-110 active:scale-95"
-                                  } ${
-                                    userRating === rating
-                                      ? "bg-indigo-500 border-indigo-400 text-white"
-                                      : "bg-gray-800 border-gray-700 text-gray-400 hover:border-indigo-500 hover:text-indigo-400"
-                                  }`}
-                                >
-                                  {rating}
-                                </button>
-                              );
-                            })}
-                          </div>
-                        </div>
-                      )}
-                    </div>
-                  {/* Global Rating Badge */}
-                  {movie.rating != null && movie.rating > 0 && (
-                    <div className="space-y-1.5">
-                      <p className="text-[10px] text-gray-500 font-black uppercase tracking-widest">
-                        Global
-                      </p>
-                      <div className="flex items-center gap-3">
-                        <div className="bg-yellow-500 text-black font-black text-2xl px-3 py-1 rounded-xl shadow-lg shadow-yellow-500/20">
-                          ★ {movie.rating}
-                        </div>
-                      </div>
-                    </div>
-                  )}
-                </div>
+                <RatingControls
+                  globalRating={movie.rating}
+                  userRating={userRating}
+                  isRating={isRating}
+                  showRatingPicker={showRatingPicker}
+                  onTogglePicker={() => setShowRatingPicker((v) => !v)}
+                  onRate={handleRate}
+                />
 
                 {/* Genre */}
                 <div className="space-y-4">
@@ -1134,120 +1066,29 @@ export default function MovieDetail({
                   </div>
                 )}
 
-                {/* External Links */}
-                <div className="space-y-3 pt-2">
-                  <p className="text-[10px] text-gray-500 font-black uppercase tracking-widest">
-                    Quick Links
-                  </p>
-                  <div className="grid grid-cols-2 gap-2">
-                    {movie.tmdb_id && (
-                      <a
-                        href={`https://www.themoviedb.org/movie/${movie.tmdb_id}`}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="bg-gray-800/50 hover:bg-gray-800 border border-gray-700/30 hover:border-blue-500/30 px-3 py-2 rounded-xl text-xs font-bold text-gray-400 hover:text-blue-400 transition-all text-center"
-                      >
-                        TMDb
-                      </a>
-                    )}
-                    {movie.filmweb_url && (
-                      <a
-                        href={movie.filmweb_url}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="bg-gray-800/50 hover:bg-gray-800 border border-gray-700/30 hover:border-indigo-500/30 px-3 py-2 rounded-xl text-xs font-bold text-gray-400 hover:text-indigo-400 transition-all text-center"
-                      >
-                        Filmweb
-                      </a>
-                    )}
-                    <a
-                      href={
-                        movie.cda_url ||
-                        `https://www.cda.pl/szukaj?q=${encodeURIComponent(plTitle || movie.title)}`
-                      }
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="bg-gray-800/50 hover:bg-gray-800 border border-gray-700/30 hover:border-indigo-500/30 px-3 py-2 rounded-xl text-xs font-bold text-gray-400 hover:text-indigo-400 transition-all text-center"
-                    >
-                      CDA.pl
-                    </a>
-                    <a
-                      href={`https://www.youtube.com/results?search_query=${encodeURIComponent(movie.title + (movie.year ? ` ${movie.year}` : "") + " trailer")}`}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="bg-gray-800/50 hover:bg-gray-800 border border-gray-700/30 hover:border-red-500/30 px-3 py-2 rounded-xl text-xs font-bold text-gray-400 hover:text-red-400 transition-all text-center"
-                    >
-                      Trailer
-                    </a>
-                  </div>
-                </div>
+                <QuickLinks
+                  title={movie.title}
+                  year={movie.year}
+                  tmdbId={movie.tmdb_id}
+                  filmwebUrl={movie.filmweb_url}
+                  cdaUrl={movie.cda_url}
+                  plTitle={plTitle}
+                />
               </div>
             </div>
 
             {/* Description or Embedded Player */}
             {showEmbedded && filePath ? (
-              <div className="space-y-4">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-4">
-                    <p className="text-[10px] text-indigo-400 font-black uppercase tracking-widest">
-                      Embedded Player
-                    </p>
-                    {extraFiles.length > 0 && (
-                      <div className="flex items-center gap-1 bg-gray-800 rounded-lg p-0.5">
-                        {[filePath, ...extraFiles].map(
-                          (_, i) => (
-                            <button
-                              key={i}
-                              onClick={() => setActivePart(i)}
-                              className={`px-2 py-0.5 text-[9px] font-bold rounded ${
-                                activePart === i
-                                  ? "bg-indigo-500 text-white"
-                                  : "text-gray-500 hover:text-gray-300"
-                              }`}
-                            >
-                              Part {i + 1}
-                            </button>
-                          ),
-                        )}
-                      </div>
-                    )}
-                  </div>
-                  <button
-                    onClick={() => setShowEmbedded(false)}
-                    className="text-[10px] text-gray-500 hover:text-white font-black uppercase tracking-widest"
-                  >
-                    Close Player ×
-                  </button>
-                </div>
-                <div className="bg-black rounded-2xl overflow-hidden aspect-video border border-gray-800 shadow-2xl relative group">
-                  <video
-                    key={`${movie.id}-${activePart}`}
-                    controls
-                    className="w-full h-full"
-                    poster={posterUrl || undefined}
-                    autoPlay
-                  >
-                    <source
-                      src={`/api/movies/${movie.id}/stream?part=${activePart}`}
-                      type="video/mp4"
-                    />
-                    {subtitlesList.map((sub, i) => (
-                      <track
-                        key={i}
-                        kind="subtitles"
-                        src={`/api/movies/${movie.id}/stream?part=${activePart}&sub=${encodeURIComponent(sub.name)}`}
-                        srcLang="pl"
-                        label={`Polish (${sub.name})`}
-                      />
-                    ))}
-                    Your browser does not support the video tag.
-                  </video>
-                </div>
-                <p className="text-[10px] text-gray-500 italic text-center">
-                  Note: MKV support varies by browser. Use "Play in VLC" for
-                  best compatibility.
-                </p>
-              </div>
+              <EmbeddedPlayer
+                movieId={movie.id}
+                posterUrl={posterUrl}
+                filePath={filePath}
+                extraFiles={extraFiles}
+                activePart={activePart}
+                subtitlesList={subtitlesList}
+                onSelectPart={setActivePart}
+                onClose={() => setShowEmbedded(false)}
+              />
             ) : (
               description && (
                 <div className="space-y-2">
