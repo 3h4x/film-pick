@@ -535,6 +535,53 @@ test.describe("discover / recommendations tab", () => {
   });
 });
 
+test.describe("search input typing across tabs", () => {
+  // Regression: the global search box renders on every tab, but a stray effect
+  // used to wipe searchQuery on any tab that wasn't library/search. That made
+  // the input impossible to type into on Discover/Watchlist/Config/TV — every
+  // keystroke was cleared. These tests guard that typing always sticks.
+  test.beforeEach(async ({ page }) => {
+    await mockAPIs(page);
+    await page.setViewportSize({ width: 375, height: 812 });
+    await page.goto("/");
+    await expect(page.getByPlaceholder("Search library...")).toBeVisible();
+  });
+
+  test("lets the user type in search on the Discover tab", async ({ page }) => {
+    const searchInput = page.getByPlaceholder("Search library...");
+    await searchInput.fill("godfather");
+    await expect(searchInput).toHaveValue("godfather");
+  });
+
+  test("lets the user type in search on the Watchlist tab", async ({ page }) => {
+    await page.getByRole("button", { name: /^Watchlist/ }).first().click();
+    await expect(page).toHaveURL(/#wishlist/);
+
+    const searchInput = page.getByPlaceholder("Search library...");
+    await searchInput.fill("godfather");
+    await expect(searchInput).toHaveValue("godfather");
+  });
+
+  test("lets the user type in search on the Config tab", async ({ page }) => {
+    await page.getByRole("button", { name: /^Config/ }).click();
+    await expect(page).toHaveURL(/#config/);
+
+    const searchInput = page.getByPlaceholder("Search library...");
+    await searchInput.fill("godfather");
+    await expect(searchInput).toHaveValue("godfather");
+  });
+
+  test("typing on Discover surfaces the matching library movie", async ({
+    page,
+  }) => {
+    const searchInput = page.getByPlaceholder("Search library...");
+    await searchInput.fill("godfather");
+
+    await expect(page.getByText("The Godfather")).toBeVisible();
+    await expect(page.getByText("Blade Runner 2049")).not.toBeVisible();
+  });
+});
+
 test.describe("config tab", () => {
   test("renders config panel with TMDb key status", async ({ page }) => {
     await mockAPIs(page);

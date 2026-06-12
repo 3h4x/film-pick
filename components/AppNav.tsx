@@ -185,7 +185,16 @@ export default function AppNav({
               <input
                 type="text"
                 value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
+                onChange={(e) => {
+                  // The search box is "Search library...", but it renders on every
+                  // tab. On tabs that aren't library/search, a page-level effect
+                  // wipes searchQuery on change, making the input impossible to
+                  // type into. Switch to the library tab so typing actually sticks.
+                  if (activeTab !== "library" && activeTab !== "search") {
+                    setActiveTab("library");
+                  }
+                  setSearchQuery(e.target.value);
+                }}
                 onKeyDown={async (e) => {
                   if (e.key === "Enter" && searchQuery.trim()) {
                     setActiveTab("search");
