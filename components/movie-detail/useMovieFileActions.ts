@@ -72,7 +72,6 @@ export function useMovieFileActions({
         method: "POST",
         signal: controller.signal,
       });
-      clearTimeout(timeoutId);
 
       const data = await parseStandardizeResponse(res);
 
@@ -113,6 +112,7 @@ export function useMovieFileActions({
             : "Network error (check server logs)",
       });
     } finally {
+      clearTimeout(timeoutId);
       setIsStandardizing(false);
     }
   };
@@ -136,7 +136,6 @@ export function useMovieFileActions({
           signal: controller.signal,
         },
       );
-      clearTimeout(timeoutId);
 
       const data = await parseStandardizeResponse(res);
 
@@ -156,6 +155,7 @@ export function useMovieFileActions({
       console.error("Remove missing fetch error:", error);
       setStandardizeMsg({ type: "error", text: "Network error" });
     } finally {
+      clearTimeout(timeoutId);
       setIsRemoving(false);
     }
   };
