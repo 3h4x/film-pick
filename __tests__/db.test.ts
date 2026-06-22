@@ -846,6 +846,25 @@ describe("getMovies sort order", () => {
     const series = getMovies(db, "series");
     expect(series.every((m) => m.type === "series")).toBe(true);
   });
+
+  it("returns no rows for nonblank FTS searches with no searchable tokens", () => {
+    insert("Movie A", 1, 8);
+    insertMovie(db, {
+      title: "Series B",
+      year: 2001,
+      genre: "Drama",
+      director: null,
+      rating: 7.0,
+      poster_url: null,
+      source: "tmdb",
+      imdb_id: null,
+      tmdb_id: 999,
+      type: "series",
+    });
+
+    expect(getMovies(db, undefined, "!!!")).toEqual([]);
+    expect(getMovies(db, "series", "!!!")).toEqual([]);
+  });
 });
 
 // The original movies schema (before any migrations were added).
@@ -914,6 +933,7 @@ describe("database migrations on existing schema", () => {
     expect(migrationNames).toContain("add_credits");
     expect(migrationNames).toContain("add_extra_files");
     expect(migrationNames).toContain("add_user_columns");
+    expect(migrationNames).toContain("add_movies_fts");
   });
 
   it("is idempotent — calling initDb twice does not throw or duplicate migrations", () => {
@@ -922,8 +942,8 @@ describe("database migrations on existing schema", () => {
     expect(() => initDb(db)).not.toThrow();
 
     const migrationRows = db.prepare("SELECT COUNT(*) as c FROM _migrations").get() as { c: number };
-    // Exactly 5 named migrations, no duplicates
-    expect(migrationRows.c).toBe(5);
+    // Exactly 6 named migrations, no duplicates
+    expect(migrationRows.c).toBe(6);
   });
 
   it("migrates old id-based recommendation_cache to engine-based schema", () => {

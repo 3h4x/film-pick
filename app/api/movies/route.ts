@@ -8,7 +8,8 @@ export async function GET(request: NextRequest) {
     return Response.json(getDetachedMovies(db));
   }
   const type = request.nextUrl.searchParams.get("type") || undefined;
-  const movies = getMovies(db, type);
+  const query = request.nextUrl.searchParams.get("q")?.trim() || undefined;
+  const movies = getMovies(db, type, query);
   return Response.json(movies);
 }
 

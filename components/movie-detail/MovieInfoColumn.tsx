@@ -10,6 +10,7 @@ import QuickLinks from "@/components/movie-detail/QuickLinks";
 import RatingControls from "@/components/movie-detail/RatingControls";
 import StorageSection from "@/components/movie-detail/StorageSection";
 import SubtitlesSection from "@/components/movie-detail/SubtitlesSection";
+import TvEpisodeProgressSection from "@/components/movie-detail/TvEpisodeProgressSection";
 import type {
   MovieDetailMovie,
   StandardizeMessage,
@@ -183,6 +184,10 @@ export default function MovieInfoColumn({
           />
 
           <GenreBadges genre={movie.genre} />
+
+          {(movie.type === "tv" || movie.type === "series") && (
+            <TvEpisodeProgressSection movieId={movie.id} />
+          )}
         </div>
 
         <div className="space-y-6">
