@@ -674,6 +674,7 @@ export function saveRecommendedMovies(
     genre: string | null;
     rating: number | null;
     poster_url: string | null;
+    reason?: string;
     trace?: RecommendationTrace;
   }[],
 ): void {
@@ -685,7 +686,7 @@ export function saveRecommendedMovies(
     stmt.run({
       ...m,
       engine,
-      reason,
+      reason: m.reason ?? reason,
       trace: m.trace ? JSON.stringify(m.trace) : null,
     });
   }

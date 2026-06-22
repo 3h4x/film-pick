@@ -35,6 +35,7 @@ interface RecommendationRowProps {
 }
 
 const TYPE_ICONS: Record<string, string> = {
+  ai: "✨",
   genre: "🎭",
   director: "🎬",
   actor: "⭐",
@@ -136,6 +137,11 @@ export default function RecommendationRow({
               cdaUrl={r.cda_url}
               onClick={() => onClickMovie(r, type)}
             />
+            {r.reason ? (
+              <p className="mt-2 line-clamp-3 text-xs leading-5 text-gray-400">
+                {r.reason}
+              </p>
+            ) : null}
             {r.trace ? (
               <details className="absolute right-2 top-2 z-20 max-w-[calc(100%-1rem)]">
                 <summary className="cursor-pointer list-none rounded-md bg-black/70 px-2 py-1 text-[10px] font-medium uppercase tracking-[0.18em] text-cyan-200 backdrop-blur-sm">
