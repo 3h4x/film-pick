@@ -162,8 +162,6 @@ export default function MovieInfoColumn({
 }: MovieInfoColumnProps) {
   return (
     <div className="order-1 lg:order-2 lg:col-span-8 space-y-6 sm:space-y-8">
-      <MoviePoster title={movie.title} posterUrl={posterUrl} size="mobile" />
-
       <MovieTitleBlock movieTitle={movieTitle} plTitle={plTitle} />
 
       <MovieMetadataBadges
@@ -213,6 +211,8 @@ export default function MovieInfoColumn({
           />
         </div>
       </div>
+
+      <MoviePoster title={movie.title} posterUrl={posterUrl} size="mobile" />
 
       {showEmbedded && filePath ? (
         <EmbeddedPlayer

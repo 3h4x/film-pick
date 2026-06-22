@@ -9,7 +9,7 @@ import {
 import EmptyState from "@/components/ui/EmptyState";
 import type { Movie } from "@/lib/types";
 
-const ACTION_BASE_CLASS = `backdrop-blur-sm text-white rounded-lg ${CARD_ACTION_TOUCH_TARGET_CLASS} ${CARD_ACTION_ICON_SIZE_CLASS} flex items-center justify-center transition-colors`;
+const ACTION_BASE_CLASS = `watchlist-action backdrop-blur-sm text-white rounded-lg ${CARD_ACTION_TOUCH_TARGET_CLASS} ${CARD_ACTION_ICON_SIZE_CLASS} flex items-center justify-center transition-colors`;
 const LIKED_CLASS = `bg-green-600/90 ${ACTION_BASE_CLASS} hover:bg-green-500`;
 const WATCHED_CLASS = `bg-gray-600/90 ${ACTION_BASE_CLASS} hover:bg-gray-500`;
 const DISLIKED_CLASS = `bg-orange-600/90 ${ACTION_BASE_CLASS} hover:bg-orange-500`;

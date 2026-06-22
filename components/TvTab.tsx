@@ -409,7 +409,7 @@ export default function TvTab() {
               : "hover:bg-white/[0.02]"
           }`}
         >
-          <div className="px-4 py-3 md:hidden">
+          <div data-testid="tv-mobile-row" className="px-4 py-3 md:hidden">
             <div className="flex items-start justify-between gap-3">
               <div className="min-w-0 flex-1 space-y-2">
                 <div className="flex items-center gap-2 text-[11px] text-gray-500">
@@ -495,7 +495,10 @@ export default function TvTab() {
             </div>
           </div>
 
-          <div className="hidden md:grid md:grid-cols-[6rem_1fr_4.5rem_10rem_3rem] md:gap-x-4 md:items-center md:px-4 md:py-2.5">
+          <div
+            data-testid="tv-desktop-row"
+            className="hidden md:grid md:grid-cols-[6rem_1fr_4.5rem_10rem_3rem] md:gap-x-4 md:items-center md:px-4 md:py-2.5"
+          >
             <div className="tabular-nums shrink-0">
               {isNow ? (
                 <div>

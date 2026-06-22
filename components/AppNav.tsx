@@ -91,7 +91,10 @@ export default function AppNav({
     <nav className="sticky top-0 z-40 -mx-4 sm:-mx-6 px-4 sm:px-6 pt-4 pb-0 bg-[#0a0e1a]/90 backdrop-blur-2xl border-b border-white/[0.05] shadow-[0_1px_0_0_rgba(255,255,255,0.03)]">
       <div className="max-w-7xl mx-auto">
         {/* Row 1: Logo + Actions */}
-        <div className="mb-3 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <div
+          data-testid="app-header-row"
+          className="mb-3 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between"
+        >
           <div className="flex items-center justify-between gap-3 sm:justify-start sm:gap-4">
             <h1 className="text-lg font-bold tracking-tight">
               <a
@@ -164,7 +167,7 @@ export default function AppNav({
         </div>
 
         {!initialLoad && (
-          <div className="mb-3 sm:-mt-1">
+          <div data-testid="app-search-row" className="mb-3 sm:-mt-1">
             <div className="relative group transition-all sm:max-w-xs">
               <div className="absolute inset-y-0 left-3 flex items-center pointer-events-none">
                 <svg
@@ -241,6 +244,7 @@ export default function AppNav({
         <div className="relative">
           <div
             ref={tabsRef}
+            data-testid="app-tab-strip"
             className="flex gap-0.5 overflow-x-auto pr-10 [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]"
           >
             <div aria-hidden className="shrink-0 w-4 sm:hidden" />

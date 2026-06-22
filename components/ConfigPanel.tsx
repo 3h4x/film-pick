@@ -395,6 +395,7 @@ export default function ConfigPanel({
       <div className="relative">
         <div
           ref={tabsRef}
+          data-testid="config-tab-strip"
           className="flex gap-1 bg-gray-800/40 p-1 rounded-xl overflow-x-auto pr-10 [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]"
         >
         {CONFIG_TABS.map((tab) => (
