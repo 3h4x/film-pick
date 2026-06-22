@@ -34,13 +34,14 @@ pnpm backup              # Backup SQLite DB
 │   │   ├── page.tsx                  — Standalone TMDb search entry page
 │   │   └── [query]/page.tsx          — TMDb search results page
 │   └── api/
-│       ├── movies/route.ts           — GET/POST library
+│       ├── movies/route.ts           — GET/POST library (GET supports `?type=` and `?q=` FTS search)
 │       ├── movies/[id]/route.ts      — GET/DELETE single movie
 │       ├── movies/[id]/full/route.ts — DELETE movie from disk and DB (use ?disk_only=1 to keep DB row)
 │       ├── movies/[id]/play/route.ts — Launch local player
 │       ├── movies/[id]/stream/route.ts — Stream video file
 │       ├── movies/[id]/subtitles/route.ts — Subtitle management
 │       ├── movies/[id]/standardize/route.ts — Standardize file naming
+│       ├── movies/[id]/episodes/route.ts — TV episode watch progress (GET list / PUT mark watched / DELETE clear)
 │       ├── movies/merge/route.ts     — Merge duplicate entries
 │       ├── search/route.ts           — TMDb search
 │       ├── recommendations/route.ts  — Generate recommendations
@@ -147,6 +148,8 @@ pnpm backup              # Backup SQLite DB
 - **Sync:** Re-scan saved library path, add new files, remove deleted ones
 - **Recommendations tab:** TMDb-based suggestions grouped by reason
 - **Search:** TMDb search to manually add movies
+- **Library search (FTS):** `GET /api/movies?q=` runs an SQLite FTS5 prefix search over title, pl_title, director, writer, and actors (backed by the `movies_fts` virtual table); the Library search box debounces and queries this endpoint
+- **TV episode progress:** TV/series detail view tracks watched episodes per season/episode via `app/api/movies/[id]/episodes` (`TvEpisodeProgressSection`); progress is stored in `tv_episode_progress` and removed on movie delete via `ON DELETE CASCADE`
 - **Wishlist:** Flag movies with `wishlist=1`; dedicated tab; watchlist recommendation engine picks from it
 - **TV guide (EPG):** Fetches and caches an M3U/EPG feed; configurable via settings; scheduled refresh; channel blacklist
 - **Mood recommendations:** Predefined mood presets map to TMDb genre/keyword queries
@@ -161,7 +164,9 @@ pnpm backup              # Backup SQLite DB
 
 **movies**: id, title, year, genre, director, writer, actors, rating, user_rating, poster_url, source, imdb_id, tmdb_id, type (`movie`|`tv`), file_path, extra_files (JSON), video_metadata (JSON), filmweb_id, filmweb_url, cda_url, pl_title, description, rated_at, created_at, wishlist (0|1)
 
-**Other tables**: settings (key/value), dismissed_recommendations (tmdb_id), recommendation_events (tmdb_id, engine, event, created_at), recommendation_impressions (tmdb_id, engine, shown_count, last_shown_at — populated by `app/api/recommendations/route.ts` only for rotation-aware engines, currently `hidden_gem`; consumed via `getImpressionCounts` to demote titles surfaced repeatedly within a recent window), recommendation_cache (engine, data, movie_count, created_at — `created_at` drives the TTL checked by `getCachedEngine(db, engine, maxAgeHours)`), recommended_movies (tmdb_id, engine, reason, title, year, genre, rating, poster_url, pl_title, cda_url, description), _migrations (migration guard)
+**Other tables**: settings (key/value), dismissed_recommendations (tmdb_id), recommendation_events (tmdb_id, engine, event, created_at), recommendation_impressions (tmdb_id, engine, shown_count, last_shown_at — populated by `app/api/recommendations/route.ts` only for rotation-aware engines, currently `hidden_gem`; consumed via `getImpressionCounts` to demote titles surfaced repeatedly within a recent window), recommendation_cache (engine, data, movie_count, created_at — `created_at` drives the TTL checked by `getCachedEngine(db, engine, maxAgeHours)`), recommended_movies (tmdb_id, engine, reason, title, year, genre, rating, poster_url, pl_title, cda_url, description), tv_episode_progress (id, movie_id, season_number, episode_number, watched_at, created_at, updated_at — UNIQUE(movie_id, season_number, episode_number), FK to movies ON DELETE CASCADE), _migrations (migration guard)
+
+**movies_fts**: FTS5 virtual table (external content over `movies`, rowid = movies.id) indexing title, pl_title, director, writer, actors; kept in sync by AFTER INSERT/UPDATE/DELETE triggers on `movies` and queried by `getMovies(db, type, query)` for `?q=` search
 
 ### Environment
 

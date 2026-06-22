@@ -31,6 +31,16 @@ export interface Movie {
   video_metadata?: string | null;
 }
 
+export interface TvEpisodeProgress {
+  id: number;
+  movie_id: number;
+  season_number: number;
+  episode_number: number;
+  watched_at: string;
+  created_at: string;
+  updated_at: string;
+}
+
 export interface MovieInput {
   title: string;
   year: number | null;
@@ -257,6 +267,61 @@ export function initDb(db: Database.Database): void {
     CREATE INDEX IF NOT EXISTS idx_rec_impressions_engine ON recommendation_impressions (engine, last_shown_at);
   `);
 
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS tv_episode_progress (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      movie_id INTEGER NOT NULL,
+      season_number INTEGER NOT NULL,
+      episode_number INTEGER NOT NULL,
+      watched_at TEXT NOT NULL,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      UNIQUE(movie_id, season_number, episode_number),
+      FOREIGN KEY(movie_id) REFERENCES movies(id) ON DELETE CASCADE
+    );
+    CREATE INDEX IF NOT EXISTS idx_tv_episode_progress_movie
+      ON tv_episode_progress (movie_id, season_number, episode_number);
+  `);
+
+  const hasMoviesFts = db
+    .prepare("SELECT 1 FROM _migrations WHERE name = 'add_movies_fts'")
+    .get();
+  if (!hasMoviesFts) {
+    db.exec(`
+      CREATE VIRTUAL TABLE IF NOT EXISTS movies_fts USING fts5(
+        title,
+        pl_title,
+        director,
+        writer,
+        actors,
+        content='movies',
+        content_rowid='id'
+      );
+
+      CREATE TRIGGER IF NOT EXISTS movies_fts_ai AFTER INSERT ON movies BEGIN
+        INSERT INTO movies_fts(rowid, title, pl_title, director, writer, actors)
+        VALUES (new.id, new.title, new.pl_title, new.director, new.writer, new.actors);
+      END;
+
+      CREATE TRIGGER IF NOT EXISTS movies_fts_ad AFTER DELETE ON movies BEGIN
+        INSERT INTO movies_fts(movies_fts, rowid, title, pl_title, director, writer, actors)
+        VALUES ('delete', old.id, old.title, old.pl_title, old.director, old.writer, old.actors);
+      END;
+
+      CREATE TRIGGER IF NOT EXISTS movies_fts_au AFTER UPDATE ON movies BEGIN
+        INSERT INTO movies_fts(movies_fts, rowid, title, pl_title, director, writer, actors)
+        VALUES ('delete', old.id, old.title, old.pl_title, old.director, old.writer, old.actors);
+        INSERT INTO movies_fts(rowid, title, pl_title, director, writer, actors)
+        VALUES (new.id, new.title, new.pl_title, new.director, new.writer, new.actors);
+      END;
+
+      INSERT INTO movies_fts(movies_fts) VALUES ('rebuild');
+    `);
+    db.prepare(
+      "INSERT OR IGNORE INTO _migrations (name) VALUES ('add_movies_fts')",
+    ).run();
+  }
+
   // Indexes for common query patterns (idempotent — IF NOT EXISTS)
   db.exec(`
     CREATE INDEX IF NOT EXISTS idx_movies_tmdb_id ON movies (tmdb_id);
@@ -410,7 +475,30 @@ export function insertMovie(db: Database.Database, movie: MovieInput): number {
 const ORDER_BY_USER_RATING =
   "ORDER BY CASE WHEN user_rating IS NOT NULL AND user_rating < 5 THEN 1 ELSE 0 END, user_rating DESC, created_at DESC";
 
-export function getMovies(db: Database.Database, type?: string): Movie[] {
+function buildFtsQuery(query: string): string | null {
+  const tokens = query.match(/[\p{L}\p{N}_]+/gu);
+  if (!tokens) return null;
+  return tokens.map((token) => `"${token.replace(/"/g, "\"\"")}"*`).join(" ");
+}
+
+export function getMovies(db: Database.Database, type?: string, query?: string): Movie[] {
+  const normalizedQuery = query?.trim();
+  if (normalizedQuery) {
+    const ftsQuery = buildFtsQuery(normalizedQuery);
+    if (!ftsQuery) return [];
+
+    const whereType = type ? "AND movies.type = ?" : "";
+    const params = type ? [ftsQuery, type] : [ftsQuery];
+    return db
+      .prepare(
+        `SELECT movies.*
+         FROM movies
+         JOIN movies_fts ON movies_fts.rowid = movies.id
+         WHERE movies_fts MATCH ? ${whereType}
+         ORDER BY bm25(movies_fts), movies.created_at DESC`,
+      )
+      .all(...params) as Movie[];
+  }
   if (type) {
     return db
       .prepare(`SELECT * FROM movies WHERE type = ? ${ORDER_BY_USER_RATING}`)
@@ -427,6 +515,53 @@ export function getDetachedMovies(db: Database.Database): Movie[] {
 
 export function deleteMovie(db: Database.Database, id: number): void {
   db.prepare("DELETE FROM movies WHERE id = ?").run(id);
+}
+
+export function getTvEpisodeProgress(
+  db: Database.Database,
+  movieId: number,
+): TvEpisodeProgress[] {
+  return db
+    .prepare(
+      `SELECT * FROM tv_episode_progress
+       WHERE movie_id = ?
+       ORDER BY season_number DESC, episode_number DESC`,
+    )
+    .all(movieId) as TvEpisodeProgress[];
+}
+
+export function setTvEpisodeWatched(
+  db: Database.Database,
+  movieId: number,
+  seasonNumber: number,
+  episodeNumber: number,
+): TvEpisodeProgress {
+  db.prepare(
+    `INSERT INTO tv_episode_progress (movie_id, season_number, episode_number, watched_at)
+     VALUES (?, ?, ?, ?)
+     ON CONFLICT(movie_id, season_number, episode_number) DO UPDATE SET
+       watched_at = excluded.watched_at,
+       updated_at = CURRENT_TIMESTAMP`,
+  ).run(movieId, seasonNumber, episodeNumber, new Date().toISOString());
+
+  return db
+    .prepare(
+      `SELECT * FROM tv_episode_progress
+       WHERE movie_id = ? AND season_number = ? AND episode_number = ?`,
+    )
+    .get(movieId, seasonNumber, episodeNumber) as TvEpisodeProgress;
+}
+
+export function deleteTvEpisodeProgress(
+  db: Database.Database,
+  movieId: number,
+  seasonNumber: number,
+  episodeNumber: number,
+): void {
+  db.prepare(
+    `DELETE FROM tv_episode_progress
+     WHERE movie_id = ? AND season_number = ? AND episode_number = ?`,
+  ).run(movieId, seasonNumber, episodeNumber);
 }
 
 export function getCachedEngine<T = unknown>(
