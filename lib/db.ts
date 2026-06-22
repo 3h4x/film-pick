@@ -29,6 +29,9 @@ export interface Movie {
   description?: string | null;
   cda_url?: string | null;
   video_metadata?: string | null;
+  tmdb_collection_id?: number | null;
+  tmdb_collection_name?: string | null;
+  tmdb_collection_checked?: number | null;
 }
 
 export interface TvEpisodeProgress {
@@ -65,6 +68,9 @@ export interface MovieInput {
   description?: string | null;
   cda_url?: string | null;
   video_metadata?: string | null;
+  tmdb_collection_id?: number | null;
+  tmdb_collection_name?: string | null;
+  tmdb_collection_checked?: number | null;
 }
 
 const DB_PATH = path.join(process.cwd(), "data", "movies.db");
@@ -86,7 +92,10 @@ export function initDb(db: Database.Database): void {
       file_path TEXT,
       extra_files TEXT,
       created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-      video_metadata TEXT
+      video_metadata TEXT,
+      tmdb_collection_id INTEGER,
+      tmdb_collection_name TEXT,
+      tmdb_collection_checked INTEGER DEFAULT 0
     );
 
     CREATE TABLE IF NOT EXISTS settings (
@@ -123,6 +132,35 @@ export function initDb(db: Database.Database): void {
     }
     db.prepare(
       "INSERT OR IGNORE INTO _migrations (name) VALUES ('add_video_metadata')",
+    ).run();
+  }
+
+  const hasCollectionColumns = db
+    .prepare("SELECT 1 FROM _migrations WHERE name = 'add_tmdb_collection_columns'")
+    .get();
+  if (!hasCollectionColumns) {
+    const cols = (db.pragma("table_info(movies)") as { name: string }[]).map((c) => c.name);
+    if (!cols.includes("tmdb_collection_id")) {
+      db.exec("ALTER TABLE movies ADD COLUMN tmdb_collection_id INTEGER");
+    }
+    if (!cols.includes("tmdb_collection_name")) {
+      db.exec("ALTER TABLE movies ADD COLUMN tmdb_collection_name TEXT");
+    }
+    db.prepare(
+      "INSERT OR IGNORE INTO _migrations (name) VALUES ('add_tmdb_collection_columns')",
+    ).run();
+  }
+
+  const hasCollectionChecked = db
+    .prepare("SELECT 1 FROM _migrations WHERE name = 'add_tmdb_collection_checked'")
+    .get();
+  if (!hasCollectionChecked) {
+    const cols = (db.pragma("table_info(movies)") as { name: string }[]).map((c) => c.name);
+    if (!cols.includes("tmdb_collection_checked")) {
+      db.exec("ALTER TABLE movies ADD COLUMN tmdb_collection_checked INTEGER DEFAULT 0");
+    }
+    db.prepare(
+      "INSERT OR IGNORE INTO _migrations (name) VALUES ('add_tmdb_collection_checked')",
     ).run();
   }
 
@@ -325,6 +363,7 @@ export function initDb(db: Database.Database): void {
   // Indexes for common query patterns (idempotent — IF NOT EXISTS)
   db.exec(`
     CREATE INDEX IF NOT EXISTS idx_movies_tmdb_id ON movies (tmdb_id);
+    CREATE INDEX IF NOT EXISTS idx_movies_tmdb_collection_id ON movies (tmdb_collection_id);
     CREATE INDEX IF NOT EXISTS idx_movies_file_path ON movies (file_path);
     CREATE INDEX IF NOT EXISTS idx_movies_user_rating ON movies (user_rating);
     CREATE INDEX IF NOT EXISTS idx_movies_title_year ON movies (title, year);
@@ -366,6 +405,9 @@ function enrichMissingMetadata(
     description?: string | null;
     cda_url?: string | null;
     video_metadata?: string | null;
+    tmdb_collection_id?: number | null;
+    tmdb_collection_name?: string | null;
+    tmdb_collection_checked?: number | null;
   },
   incoming: MovieInput,
 ): void {
@@ -384,6 +426,9 @@ function enrichMissingMetadata(
   if ("description" in existing && !existing.description && incoming.description) { sets.push("description = ?"); values.push(incoming.description); }
   if ("cda_url" in existing && !existing.cda_url && incoming.cda_url) { sets.push("cda_url = ?"); values.push(incoming.cda_url); }
   if ("video_metadata" in existing && !existing.video_metadata && incoming.video_metadata) { sets.push("video_metadata = ?"); values.push(incoming.video_metadata); }
+  if ("tmdb_collection_id" in existing && !existing.tmdb_collection_id && incoming.tmdb_collection_id) { sets.push("tmdb_collection_id = ?"); values.push(incoming.tmdb_collection_id); }
+  if ("tmdb_collection_name" in existing && !existing.tmdb_collection_name && incoming.tmdb_collection_name) { sets.push("tmdb_collection_name = ?"); values.push(incoming.tmdb_collection_name); }
+  if ("tmdb_collection_checked" in existing && (existing.tmdb_collection_checked == null || existing.tmdb_collection_checked === 0) && incoming.tmdb_collection_checked === 1) { sets.push("tmdb_collection_checked = ?"); values.push(incoming.tmdb_collection_checked); }
   if ("wishlist" in existing && (existing.wishlist == null || existing.wishlist === 0) && incoming.wishlist === 1) { sets.push("wishlist = ?"); values.push(incoming.wishlist); }
   if (sets.length === 0) return;
   values.push(id);
@@ -401,8 +446,8 @@ export function insertMovie(db: Database.Database, movie: MovieInput): number {
   // If a movie with the same tmdb_id already exists, link the file to it
   if (movie.tmdb_id) {
     const byTmdbId = db
-      .prepare("SELECT id, file_path, extra_files, genre, rating, poster_url, imdb_id, user_rating, pl_title, filmweb_id, filmweb_url, rated_at, wishlist, description, cda_url, video_metadata FROM movies WHERE tmdb_id = ?")
-      .get(movie.tmdb_id) as { id: number; file_path: string | null; extra_files: string | null; genre: string | null; rating: number | null; poster_url: string | null; imdb_id: string | null; user_rating: number | null; pl_title: string | null; filmweb_id: number | null; filmweb_url: string | null; rated_at: string | null; wishlist: number | null; description: string | null; cda_url: string | null; video_metadata: string | null } | undefined;
+      .prepare("SELECT id, file_path, extra_files, genre, rating, poster_url, imdb_id, user_rating, pl_title, filmweb_id, filmweb_url, rated_at, wishlist, description, cda_url, video_metadata, tmdb_collection_id, tmdb_collection_name, tmdb_collection_checked FROM movies WHERE tmdb_id = ?")
+      .get(movie.tmdb_id) as { id: number; file_path: string | null; extra_files: string | null; genre: string | null; rating: number | null; poster_url: string | null; imdb_id: string | null; user_rating: number | null; pl_title: string | null; filmweb_id: number | null; filmweb_url: string | null; rated_at: string | null; wishlist: number | null; description: string | null; cda_url: string | null; video_metadata: string | null; tmdb_collection_id: number | null; tmdb_collection_name: string | null; tmdb_collection_checked: number | null } | undefined;
     if (byTmdbId) {
       if (movie.file_path) {
         if (!byTmdbId.file_path) {
@@ -428,9 +473,9 @@ export function insertMovie(db: Database.Database, movie: MovieInput): number {
   if (movie.title) {
     const byTitleYear = db
       .prepare(
-        "SELECT id, file_path, extra_files, genre, rating, poster_url, imdb_id, tmdb_id, user_rating, pl_title, filmweb_id, filmweb_url, rated_at, wishlist, description, cda_url, video_metadata FROM movies WHERE LOWER(title) = LOWER(?) AND year IS ?",
+        "SELECT id, file_path, extra_files, genre, rating, poster_url, imdb_id, tmdb_id, user_rating, pl_title, filmweb_id, filmweb_url, rated_at, wishlist, description, cda_url, video_metadata, tmdb_collection_id, tmdb_collection_name, tmdb_collection_checked FROM movies WHERE LOWER(title) = LOWER(?) AND year IS ?",
       )
-      .get(movie.title, movie.year ?? null) as { id: number; file_path: string | null; extra_files: string | null; genre: string | null; rating: number | null; poster_url: string | null; imdb_id: string | null; tmdb_id: number | null; user_rating: number | null; pl_title: string | null; filmweb_id: number | null; filmweb_url: string | null; rated_at: string | null; wishlist: number | null; description: string | null; cda_url: string | null; video_metadata: string | null } | undefined;
+      .get(movie.title, movie.year ?? null) as { id: number; file_path: string | null; extra_files: string | null; genre: string | null; rating: number | null; poster_url: string | null; imdb_id: string | null; tmdb_id: number | null; user_rating: number | null; pl_title: string | null; filmweb_id: number | null; filmweb_url: string | null; rated_at: string | null; wishlist: number | null; description: string | null; cda_url: string | null; video_metadata: string | null; tmdb_collection_id: number | null; tmdb_collection_name: string | null; tmdb_collection_checked: number | null } | undefined;
     if (byTitleYear) {
       if (movie.file_path) {
         if (!byTitleYear.file_path) {
@@ -450,8 +495,8 @@ export function insertMovie(db: Database.Database, movie: MovieInput): number {
   }
 
   const stmt = db.prepare(`
-    INSERT INTO movies (title, year, genre, director, writer, actors, rating, poster_url, source, imdb_id, tmdb_id, type, file_path, extra_files, user_rating, pl_title, filmweb_id, filmweb_url, rated_at, wishlist, description, cda_url, video_metadata)
-    VALUES (@title, @year, @genre, @director, @writer, @actors, @rating, @poster_url, @source, @imdb_id, @tmdb_id, @type, @file_path, @extra_files, @user_rating, @pl_title, @filmweb_id, @filmweb_url, @rated_at, @wishlist, @description, @cda_url, @video_metadata)
+    INSERT INTO movies (title, year, genre, director, writer, actors, rating, poster_url, source, imdb_id, tmdb_id, type, file_path, extra_files, user_rating, pl_title, filmweb_id, filmweb_url, rated_at, wishlist, description, cda_url, video_metadata, tmdb_collection_id, tmdb_collection_name, tmdb_collection_checked)
+    VALUES (@title, @year, @genre, @director, @writer, @actors, @rating, @poster_url, @source, @imdb_id, @tmdb_id, @type, @file_path, @extra_files, @user_rating, @pl_title, @filmweb_id, @filmweb_url, @rated_at, @wishlist, @description, @cda_url, @video_metadata, @tmdb_collection_id, @tmdb_collection_name, @tmdb_collection_checked)
   `);
   const result = stmt.run({
     ...movie,
@@ -468,6 +513,9 @@ export function insertMovie(db: Database.Database, movie: MovieInput): number {
     description: movie.description ?? null,
     cda_url: movie.cda_url ?? null,
     video_metadata: movie.video_metadata ?? null,
+    tmdb_collection_id: movie.tmdb_collection_id ?? null,
+    tmdb_collection_name: movie.tmdb_collection_name ?? null,
+    tmdb_collection_checked: movie.tmdb_collection_checked ?? (movie.tmdb_collection_id ? 1 : 0),
   });
   return Number(result.lastInsertRowid);
 }

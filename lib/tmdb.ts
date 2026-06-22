@@ -46,6 +46,7 @@ interface TmdbRawMovie {
   poster_path: string | null;
   imdb_id?: string | null;
   overview?: string | null;
+  belongs_to_collection?: { id: number; name: string } | null;
   credits?: {
     crew?: TmdbRawCrewMember[];
     cast?: TmdbRawCastMember[];
@@ -78,7 +79,14 @@ interface CacheEntry<T> {
 const CACHE_TTL_MS = 3_600_000; // 1 hour
 
 type LocalizedResult = { pl_title: string | null; description: string | null };
-type DetailsResult = { director: string | null; writer: string | null; actors: string | null };
+type DetailsResult = {
+  director: string | null;
+  writer: string | null;
+  actors: string | null;
+  tmdb_collection_id?: number | null;
+  tmdb_collection_name?: string | null;
+  tmdb_collection_checked?: boolean;
+};
 
 const localizedCache = new Map<number, CacheEntry<LocalizedResult>>();
 const detailsCache = new Map<number, CacheEntry<DetailsResult>>();
@@ -496,11 +504,7 @@ export async function getPolishTitle(tmdbId: number): Promise<string | null> {
 
 export async function getTmdbMovieDetails(
   tmdbId: number,
-): Promise<{
-  director: string | null;
-  writer: string | null;
-  actors: string | null;
-}> {
+): Promise<DetailsResult> {
   const cached = detailsCache.get(tmdbId);
   if (cacheHit(cached)) {
     recordTmdbCacheHit("getTmdbMovieDetails");
@@ -514,9 +518,36 @@ export async function getTmdbMovieDetails(
   if (!res.ok) return { director: null, writer: null, actors: null };
 
   const data = (await res.json()) as TmdbRawMovie;
-  const result = creditsFromMovie(data);
+  const collection = data.belongs_to_collection;
+  const result: DetailsResult = {
+    ...creditsFromMovie(data),
+    tmdb_collection_checked: true,
+    ...(collection
+      ? {
+          tmdb_collection_id: collection.id,
+          tmdb_collection_name: collection.name,
+        }
+      : {}),
+  };
   detailsCache.set(tmdbId, { data: result, expiry: Date.now() + CACHE_TTL_MS });
   return result;
+}
+
+export async function getTmdbCollectionParts(
+  collectionId: number,
+): Promise<TmdbSearchResult[]> {
+  const apiKey = getApiKey();
+  const res = await fetchWithRetry(
+    `${TMDB_BASE}/collection/${collectionId}?language=en-US`,
+    apiKey,
+    3,
+    "getTmdbCollectionParts",
+  );
+
+  if (!res.ok) return [];
+
+  const data = (await res.json()) as { parts?: TmdbRawResult[] };
+  return (data.parts || []).map(mapResult);
 }
 
 export async function getTmdbMovieSnapshot(

@@ -37,6 +37,9 @@ export interface Movie {
   description?: string | null;
   wishlist?: number;
   file_path?: string | null;
+  tmdb_collection_id?: number | null;
+  tmdb_collection_name?: string | null;
+  tmdb_collection_checked?: number | null;
 }
 
 export type RecType =
@@ -45,6 +48,7 @@ export type RecType =
   | "director"
   | "actor"
   | "movie"
+  | "franchise"
   | "hidden_gem"
   | "star_studded"
   | "random"
@@ -96,6 +100,7 @@ export const REC_CATEGORIES: { value: string; label: string }[] = [
   { value: "actor", label: "By Actor" },
   { value: "director", label: "By Director" },
   { value: "movie", label: "Similar" },
+  { value: "franchise", label: "Franchises" },
   { value: "hidden_gem", label: "Hidden Gems" },
   { value: "star_studded", label: "Star-Studded" },
   { value: "watchlist", label: "From Watchlist" },

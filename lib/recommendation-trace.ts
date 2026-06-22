@@ -9,6 +9,7 @@ export type RecommendationSeedKind =
   | "actor"
   | "genre"
   | "movie"
+  | "franchise"
   | "cda";
 
 export interface RecommendationTrace {

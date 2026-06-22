@@ -50,6 +50,9 @@ describe("database", () => {
     expect(columns).toContain("source");
     expect(columns).toContain("imdb_id");
     expect(columns).toContain("tmdb_id");
+    expect(columns).toContain("tmdb_collection_id");
+    expect(columns).toContain("tmdb_collection_name");
+    expect(columns).toContain("tmdb_collection_checked");
     expect(columns).toContain("type");
   });
 
@@ -930,6 +933,8 @@ describe("database migrations on existing schema", () => {
     ).map((r) => r.name);
     expect(migrationNames).toContain("add_file_path");
     expect(migrationNames).toContain("add_video_metadata");
+    expect(migrationNames).toContain("add_tmdb_collection_columns");
+    expect(migrationNames).toContain("add_tmdb_collection_checked");
     expect(migrationNames).toContain("add_credits");
     expect(migrationNames).toContain("add_extra_files");
     expect(migrationNames).toContain("add_user_columns");
@@ -942,8 +947,8 @@ describe("database migrations on existing schema", () => {
     expect(() => initDb(db)).not.toThrow();
 
     const migrationRows = db.prepare("SELECT COUNT(*) as c FROM _migrations").get() as { c: number };
-    // Exactly 6 named migrations, no duplicates
-    expect(migrationRows.c).toBe(6);
+    // Exactly 8 named migrations, no duplicates
+    expect(migrationRows.c).toBe(8);
   });
 
   it("migrates old id-based recommendation_cache to engine-based schema", () => {

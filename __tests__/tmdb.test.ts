@@ -17,6 +17,7 @@ import {
   getMovieLocalized,
   getPolishTitle,
   getTmdbMovieDetails,
+  getTmdbCollectionParts,
   getMovieCredits,
   searchTmdbPl,
   clearTmdbCache,
@@ -802,13 +803,39 @@ describe("getTmdbMovieDetails", () => {
     expect(details.actors).toBe("Leonardo DiCaprio, Joseph Gordon-Levitt");
   });
 
+  it("reads collection metadata from movie details", async () => {
+    mockFetch.mockResolvedValueOnce({
+      ok: true,
+      json: async () => ({
+        belongs_to_collection: {
+          id: 10,
+          name: "Star Wars Collection",
+        },
+        credits: {
+          crew: [],
+          cast: [],
+        },
+      }),
+    });
+
+    const details = await getTmdbMovieDetails(11);
+    expect(details.tmdb_collection_id).toBe(10);
+    expect(details.tmdb_collection_name).toBe("Star Wars Collection");
+    expect(details.tmdb_collection_checked).toBe(true);
+  });
+
   it("returns nulls when credits are missing", async () => {
     mockFetch.mockResolvedValueOnce({
       ok: true,
       json: async () => ({}),
     });
     const details = await getTmdbMovieDetails(1);
-    expect(details).toEqual({ director: null, writer: null, actors: null });
+    expect(details).toEqual({
+      director: null,
+      writer: null,
+      actors: null,
+      tmdb_collection_checked: true,
+    });
   });
 
   it("returns nulls on API error", async () => {
@@ -832,6 +859,54 @@ describe("getTmdbMovieDetails", () => {
     });
     const details = await getTmdbMovieDetails(1);
     expect(details.actors?.split(", ")).toHaveLength(5);
+  });
+});
+
+describe("getTmdbCollectionParts", () => {
+  beforeEach(() => {
+    vi.resetAllMocks();
+    clearTmdbCache();
+    process.env.TMDB_API_KEY = "test-key";
+  });
+
+  it("fetches collection parts as TMDb search results", async () => {
+    mockFetch.mockResolvedValueOnce({
+      ok: true,
+      json: async () => ({
+        parts: [
+          {
+            id: 11,
+            title: "Star Wars",
+            release_date: "1977-05-25",
+            genre_ids: [12, 878],
+            vote_average: 8.2,
+            poster_path: "/star-wars.jpg",
+          },
+        ],
+      }),
+    });
+
+    const parts = await getTmdbCollectionParts(10);
+    expect(parts).toEqual([
+      {
+        title: "Star Wars",
+        year: 1977,
+        genre: "Adventure, Sci-Fi",
+        rating: 8.2,
+        poster_url: "https://image.tmdb.org/t/p/w300/star-wars.jpg",
+        tmdb_id: 11,
+        imdb_id: null,
+      },
+    ]);
+    expect(mockFetch).toHaveBeenCalledWith(
+      expect.stringContaining("/collection/10"),
+      expect.any(Object),
+    );
+  });
+
+  it("returns an empty list when the collection endpoint errors", async () => {
+    mockFetch.mockResolvedValueOnce({ ok: false, status: 404 });
+    expect(await getTmdbCollectionParts(999)).toEqual([]);
   });
 });
 
