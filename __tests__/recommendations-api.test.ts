@@ -4,15 +4,16 @@ import { NextRequest } from "next/server";
 import Database from "better-sqlite3";
 import fs from "fs";
 import path from "path";
-import { initDb, setCachedEngine, setSetting, saveRecommendedMovies, updateRecommendedMovie } from "@/lib/db";
+import { getCachedEngine, initDb, setCachedEngine, setSetting, saveRecommendedMovies, updateRecommendedMovie } from "@/lib/db";
 import type { RecommendationGroup } from "@/lib/engines";
 import type { TmdbSearchResult } from "@/lib/tmdb";
 
 // Hoist mock functions so they can be referenced inside vi.mock factories.
-const { mockGenreEngine, mockCdaEngine, mockNoCacheEngine } = vi.hoisted(() => ({
+const { mockGenreEngine, mockCdaEngine, mockNoCacheEngine, mockAiEngine } = vi.hoisted(() => ({
   mockGenreEngine: vi.fn<() => Promise<RecommendationGroup[]>>(),
   mockCdaEngine: vi.fn<() => Promise<RecommendationGroup[]>>(),
   mockNoCacheEngine: vi.fn<() => Promise<RecommendationGroup[]>>(),
+  mockAiEngine: vi.fn<() => Promise<RecommendationGroup[]>>(),
 }));
 
 // Replace the engines module with three engines: one regular (genre), one
@@ -21,6 +22,14 @@ const { mockGenreEngine, mockCdaEngine, mockNoCacheEngine } = vi.hoisted(() => (
 vi.mock("@/lib/engines", () => ({
   engines: {
     genre: { name: "By Genre", icon: "🎭", engine: mockGenreEngine, dbBacked: false },
+    ai: {
+      name: "For You",
+      icon: "✨",
+      engine: mockAiEngine,
+      cacheKey: () => "ai:test-profile",
+      cacheMaxAgeHours: 24 * 7,
+      cacheEmptyResults: false,
+    },
     cda: { name: "On CDA", icon: "📺", engine: mockCdaEngine, dbBacked: true },
     random: { name: "Surprise Me", icon: "🎲", engine: mockNoCacheEngine, noCache: true },
   },
@@ -81,6 +90,7 @@ describe("recommendations GET handler", () => {
     mockGenreEngine.mockResolvedValue([]);
     mockCdaEngine.mockResolvedValue([]);
     mockNoCacheEngine.mockResolvedValue([]);
+    mockAiEngine.mockResolvedValue([]);
   });
 
   afterEach(() => {
@@ -140,6 +150,33 @@ describe("recommendations GET handler", () => {
 
     expect(mockGenreEngine).not.toHaveBeenCalled();
     expect(data[0].reason).toBe("Cached Group");
+  });
+
+  it("does not store empty cache entries for engines that disable empty caching", async () => {
+    mockAiEngine.mockResolvedValue([]);
+
+    const res = await GET(req({ engine: "ai" }));
+    const data = await res.json();
+
+    expect(data).toEqual([]);
+    expect(mockAiEngine).toHaveBeenCalledOnce();
+    expect(getCachedEngine(db, "ai:test-profile", 0, 24 * 7)).toBeNull();
+  });
+
+  it("bypasses empty cached groups for engines that disable empty caching", async () => {
+    setCachedEngine(db, "ai:test-profile", [], 0);
+    const fresh = makeGroup(
+      { type: "ai", reason: "For you" },
+      [makeRec({ tmdb_id: 2300, title: "Aftersun" })],
+    );
+    mockAiEngine.mockResolvedValue([fresh]);
+
+    const res = await GET(req({ engine: "ai" }));
+    const data = await res.json();
+
+    expect(mockAiEngine).toHaveBeenCalledOnce();
+    expect(data[0].recommendations[0].title).toBe("Aftersun");
+    expect(getCachedEngine<RecommendationGroup>(db, "ai:test-profile", 0, 24 * 7)).toEqual([fresh]);
   });
 
   // ── Single engine: expired TTL → bypass cache ────────────────────────────

@@ -64,7 +64,9 @@ For containerized local development, use:
 pnpm dev:docker   # Docker Compose dev server on http://localhost:4000
 ```
 
-A TMDb API key is required for search and recommendations. Two options:
+A TMDb API key is required for search and recommendations. The optional **For You** AI recommendation engine also needs `ANTHROPIC_API_KEY`; when enabled, FilmPick sends a compact taste profile plus TMDb candidate titles to Anthropic to rank personal recommendations.
+
+Two options for secrets:
 
 **Option A: Config UI** — paste your key in the Config tab. Stored in plaintext in the local SQLite database. Quick to set up, but less secure.
 
@@ -72,11 +74,12 @@ A TMDb API key is required for search and recommendations. Two options:
 
 ```bash
 bioenv set TMDB_API_KEY <your-tmdb-read-access-token>
+bioenv set ANTHROPIC_API_KEY <your-anthropic-api-key>  # Optional: enables For You AI recommendations
 eval "$(bioenv load)"    # Touch ID prompt, then start dev server
 pnpm dev
 ```
 
-Environment variable takes priority over the database setting.
+Environment variables take priority over database settings. `ANTHROPIC_API_KEY` is only read from the environment.
 
 ## Docker
 

@@ -147,10 +147,23 @@ export async function GET(request: NextRequest) {
         return addCdaUrls(filterExcluded(await def.engine(ctx), { skipRated: true }));
       }
 
-      if (refresh) clearCachedEngine(db, key);
+      const ctx = buildContext(movies, dismissedIds, config);
+      const cacheKey = def.cacheKey?.(ctx) ?? key;
+      const cacheMovieCount = def.cacheKey ? 0 : movieCount;
+      const cacheMaxAgeHours = def.cacheMaxAgeHours ?? 24;
 
-      const cached = getCachedEngine(db, key, movieCount);
-      if (cached) {
+      if (refresh) {
+        clearCachedEngine(db, key);
+        if (cacheKey !== key) clearCachedEngine(db, cacheKey);
+      }
+
+      const cached = getCachedEngine(
+        db,
+        cacheKey,
+        cacheMovieCount,
+        cacheMaxAgeHours,
+      );
+      if (cached && (def.cacheEmptyResults !== false || cached.length > 0)) {
         return addCdaUrls(
           filterExcluded(
             overrideTraceSource(
@@ -161,10 +174,13 @@ export async function GET(request: NextRequest) {
         );
       }
 
-      const ctx = buildContext(movies, dismissedIds, config);
       const groups = await def.engine(ctx);
-      setCachedEngine(db, key, groups, movieCount);
-      persistResults(groups);
+      if (def.cacheEmptyResults !== false || groups.length > 0) {
+        setCachedEngine(db, cacheKey, groups, cacheMovieCount);
+      }
+      if (groups.length > 0) {
+        persistResults(groups);
+      }
       return addCdaUrls(filterExcluded(groups));
     } catch (err) {
       console.error(`[Recommendations] engine "${key}" failed:`, err);

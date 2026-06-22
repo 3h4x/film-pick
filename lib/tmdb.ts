@@ -230,6 +230,8 @@ export interface TmdbSearchResult {
   imdb_id: string | null;
   cda_url?: string | null;
   pl_title?: string | null;
+  reason?: string;
+  score?: number;
   trace?: RecommendationTrace;
 }
 
@@ -639,6 +641,16 @@ export async function discoverStarStudded(): Promise<TmdbSearchResult[]> {
       `${TMDB_BASE}/discover/movie?sort_by=popularity.desc&vote_count.gte=5000&vote_average.gte=7&language=en-US&page=${i + 1}`,
   );
   return fetchDiscoverPages(urls, apiKey, "discoverStarStudded");
+}
+
+export async function discoverAiCandidates(): Promise<TmdbSearchResult[]> {
+  const apiKey = getApiKey();
+  const urls = Array.from(
+    { length: 3 },
+    (_, i) =>
+      `${TMDB_BASE}/discover/movie?sort_by=vote_average.desc&vote_count.gte=500&language=en-US&page=${i + 1}`,
+  );
+  return fetchDiscoverPages(urls, apiKey, "discoverAiCandidates");
 }
 
 export async function discoverRandom(): Promise<TmdbSearchResult[]> {

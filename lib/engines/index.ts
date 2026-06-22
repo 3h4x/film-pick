@@ -14,6 +14,7 @@ import { randomEngine } from "./random";
 import { getDb, getRecommendedMovies } from "../db";
 import { cdaEngine } from "./cda";
 import { watchlistEngine } from "./watchlist";
+import { aiEngine, getAiProfileHash } from "./ai";
 import { parseGenreLabels } from "../utils";
 
 // Normalize a title for set-membership comparison: lowercase, collapse all whitespace
@@ -62,9 +63,20 @@ export interface EngineDefinition {
   engine: RecommendationEngine;
   dbBacked?: boolean; // Skip recommendation_cache, reads from recommended_movies directly
   noCache?: boolean; // Always fetch fresh results (never cache)
+  cacheKey?: (ctx: EngineContext) => string;
+  cacheMaxAgeHours?: number;
+  cacheEmptyResults?: boolean;
 }
 
 export const engines: Record<string, EngineDefinition> = {
+  ai: {
+    name: "For You",
+    icon: "✨",
+    engine: aiEngine,
+    cacheKey: (ctx) => `ai:${getAiProfileHash(ctx)}`,
+    cacheMaxAgeHours: 24 * 7,
+    cacheEmptyResults: false,
+  },
   random: { name: "Surprise Me", icon: "🎲", engine: randomEngine, noCache: true },
   genre: { name: "By Genre", icon: "🎭", engine: genreEngine },
   director: { name: "By Director", icon: "🎬", engine: directorEngine },

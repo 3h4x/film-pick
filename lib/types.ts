@@ -40,6 +40,7 @@ export interface Movie {
 }
 
 export type RecType =
+  | "ai"
   | "genre"
   | "director"
   | "actor"
@@ -89,6 +90,7 @@ export const PAGE_SIZE = 36;
 
 export const REC_CATEGORIES: { value: string; label: string }[] = [
   { value: "all", label: "All" },
+  { value: "ai", label: "For You" },
   { value: "random", label: "Surprise Me" },
   { value: "genre", label: "By Genre" },
   { value: "actor", label: "By Actor" },
