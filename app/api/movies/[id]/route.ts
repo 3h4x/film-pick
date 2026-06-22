@@ -317,21 +317,47 @@ export async function GET(
   const unresolvedPseudoId = needsAutoLink && movie.cda_url && !movie.genre;
 
   // Enrich with credits from TMDb (always overwrite — TMDb is authoritative)
-  if (movie.tmdb_id && !unresolvedPseudoId && (!movie.director || !movie.writer || !movie.actors)) {
+  if (
+    movie.tmdb_id &&
+    !unresolvedPseudoId &&
+    (
+      !movie.director ||
+      !movie.writer ||
+      !movie.actors ||
+      !movie.tmdb_collection_checked
+    )
+  ) {
     try {
       const credits = await getTmdbMovieDetails(movie.tmdb_id);
+      const sets: string[] = [];
+      const vals: (string | number | null)[] = [];
       if (credits.director || credits.writer || credits.actors) {
-        db.prepare(
-          "UPDATE movies SET director = ?, writer = ?, actors = ? WHERE id = ?",
-        ).run(
-          credits.director,
-          credits.writer,
-          credits.actors,
-          rowId,
-        );
+        sets.push("director = ?", "writer = ?", "actors = ?");
+        vals.push(credits.director, credits.writer, credits.actors);
         movie.director = credits.director;
         movie.writer = credits.writer;
         movie.actors = credits.actors;
+      }
+      if (credits.tmdb_collection_id && !movie.tmdb_collection_id) {
+        sets.push("tmdb_collection_id = ?");
+        vals.push(credits.tmdb_collection_id);
+        movie.tmdb_collection_id = credits.tmdb_collection_id;
+      }
+      if (credits.tmdb_collection_name && !movie.tmdb_collection_name) {
+        sets.push("tmdb_collection_name = ?");
+        vals.push(credits.tmdb_collection_name);
+        movie.tmdb_collection_name = credits.tmdb_collection_name;
+      }
+      if (credits.tmdb_collection_checked && !movie.tmdb_collection_checked) {
+        sets.push("tmdb_collection_checked = ?");
+        vals.push(1);
+        movie.tmdb_collection_checked = 1;
+      }
+      if (sets.length > 0) {
+        vals.push(rowId);
+        db.prepare(
+          `UPDATE movies SET ${sets.join(", ")} WHERE id = ?`,
+        ).run(...vals);
       }
     } catch (error) {
       console.error("[Credits] Error fetching TMDb credits:", error);

@@ -8,6 +8,7 @@ import { genreEngine } from "./genre";
 import { directorEngine } from "./director";
 import { actorEngine } from "./actor";
 import { movieEngine } from "./movie";
+import { franchiseEngine } from "./franchise";
 import { hiddenGemEngine } from "./hidden-gem";
 import { starStuddedEngine } from "./star-studded";
 import { randomEngine } from "./random";
@@ -68,6 +69,16 @@ export interface EngineDefinition {
   cacheEmptyResults?: boolean;
 }
 
+function franchiseCacheKey(ctx: EngineContext): string {
+  const libraryIds = [...ctx.libraryTmdbIds].sort((a, b) => a - b).join(",");
+  const collections = ctx.library
+    .filter((movie) => movie.tmdb_collection_id && movie.tmdb_collection_name)
+    .map((movie) => `${movie.tmdb_collection_id}:${movie.tmdb_collection_name}`)
+    .sort()
+    .join("|");
+  return `franchise:${libraryIds}:${collections}`;
+}
+
 export const engines: Record<string, EngineDefinition> = {
   ai: {
     name: "For You",
@@ -82,6 +93,13 @@ export const engines: Record<string, EngineDefinition> = {
   director: { name: "By Director", icon: "🎬", engine: directorEngine },
   actor: { name: "By Actor", icon: "⭐", engine: actorEngine },
   movie: { name: "Similar", icon: "💡", engine: movieEngine },
+  franchise: {
+    name: "Franchises",
+    icon: "🎞️",
+    engine: franchiseEngine,
+    cacheKey: franchiseCacheKey,
+    cacheEmptyResults: false,
+  },
   hidden_gem: { name: "Hidden Gems", icon: "💎", engine: hiddenGemEngine },
   star_studded: { name: "Star-Studded", icon: "🌟", engine: starStuddedEngine },
   cda: { name: "On CDA", icon: "📺", engine: cdaEngine, dbBacked: true },
