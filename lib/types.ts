@@ -40,6 +40,7 @@ export interface Movie {
   tmdb_collection_id?: number | null;
   tmdb_collection_name?: string | null;
   tmdb_collection_checked?: number | null;
+  tmdb_refreshed_at?: number | null;
 }
 
 export type RecType =

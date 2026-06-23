@@ -90,6 +90,7 @@ type DetailsResult = {
 
 const localizedCache = new Map<number, CacheEntry<LocalizedResult>>();
 const detailsCache = new Map<number, CacheEntry<DetailsResult>>();
+const snapshotCache = new Map<number, CacheEntry<TmdbMovieSnapshot>>();
 
 const tmdbHealth: TmdbHealthSnapshot = {
   processLocal: true,
@@ -159,6 +160,7 @@ function cacheHit<T>(entry: CacheEntry<T> | undefined): entry is CacheEntry<T> {
 export function clearTmdbCache(): void {
   localizedCache.clear();
   detailsCache.clear();
+  snapshotCache.clear();
 }
 
 export function clearTmdbHealthTracker(): void {
@@ -553,6 +555,12 @@ export async function getTmdbCollectionParts(
 export async function getTmdbMovieSnapshot(
   tmdbId: number,
 ): Promise<TmdbMovieSnapshot | null> {
+  const cached = snapshotCache.get(tmdbId);
+  if (cacheHit(cached)) {
+    recordTmdbCacheHit("getTmdbMovieSnapshot");
+    return cached.data;
+  }
+
   const apiKey = getApiKey();
   const res = await fetchWithRetry(
     `${TMDB_BASE}/movie/${tmdbId}?append_to_response=credits&language=en-US`,
@@ -572,7 +580,7 @@ export async function getTmdbMovieSnapshot(
   const credits = creditsFromMovie(data);
   const localized = await getMovieLocalized(tmdbId);
 
-  return {
+  const result: TmdbMovieSnapshot = {
     title: data.title,
     year: data.release_date ? parseInt(data.release_date.substring(0, 4), 10) : null,
     genre: data.genres?.map((genre) => genre.name || TMDB_GENRE_MAP[genre.id] || "Unknown").join(", ") || "",
@@ -588,6 +596,8 @@ export async function getTmdbMovieSnapshot(
     writer: credits.writer,
     actors: credits.actors,
   };
+  snapshotCache.set(tmdbId, { data: result, expiry: Date.now() + CACHE_TTL_MS });
+  return result;
 }
 
 export async function getTmdbRecommendations(

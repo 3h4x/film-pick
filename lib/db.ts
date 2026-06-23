@@ -32,6 +32,7 @@ export interface Movie {
   tmdb_collection_id?: number | null;
   tmdb_collection_name?: string | null;
   tmdb_collection_checked?: number | null;
+  tmdb_refreshed_at?: number | null;
 }
 
 export interface TvEpisodeProgress {
@@ -71,6 +72,7 @@ export interface MovieInput {
   tmdb_collection_id?: number | null;
   tmdb_collection_name?: string | null;
   tmdb_collection_checked?: number | null;
+  tmdb_refreshed_at?: number | null;
 }
 
 const DB_PATH = path.join(process.cwd(), "data", "movies.db");
@@ -95,7 +97,8 @@ export function initDb(db: Database.Database): void {
       video_metadata TEXT,
       tmdb_collection_id INTEGER,
       tmdb_collection_name TEXT,
-      tmdb_collection_checked INTEGER DEFAULT 0
+      tmdb_collection_checked INTEGER DEFAULT 0,
+      tmdb_refreshed_at INTEGER
     );
 
     CREATE TABLE IF NOT EXISTS settings (
@@ -161,6 +164,19 @@ export function initDb(db: Database.Database): void {
     }
     db.prepare(
       "INSERT OR IGNORE INTO _migrations (name) VALUES ('add_tmdb_collection_checked')",
+    ).run();
+  }
+
+  const hasTmdbRefreshedAt = db
+    .prepare("SELECT 1 FROM _migrations WHERE name = 'add_tmdb_refreshed_at'")
+    .get();
+  if (!hasTmdbRefreshedAt) {
+    const cols = (db.pragma("table_info(movies)") as { name: string }[]).map((c) => c.name);
+    if (!cols.includes("tmdb_refreshed_at")) {
+      db.exec("ALTER TABLE movies ADD COLUMN tmdb_refreshed_at INTEGER");
+    }
+    db.prepare(
+      "INSERT OR IGNORE INTO _migrations (name) VALUES ('add_tmdb_refreshed_at')",
     ).run();
   }
 
@@ -363,6 +379,7 @@ export function initDb(db: Database.Database): void {
   // Indexes for common query patterns (idempotent — IF NOT EXISTS)
   db.exec(`
     CREATE INDEX IF NOT EXISTS idx_movies_tmdb_id ON movies (tmdb_id);
+    CREATE INDEX IF NOT EXISTS idx_movies_tmdb_refreshed_at ON movies (tmdb_refreshed_at);
     CREATE INDEX IF NOT EXISTS idx_movies_tmdb_collection_id ON movies (tmdb_collection_id);
     CREATE INDEX IF NOT EXISTS idx_movies_file_path ON movies (file_path);
     CREATE INDEX IF NOT EXISTS idx_movies_user_rating ON movies (user_rating);
@@ -559,6 +576,87 @@ export function getDetachedMovies(db: Database.Database): Movie[] {
   return db
     .prepare("SELECT * FROM movies WHERE (file_path IS NULL OR file_path = '') ORDER BY title ASC")
     .all() as Movie[];
+}
+
+export function getMovie(db: Database.Database, id: number): Movie | null {
+  return (
+    (db.prepare("SELECT * FROM movies WHERE id = ?").get(id) as Movie | undefined) ??
+    null
+  );
+}
+
+export interface TmdbMetadataUpdate {
+  title: string;
+  year: number | null;
+  genre: string | null;
+  director: string | null;
+  writer: string | null;
+  actors: string | null;
+  rating: number | null;
+  poster_url: string | null;
+  imdb_id: string | null;
+  pl_title?: string | null;
+  description?: string | null;
+}
+
+export function updateMovieTmdbMetadata(
+  db: Database.Database,
+  id: number,
+  metadata: TmdbMetadataUpdate,
+  refreshedAt = Math.floor(Date.now() / 1000),
+): Movie | null {
+  const result = db.prepare(`
+    UPDATE movies SET
+      title = ?,
+      year = ?,
+      genre = ?,
+      director = ?,
+      writer = ?,
+      actors = ?,
+      rating = ?,
+      poster_url = ?,
+      imdb_id = ?,
+      pl_title = ?,
+      description = ?,
+      source = 'tmdb',
+      tmdb_refreshed_at = ?
+    WHERE id = ?
+      AND tmdb_id IS NOT NULL
+  `).run(
+    metadata.title,
+    metadata.year,
+    metadata.genre,
+    metadata.director,
+    metadata.writer,
+    metadata.actors,
+    metadata.rating,
+    metadata.poster_url,
+    metadata.imdb_id,
+    metadata.pl_title ?? null,
+    metadata.description ?? null,
+    refreshedAt,
+    id,
+  );
+  if (result.changes === 0) return null;
+  return getMovie(db, id);
+}
+
+export function getStaleTmdbMovies(
+  db: Database.Database,
+  limit: number,
+  olderThanSeconds: number,
+): Pick<Movie, "id" | "tmdb_id" | "tmdb_refreshed_at">[] {
+  return db
+    .prepare(
+      `SELECT id, tmdb_id, tmdb_refreshed_at
+       FROM movies
+       WHERE tmdb_id IS NOT NULL
+         AND type = 'movie'
+         AND (tmdb_refreshed_at IS NULL OR tmdb_refreshed_at < ?)
+       ORDER BY tmdb_refreshed_at IS NOT NULL, tmdb_refreshed_at ASC, id ASC
+       LIMIT ?`,
+    )
+    .all(olderThanSeconds, limit) as Pick<Movie, "id" | "tmdb_id" | "tmdb_refreshed_at">[];
 }
 
 export function deleteMovie(db: Database.Database, id: number): void {
