@@ -154,6 +154,7 @@ export default function ConfigPanel({
   const [cdaLastRefresh, setCdaLastRefresh] = useState<string | null>(null);
   const [cdaMovieCount, setCdaMovieCount] = useState<number | null>(null);
   const [tmdbHealth, setTmdbHealth] = useState<TmdbHealthSnapshot | null>(null);
+  const [tmdbRefreshState, setTmdbRefreshState] = useState<"idle" | "running">("idle");
 
   // EPG / TV
   const [tvHideUnrated, setTvHideUnrated] = useState(true);
@@ -386,6 +387,34 @@ export default function ConfigPanel({
     event.preventDefault();
     if (!shouldSubmitApiKey(apiKey, apiKeySaving)) return;
     void saveApiKey(apiKey);
+  }
+
+  async function handleRefreshStaleMetadata() {
+    setTmdbRefreshState("running");
+    try {
+      const res = await fetch("/api/movies/refresh-stale", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({}),
+      });
+      const data = (await res.json().catch(() => ({}))) as {
+        updated?: number;
+        skipped?: number;
+        error?: string;
+      };
+      if (!res.ok) {
+        addToast(data.error || "Failed to refresh stale metadata");
+        return;
+      }
+      addToast(
+        `Metadata refreshed: ${data.updated ?? 0} updated, ${data.skipped ?? 0} skipped`,
+        "success",
+      );
+    } catch {
+      addToast("Failed to refresh stale metadata");
+    } finally {
+      setTmdbRefreshState("idle");
+    }
   }
 
   return (
@@ -643,6 +672,15 @@ export default function ConfigPanel({
           <section>
             <SubHeader>TMDb Request Pressure</SubHeader>
             <Hint>Process-local counters for this running app instance. They reset on restart.</Hint>
+            <div className="mb-3">
+              <button
+                disabled={tmdbRefreshState === "running"}
+                onClick={() => void handleRefreshStaleMetadata()}
+                className="min-h-11 rounded-lg border border-white/10 bg-white/5 px-4 py-2 text-sm text-gray-300 transition-colors hover:bg-white/10 disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                {tmdbRefreshState === "running" ? "Refreshing…" : "Refresh Stale Metadata"}
+              </button>
+            </div>
             <div className="space-y-3 rounded-xl border border-white/10 bg-white/5 p-4">
               <div className="grid gap-3 sm:grid-cols-2">
                 <div className="rounded-lg border border-white/10 bg-black/10 p-3">
