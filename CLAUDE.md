@@ -119,6 +119,7 @@ pnpm backup              # Backup SQLite DB
 │       └── cda.ts                    — CDA Premium available
 ├── scripts/
 │   ├── backup-db.sh                  — SQLite backup with tiered retention
+│   ├── restore-db.sh                 — Restore a SQLite backup to a target DB path
 │   ├── import-filmweb.ts             — Import Filmweb ratings export (JSON)
 │   ├── enrich-tmdb.ts                — Enrich existing movies with TMDb posters/genres
 │   ├── fix-credits.ts                — Re-fetch director/writer/actors from TMDb for all movies
@@ -190,9 +191,16 @@ eval "$(bioenv load)" && pnpm dlx tsx scripts/enrich-tmdb.ts
 # Backup DB (also available as: pnpm backup)
 bash scripts/backup-db.sh
 
+# Restore backup to the app DB (validates integrity before replacing target; add --force to overwrite)
+bash scripts/restore-db.sh data/backups/<backup-file>.db data/movies.db --force
+
 # PM2 scheduled backup (every 15 min)
 pm2 start scripts/backup-db.sh --name movies-backup --cron-restart='*/15 * * * *' --no-autorestart
 ```
+
+### Disaster recovery
+
+Stop the app before restoring, then pick the newest backup with `ls -1t data/backups/*.db | head -1` and restore it with `bash scripts/restore-db.sh "$(ls -1t data/backups/*.db | head -1)" data/movies.db --force`. The restore script copies the backup to a temporary file, runs SQLite `integrity_check`, and only then replaces the target database. Start the app again and run `pnpm test -- __tests__/backup-restore.test.ts` when validating the restore path locally.
 
 ### Logs
 
