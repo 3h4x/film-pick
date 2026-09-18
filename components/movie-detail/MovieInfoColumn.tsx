@@ -86,23 +86,16 @@ function GenreBadges({ genre }: { genre: string | null }) {
   if (!genre) return null;
 
   return (
-    <div className="space-y-4">
-      <div className="space-y-2">
-        <p className="text-[10px] text-gray-500 font-black uppercase tracking-widest">
-          Genres
-        </p>
-        <div className="flex flex-wrap gap-2">
-          {parseGenreLabels(genre).map((label) => (
-            <span
-              key={label}
-              className="text-xs px-3 py-1 bg-gray-800 text-gray-300 rounded-lg border border-gray-700/50"
-            >
-              {label}
-            </span>
-          ))}
-        </div>
-      </div>
-    </div>
+    <ul aria-label="Genres" className="flex flex-wrap gap-1.5">
+      {parseGenreLabels(genre).map((label) => (
+        <li
+          key={label}
+          className="rounded-md border border-gray-700/50 bg-gray-800 px-2 py-0.5 text-xs text-gray-300"
+        >
+          {label}
+        </li>
+      ))}
+    </ul>
   );
 }
 
@@ -110,11 +103,11 @@ function PlotSummary({ description }: { description: string | null }) {
   if (!description) return null;
 
   return (
-    <div className="space-y-2">
+    <div className="space-y-1.5">
       <p className="text-[10px] text-gray-500 font-black uppercase tracking-widest">
         Plot Summary
       </p>
-      <p className="text-gray-300 text-base leading-relaxed font-normal">
+      <p className="text-gray-300 text-sm leading-relaxed font-normal sm:text-base">
         {description}
       </p>
     </div>
@@ -161,7 +154,7 @@ export default function MovieInfoColumn({
   onStandardize,
 }: MovieInfoColumnProps) {
   return (
-    <div className="order-1 lg:order-2 lg:col-span-8 space-y-6 sm:space-y-8">
+    <div className="order-1 lg:order-2 lg:col-span-8 space-y-4 sm:space-y-5">
       <MovieTitleBlock movieTitle={movieTitle} plTitle={plTitle} />
 
       <MovieMetadataBadges
@@ -170,8 +163,8 @@ export default function MovieInfoColumn({
         filePath={filePath}
       />
 
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-        <div className="space-y-6">
+      <div className="grid grid-cols-1 gap-4 md:grid-cols-2 md:gap-6">
+        <div className="space-y-3">
           <RatingControls
             globalRating={movie.rating}
             userRating={userRating}
@@ -188,7 +181,7 @@ export default function MovieInfoColumn({
           )}
         </div>
 
-        <div className="space-y-6">
+        <div className="space-y-3">
           {isMergeMode && (
             <MergeTargetSelector
               variant="compact"

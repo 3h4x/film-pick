@@ -47,8 +47,8 @@ export default function RatingControls({
   onRate,
 }: RatingControlsProps) {
   return (
-    <div className="flex flex-wrap items-center gap-4 sm:gap-6">
-      <div className="space-y-1.5">
+    <div className="flex flex-wrap items-center gap-3 sm:gap-4">
+      <div className="space-y-1">
         <p className="text-[10px] text-gray-500 font-black uppercase tracking-widest">
           My Rating
         </p>
@@ -56,7 +56,7 @@ export default function RatingControls({
           <button
             onClick={onTogglePicker}
             title="Click to change rating"
-            className="flex min-h-11 items-center gap-2 rounded-xl bg-indigo-500 px-3 py-1 text-2xl font-black text-white shadow-lg shadow-indigo-500/20 transition-colors hover:bg-indigo-400"
+            className="flex min-h-11 items-center gap-1.5 rounded-xl bg-indigo-500 px-3 py-0.5 text-xl font-black sm:min-h-9 text-white shadow-lg shadow-indigo-500/20 transition-colors hover:bg-indigo-400"
           >
             ♥ {userRating != null && userRating > 0 ? userRating : "—"}
           </button>
@@ -90,12 +90,12 @@ export default function RatingControls({
       </div>
 
       {globalRating != null && globalRating > 0 && (
-        <div className="space-y-1.5">
+        <div className="space-y-1">
           <p className="text-[10px] text-gray-500 font-black uppercase tracking-widest">
             Global
           </p>
           <div className="flex items-center gap-3">
-            <div className="bg-yellow-500 text-black font-black text-2xl px-3 py-1 rounded-xl shadow-lg shadow-yellow-500/20">
+            <div className="bg-yellow-500 text-black font-black text-xl px-3 py-1 rounded-xl shadow-lg shadow-yellow-500/20">
               ★ {globalRating}
             </div>
           </div>
