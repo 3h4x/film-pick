@@ -116,14 +116,13 @@ export default function AppNav({
               </a>
             </h1>
           </div>
-          {!initialLoad && (
-            <div className="flex items-center gap-2">
-              {activeTab === "library" && libraryPath && (
+          <div className="flex items-center gap-2">
                 <button
                   onClick={onSync}
+                  disabled={!libraryPath}
                   aria-label="Sync library"
-                  className="flex h-11 w-11 items-center justify-center rounded-lg text-gray-500 transition-all hover:bg-gray-800/60 hover:text-white"
-                  title="Sync library"
+                  className="flex h-11 w-11 items-center justify-center rounded-lg text-gray-500 transition-all hover:bg-gray-800/60 hover:text-white disabled:pointer-events-none disabled:opacity-40"
+                  title={libraryPath ? "Sync library" : "Set a library path in Config to sync"}
                 >
                   <svg
                     className="w-4 h-4"
@@ -139,8 +138,6 @@ export default function AppNav({
                     />
                   </svg>
                 </button>
-              )}
-              {activeTab === "library" && (
                 <button
                   onClick={onImport}
                   aria-label="Import folder"
@@ -161,9 +158,7 @@ export default function AppNav({
                     />
                   </svg>
                 </button>
-              )}
-            </div>
-          )}
+          </div>
         </div>
 
         {!initialLoad && (
