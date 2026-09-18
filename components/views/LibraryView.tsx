@@ -34,6 +34,7 @@ export default function LibraryView({
   const {
     movies,
     initialLoad,
+    searching,
     sort,
     sortDir,
     genreFilter,
@@ -142,23 +143,6 @@ export default function LibraryView({
     );
   }
 
-  if (sortedMovies.length === 0 && searchQuery) {
-    return (
-      <EmptyState
-        icon="🔍"
-        message={`No results for "${searchQuery}"`}
-        subtext="Try searching for it on TMDb to add it to your library or watchlist"
-      >
-        <Button
-          onClick={() => onSearchInTMDb(searchQuery)}
-          className="min-h-11 rounded-xl px-5 py-2.5 text-sm shadow-lg shadow-indigo-500/20"
-        >
-          Search in TMDb
-        </Button>
-      </EmptyState>
-    );
-  }
-
   return (
     <>
       <SortFilterBar
@@ -208,10 +192,26 @@ export default function LibraryView({
           )}
         </div>
       </div>
-      {sortedMovies.length === 0 ? (
+      {sortedMovies.length === 0 && searchQuery && !searching ? (
+        <EmptyState
+          icon="🔍"
+          message={`No results for "${searchQuery}"`}
+          subtext="Try searching for it on TMDb to add it to your library or watchlist"
+        >
+          <Button
+            onClick={() => onSearchInTMDb(searchQuery)}
+            className="min-h-11 rounded-xl px-5 py-2.5 text-sm shadow-lg shadow-indigo-500/20"
+          >
+            Search in TMDb
+          </Button>
+        </EmptyState>
+      ) : sortedMovies.length === 0 && !searchQuery ? (
         <EmptyState variant="plain" message="No movies match your filters" />
       ) : (
-        <div className={MOVIE_GRID_CLASS}>
+        <div
+          className={`${MOVIE_GRID_CLASS} transition-opacity ${searching ? "opacity-60" : ""}`}
+          aria-busy={searching}
+        >
           {visibleMovies.map((m) => (
             <MovieCard
               key={m.id}
