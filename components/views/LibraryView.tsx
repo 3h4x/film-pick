@@ -163,13 +163,13 @@ export default function LibraryView({
         onUnratedChange={setUnratedOnly}
         onHasFileChange={setHasFileOnly}
       />
-      <div className="flex flex-wrap items-end justify-between gap-4 mb-4">
-        <p className="text-gray-600 text-xs">
+      <div className="mb-4 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between sm:gap-4">
+        <p className="text-xs text-gray-500">
           Showing {Math.min(visibleCount, sortedMovies.length)} of{" "}
           {sortedMovies.length}
           {sortedMovies.length !== movies.length && ` (${movies.length} total)`}
         </p>
-        <div className="flex flex-wrap items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2 sm:justify-end">
           <button
             type="button"
             onClick={() => setQuickRateOpen(true)}
@@ -178,7 +178,7 @@ export default function LibraryView({
           >
             Quick Rate ({unratedMovies.length}) · R
           </button>
-          {searchQuery && (
+          {searchQuery && sortedMovies.length > 0 && (
             <button
               onClick={() => onSearchInTMDb(searchQuery)}
               className="flex min-h-11 items-center gap-1.5 rounded-lg px-3 py-2 text-xs font-medium text-indigo-400 transition-colors hover:bg-indigo-500/10 hover:text-indigo-300"
@@ -202,7 +202,11 @@ export default function LibraryView({
             Search in TMDb
           </Button>
         </EmptyState>
-      ) : sortedMovies.length === 0 && !searchQuery ? (
+      ) : sortedMovies.length === 0 && searchQuery ? (
+        <p className="py-16 text-center text-sm text-gray-500" role="status">
+          Searching&hellip;
+        </p>
+      ) : sortedMovies.length === 0 ? (
         <EmptyState variant="plain" message="No movies match your filters" />
       ) : (
         <div
