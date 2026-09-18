@@ -43,7 +43,6 @@ export default function LibraryView({
     unratedOnly,
     hasFileOnly,
     searchQuery,
-    setSearchQuery,
     genres,
     sources,
     years,
@@ -156,7 +155,6 @@ export default function LibraryView({
         years={years}
         unratedOnly={unratedOnly}
         hasFileOnly={hasFileOnly}
-        searchQuery={searchQuery}
         onSortChange={setSortOption}
         onSortDirChange={toggleSortDir}
         onGenreChange={setGenreFilter}
@@ -164,7 +162,6 @@ export default function LibraryView({
         onYearChange={setYearFilter}
         onUnratedChange={setUnratedOnly}
         onHasFileChange={setHasFileOnly}
-        onSearchChange={setSearchQuery}
       />
       <div className="flex flex-wrap items-end justify-between gap-4 mb-4">
         <p className="text-gray-600 text-xs">

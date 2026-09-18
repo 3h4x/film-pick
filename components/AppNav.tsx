@@ -203,7 +203,7 @@ export default function AppNav({
                     setActiveTab("library");
                   }
                 }}
-                placeholder="Search library..."
+                placeholder="Search title, director, actor..."
                 aria-label="Search library"
                 className="h-11 w-full rounded-lg border border-gray-700/50 bg-gray-800/40 pl-8 pr-8 text-sm text-white transition-all placeholder-gray-600 focus:border-indigo-500/50 focus:outline-none focus:ring-1 focus:ring-indigo-500/20"
               />
