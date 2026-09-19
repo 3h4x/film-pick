@@ -102,6 +102,7 @@ pnpm backup              # Backup SQLite DB
 │   ├── scanner.ts                    — Filesystem video scanner + filename parser
 │   ├── library-folders.ts            — Library folders: primary (`library_path` setting) + extras (`library_extra_paths` JSON); standardize moves into the primary
 │   ├── fs-move.ts                    — moveFile: rename with copy+unlink fallback across filesystems (EXDEV)
+│   ├── localize-movies.ts            — Backfill pl_title/description from TMDb (run at the end of sync/import; search matches pl_title)
 │   ├── subtitles.ts                  — Subtitle format sniffing (SubRip/MicroDVD/MPL2/TMP/VTT/ASS), encoding detection, conversion to SubRip
 │   ├── ffprobe.ts                    — probeFps: video frame rate via ffprobe, used to time frame-based subtitles
 │   ├── hooks/                        — React hooks
