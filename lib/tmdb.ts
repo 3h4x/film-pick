@@ -308,6 +308,8 @@ export interface TmdbMovieSnapshot extends TmdbSearchResult {
   writer: string | null;
   actors: string | null;
   description: string | null;
+  tmdb_collection_id?: number | null;
+  tmdb_collection_name?: string | null;
 }
 
 function normalizeSearchText(value: string): string {
@@ -700,6 +702,8 @@ export async function getTmdbMovieSnapshot(
     director: credits.director,
     writer: credits.writer,
     actors: credits.actors,
+    tmdb_collection_id: data.belongs_to_collection?.id ?? null,
+    tmdb_collection_name: data.belongs_to_collection?.name ?? null,
   };
   snapshotCache.set(tmdbId, { data: result, expiry: Date.now() + CACHE_TTL_MS });
   return result;
