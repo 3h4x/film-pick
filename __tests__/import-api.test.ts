@@ -17,6 +17,7 @@ vi.mock("@/lib/scanner", () => ({
 
 vi.mock("@/lib/tmdb", () => ({
   searchTmdb: vi.fn(),
+  getTmdbMovieSnapshot: vi.fn(),
 }));
 
 import { POST } from "@/app/api/import/route";
@@ -407,6 +408,43 @@ describe("import API route", () => {
     expect(JSON.parse(getSetting(db, "library_extra_paths")!)).toEqual([
       "/movies/archive",
     ]);
+  });
+
+  it("only refreshes films under the imported folder, not the whole library", async () => {
+    const { getTmdbMovieSnapshot } = await import("@/lib/tmdb");
+    vi.mocked(getTmdbMovieSnapshot).mockReset();
+    vi.mocked(getTmdbMovieSnapshot).mockResolvedValue(null);
+    vi.spyOn(console, "warn").mockImplementation(() => {});
+    const insert = db.prepare(
+      "INSERT INTO movies (title, year, tmdb_id, type, source, file_path) VALUES (?, 2020, ?, 'movie', 'tmdb', ?)",
+    );
+    insert.run("Elsewhere", 111, "/other/place/a.mkv"); // never refreshed, but not part of this import
+    insert.run("Sibling folder", 222, "/movies/library-archive/b.mkv"); // shares the prefix text only
+    const inFolder = insert.run("Imported", 333, "/movies/library/Imported/c.mkv").lastInsertRowid;
+    vi.mocked(scanDirectoryGenerator).mockReturnValue(
+      (function* () {})() as ReturnType<typeof scanDirectoryGenerator>,
+    );
+
+    const events = await readNDJSON(await POST(makeRequest({ path: "/movies/library" })));
+
+    expect(vi.mocked(getTmdbMovieSnapshot).mock.calls.map((c) => c[0])).toEqual([333]);
+    expect(events.filter((e) => e.type === "enriching").length).toBeGreaterThan(0);
+    expect(events.at(-1)!.type).toBe("complete");
+    expect(inFolder).toBeDefined();
+  });
+
+  it("does not run any refresh when nothing under the folder needs one", async () => {
+    const { getTmdbMovieSnapshot } = await import("@/lib/tmdb");
+    vi.mocked(getTmdbMovieSnapshot).mockReset();
+    db.prepare(
+      "INSERT INTO movies (title, year, tmdb_id, type, source, file_path) VALUES ('Elsewhere', 2020, 111, 'movie', 'tmdb', '/other/a.mkv')",
+    ).run();
+    vi.mocked(scanDirectoryGenerator).mockReturnValue(
+      (function* () {})() as ReturnType<typeof scanDirectoryGenerator>,
+    );
+
+    await readNDJSON(await POST(makeRequest({ path: "/movies/library" })));
+    expect(getTmdbMovieSnapshot).not.toHaveBeenCalled();
   });
 
   // ── Pathless-row linking ────────────────────────────────────────────────────

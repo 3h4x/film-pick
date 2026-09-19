@@ -783,6 +783,11 @@ export function updateMovieTmdbMetadata(
   return getMovie(db, id);
 }
 
+// TMDb ids are far below this (about 1.6 million today). CDA-sourced rows carry a
+// 32-bit hash of their URL as a pseudo id; those are mostly above it, and asking
+// TMDb about them only produces a 404 each.
+export const MAX_TMDB_ID = 50_000_000;
+
 export function getStaleTmdbMovies(
   db: Database.Database,
   limit: number,
@@ -793,6 +798,7 @@ export function getStaleTmdbMovies(
       `SELECT id, tmdb_id, tmdb_refreshed_at
        FROM movies
        WHERE tmdb_id IS NOT NULL
+         AND tmdb_id < ${MAX_TMDB_ID}
          AND type = 'movie'
          AND (tmdb_refreshed_at IS NULL OR tmdb_refreshed_at < ?)
        ORDER BY tmdb_refreshed_at IS NOT NULL, tmdb_refreshed_at ASC, id ASC
