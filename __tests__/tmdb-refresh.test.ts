@@ -194,4 +194,46 @@ describe("refreshStaleTmdbMetadata (used by sync/import)", () => {
     await refreshStaleTmdbMetadata(db, opts);
     expect(peak).toBe(1);
   });
+
+  describe("fillOnly", () => {
+    it("keeps what is already stored and only fills gaps; the rating is still refreshed", async () => {
+      const id = db
+        .prepare(
+          "INSERT INTO movies (title, year, tmdb_id, type, source, genre, description, rating) VALUES ('My own title', 2026, 1, 'movie', 'tmdb', 'Comedy', 'My notes', 5.0)",
+        )
+        .run().lastInsertRowid as number;
+
+      await refreshStaleTmdbMetadata(db, { ...opts, fillOnly: true });
+
+      const row = db
+        .prepare("SELECT title, genre, description, rating, director, pl_title, poster_url, tmdb_refreshed_at AS t FROM movies WHERE id = ?")
+        .get(id) as Record<string, unknown>;
+      expect(row.title).toBe("My own title");
+      expect(row.genre).toBe("Comedy");
+      expect(row.description).toBe("My notes");
+      expect(row.rating).toBe(7.1); // refreshed
+      expect(row.director).toBe("Christopher Nolan"); // filled
+      expect(row.pl_title).toBe("Odyseja");
+      expect(row.poster_url).toBe("https://image.tmdb.org/p.jpg");
+      expect(row.t).not.toBeNull();
+    });
+
+    it("overwrites by default (the manual refresh behaviour)", async () => {
+      const id = db
+        .prepare("INSERT INTO movies (title, year, tmdb_id, type, source, genre) VALUES ('Old', 2026, 1, 'movie', 'tmdb', 'Comedy')")
+        .run().lastInsertRowid as number;
+      await refreshStaleTmdbMetadata(db, opts);
+      const row = db.prepare("SELECT title, genre FROM movies WHERE id = ?").get(id) as { title: string; genre: string };
+      expect(row).toEqual({ title: "The Odyssey", genre: "Adventure" });
+    });
+
+    it("treats an empty string as a gap", async () => {
+      const id = db
+        .prepare("INSERT INTO movies (title, year, tmdb_id, type, source, genre, pl_title) VALUES ('T', 2026, 1, 'movie', 'tmdb', '', '')")
+        .run().lastInsertRowid as number;
+      await refreshStaleTmdbMetadata(db, { ...opts, fillOnly: true });
+      const row = db.prepare("SELECT genre, pl_title FROM movies WHERE id = ?").get(id) as { genre: string; pl_title: string };
+      expect(row).toEqual({ genre: "Adventure", pl_title: "Odyseja" });
+    });
+  });
 });

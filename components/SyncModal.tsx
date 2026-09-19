@@ -20,6 +20,9 @@ interface ScanCompleteUpdate {
   total: number;
   new_files: number;
   unchanged: number;
+  full_scan?: boolean;
+  dirs_listed?: number;
+  dirs_cached?: number;
 }
 
 interface ProgressUpdate {
@@ -37,6 +40,7 @@ type StreamUpdate =
   | { type: "scanning"; count: number }
   | { type: "skipped_roots"; roots: string[] }
   | { type: "enriching"; current: number; total: number }
+  | { type: "matching"; current: number; total: number }
   | ScanCompleteUpdate
   | ProgressUpdate
   | CompleteUpdate;
@@ -62,6 +66,8 @@ export default function SyncModal({
   const [progress, setProgress] = useState<ProgressUpdate | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [skippedRoots, setSkippedRoots] = useState<string[]>([]);
+  const [fullRescan, setFullRescan] = useState(false);
+  const [enrichLabel, setEnrichLabel] = useState("Fetching titles & credits");
   const [enrichProgress, setEnrichProgress] = useState<{
     current: number;
     total: number;
@@ -89,7 +95,9 @@ export default function SyncModal({
     setEnrichProgress(null);
 
     try {
-      const res = await fetch("/api/sync", { method: "POST" });
+      const res = await fetch(fullRescan ? "/api/sync?full=1" : "/api/sync", {
+        method: "POST",
+      });
 
       if (!res.ok) {
         const data = await res.json();
@@ -126,8 +134,13 @@ export default function SyncModal({
               setScanCount(update.count);
             } else if (update.type === "skipped_roots") {
               setSkippedRoots(update.roots);
+            } else if (update.type === "matching") {
+              setPhase("enriching");
+              setEnrichLabel("Matching films to TMDb");
+              setEnrichProgress({ current: update.current, total: update.total });
             } else if (update.type === "enriching") {
               setPhase("enriching");
+              setEnrichLabel("Fetching titles & credits");
               setEnrichProgress({ current: update.current, total: update.total });
             } else if (update.type === "scan_complete") {
               setScanComplete(update);
@@ -165,6 +178,22 @@ export default function SyncModal({
           Re-scan your library folder to add new files and detach entries whose
           files are missing.
         </p>
+
+        {!loading && !result && (
+          <label className="mb-3 flex items-start gap-2 text-xs text-gray-400">
+            <input
+              type="checkbox"
+              checked={fullRescan}
+              onChange={(e) => setFullRescan(e.target.checked)}
+              className="mt-0.5"
+            />
+            <span>
+              Full rescan: re-read every folder. Normally only folders that
+              changed are read again (a full rescan runs automatically once a
+              week).
+            </span>
+          </label>
+        )}
 
         {!loading && !result && (
           <Button
@@ -213,9 +242,7 @@ export default function SyncModal({
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-3">
                     <Spinner size="md" className="flex-shrink-0" />
-                    <p className="text-gray-300 text-sm">
-                      Fetching titles &amp; credits
-                    </p>
+                    <p className="text-gray-300 text-sm">{enrichLabel}</p>
                   </div>
                   <span className="text-indigo-400 font-mono text-sm font-medium">
                     {enrichProgress.current}/{enrichProgress.total}
@@ -312,6 +339,15 @@ export default function SyncModal({
                 </span>
               </div>
             </div>
+            {scanComplete?.dirs_listed !== undefined && (
+              <p className="text-gray-500 text-xs mt-1">
+                {scanComplete.full_scan ? "Full rescan: " : ""}
+                read {scanComplete.dirs_listed} folder
+                {scanComplete.dirs_listed === 1 ? "" : "s"}
+                {(scanComplete.dirs_cached ?? 0) > 0 &&
+                  `, ${scanComplete.dirs_cached} unchanged skipped`}
+              </p>
+            )}
             {(result.enriched ?? 0) > 0 && (
               <p className="text-gray-500 text-xs mt-1">
                 Fetched titles &amp; credits for {result.enriched} movie

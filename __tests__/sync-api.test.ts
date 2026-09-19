@@ -1,5 +1,6 @@
 // tamtam inspected 2026-05-21
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
+import { NextRequest } from "next/server";
 import Database from "better-sqlite3";
 import fs from "fs";
 import path from "path";
@@ -11,7 +12,7 @@ vi.mock("@/lib/db", async (importOriginal) => {
 });
 
 vi.mock("@/lib/scanner", () => ({
-  scanDirectoryGenerator: vi.fn(),
+  scanLibraryGenerator: vi.fn(),
 }));
 
 vi.mock("@/lib/tmdb", () => ({
@@ -20,8 +21,15 @@ vi.mock("@/lib/tmdb", () => ({
 
 import { POST } from "@/app/api/sync/route";
 import { getDb, setSetting } from "@/lib/db";
-import { scanDirectoryGenerator } from "@/lib/scanner";
+import { scanLibraryGenerator } from "@/lib/scanner";
 import { searchTmdb } from "@/lib/tmdb";
+
+// The route iterates with `for await`, which accepts the plain generators these
+// tests hand back, but the mocked function is typed as returning an AsyncGenerator.
+const scanMock = vi.mocked(scanLibraryGenerator) as unknown as {
+  mockReturnValue(value: Iterable<unknown> | AsyncIterable<unknown>): void;
+  mockImplementation(fn: () => Iterable<unknown> | AsyncIterable<unknown>): void;
+};
 
 const TEST_DB = path.join(__dirname, "test-sync-api.db");
 
@@ -43,7 +51,7 @@ describe("sync API route", () => {
     initDb(db);
     vi.mocked(getDb).mockReturnValue(db);
     existsSyncSpy = vi.spyOn(fs, "existsSync").mockReturnValue(true);
-    vi.mocked(scanDirectoryGenerator).mockReturnValue((function* () {})());
+    scanMock.mockReturnValue((function* () {})());
     vi.mocked(searchTmdb).mockResolvedValue([]);
   });
 
@@ -77,10 +85,10 @@ describe("sync API route", () => {
     setSetting(dbx, "library_extra_paths", JSON.stringify(["/archive", "/offline"]));
     existsSyncSpy.mockImplementation(((p: string) => p !== "/offline") as never);
     const scanned: string[] = [];
-    vi.mocked(scanDirectoryGenerator).mockImplementation(((root: string) => {
+    vi.mocked(scanLibraryGenerator).mockImplementation(((root: string) => {
       scanned.push(root);
       return (function* () {})();
-    }) as unknown as typeof scanDirectoryGenerator);
+    }) as unknown as typeof scanLibraryGenerator);
 
     const events = await readNDJSON(await POST());
 
@@ -133,9 +141,54 @@ describe("sync API route", () => {
     expect(path(goneId)).toBeNull();
   });
 
+  it("forces a full scan the first time, then reuses the cache", async () => {
+    const dbx = db as unknown as ReturnType<typeof getDb>;
+    setSetting(dbx, "library_path", "/movies");
+    const fullFlags: (boolean | undefined)[] = [];
+    vi.mocked(scanLibraryGenerator).mockImplementation(((_root: string, opts?: { full?: boolean }) => {
+      fullFlags.push(opts?.full);
+      return (function* () {})();
+    }) as unknown as typeof scanLibraryGenerator);
+
+    const first = (await readNDJSON(await POST())).find((e) => e.type === "scan_complete");
+    const second = (await readNDJSON(await POST())).find((e) => e.type === "scan_complete");
+
+    expect(fullFlags).toEqual([true, false]);
+    expect(first!.full_scan).toBe(true);
+    expect(second!.full_scan).toBe(false);
+  });
+
+  it("does a full scan on request even when the last one was recent", async () => {
+    const dbx = db as unknown as ReturnType<typeof getDb>;
+    setSetting(dbx, "library_path", "/movies");
+    setSetting(dbx, "last_full_scan_at", String(Date.now()));
+    const fullFlags: (boolean | undefined)[] = [];
+    vi.mocked(scanLibraryGenerator).mockImplementation(((_root: string, opts?: { full?: boolean }) => {
+      fullFlags.push(opts?.full);
+      return (function* () {})();
+    }) as unknown as typeof scanLibraryGenerator);
+
+    await readNDJSON(await POST(new NextRequest("http://localhost/api/sync?full=1", { method: "POST" })));
+    expect(fullFlags).toEqual([true]);
+  });
+
+  it("remembers listed directories and reports scan stats", async () => {
+    const dbx = db as unknown as ReturnType<typeof getDb>;
+    setSetting(dbx, "library_path", "/movies");
+    vi.mocked(scanLibraryGenerator).mockImplementation(((_root: string, opts?: { cache?: { set: (d: string, e: unknown) => void }; stats?: { dirsListed: number; dirsCached: number } }) => {
+      opts!.cache!.set("/movies", { mtimeMs: 1, scannedAtMs: 100_000, listing: { files: [], dirs: [] } });
+      opts!.stats!.dirsListed = 1;
+      return (function* () {})();
+    }) as unknown as typeof scanLibraryGenerator);
+
+    const scanComplete = (await readNDJSON(await POST())).find((e) => e.type === "scan_complete");
+    expect(scanComplete!.dirs_listed).toBe(1);
+    expect(db.prepare("SELECT dir FROM scan_dirs").all()).toEqual([{ dir: "/movies" }]);
+  });
+
   it("streams ndjson with scan_complete and complete events when no files found", async () => {
     setSetting(db as unknown as ReturnType<typeof getDb>, 'library_path', '/movies');
-    vi.mocked(scanDirectoryGenerator).mockReturnValue((function* () {})());
+    scanMock.mockReturnValue((function* () {})());
 
     const res = await POST();
     expect(res.headers.get("content-type")).toBe("application/x-ndjson");
@@ -150,7 +203,7 @@ describe("sync API route", () => {
 
   it("adds new file via TMDb search when no existing match", async () => {
     setSetting(db as unknown as ReturnType<typeof getDb>, 'library_path', '/movies');
-    vi.mocked(scanDirectoryGenerator).mockReturnValue(
+    scanMock.mockReturnValue(
       (function* () {
         yield {
           filename: "Inception.2010.mkv",
@@ -199,7 +252,7 @@ describe("sync API route", () => {
       type: "movie",
     });
 
-    vi.mocked(scanDirectoryGenerator).mockReturnValue(
+    scanMock.mockReturnValue(
       (function* () {
         yield {
           filename: "Inception.2010.mkv",
@@ -224,7 +277,7 @@ describe("sync API route", () => {
 
   it("adds file as local entry when TMDb search returns no results", async () => {
     setSetting(db as unknown as ReturnType<typeof getDb>, 'library_path', '/movies');
-    vi.mocked(scanDirectoryGenerator).mockReturnValue(
+    scanMock.mockReturnValue(
       (function* () {
         yield {
           filename: "UnknownFilm.2005.mkv",
@@ -251,7 +304,7 @@ describe("sync API route", () => {
 
   it("adds file as local entry when TMDb search throws", async () => {
     setSetting(db as unknown as ReturnType<typeof getDb>, 'library_path', '/movies');
-    vi.mocked(scanDirectoryGenerator).mockReturnValue(
+    scanMock.mockReturnValue(
       (function* () {
         yield {
           filename: "SomeFilm.2000.mkv",
@@ -295,7 +348,7 @@ describe("sync API route", () => {
     });
 
     // Scanner finds no files — the old file is gone
-    vi.mocked(scanDirectoryGenerator).mockReturnValue((function* () {})());
+    scanMock.mockReturnValue((function* () {})());
 
     const res = await POST();
     const events = await readNDJSON(res);
@@ -345,7 +398,7 @@ describe("sync API route", () => {
     ).run("Matrix", 1999, "tmdb", "movie", "/movies/Matrix.mkv", JSON.stringify(["/movies/Matrix.alt.mkv"]));
 
     // Scanner finds the primary file only
-    vi.mocked(scanDirectoryGenerator).mockReturnValue(
+    scanMock.mockReturnValue(
       (function* () {
         yield {
           filename: "Matrix.mkv",
@@ -384,7 +437,7 @@ describe("sync API route", () => {
       }),
     );
 
-    vi.mocked(scanDirectoryGenerator).mockReturnValue(
+    scanMock.mockReturnValue(
       (function* () {
         yield {
           filename: "Matrix.mkv",
@@ -433,7 +486,7 @@ describe("sync API route", () => {
       '{"duration":8000}',
     );
 
-    vi.mocked(scanDirectoryGenerator).mockImplementation(
+    scanMock.mockImplementation(
       () =>
         (function* () {
           yield {
@@ -482,7 +535,7 @@ describe("sync API route", () => {
       "INSERT INTO movies (title, year, source, type, wishlist) VALUES (?, NULL, ?, ?, 1)",
     ).run("Mystery Film", "filmweb", "movie");
 
-    vi.mocked(scanDirectoryGenerator).mockReturnValue(
+    scanMock.mockReturnValue(
       (function* () {
         yield {
           filename: "Mystery.Film.mkv",
@@ -522,7 +575,7 @@ describe("sync API route", () => {
       type: "movie",
     });
 
-    vi.mocked(scanDirectoryGenerator).mockReturnValue(
+    scanMock.mockReturnValue(
       (function* () {
         yield {
           filename: "The.Counselor.2013.mkv",
@@ -577,7 +630,7 @@ describe("sync API route", () => {
       "https://filmweb.example/the-counselor",
     );
 
-    vi.mocked(scanDirectoryGenerator).mockReturnValue(
+    scanMock.mockReturnValue(
       (function* () {
         yield {
           filename: "The.Counselor.2013.mkv",
@@ -651,7 +704,7 @@ describe("sync API route", () => {
       type: "movie",
     });
 
-    vi.mocked(scanDirectoryGenerator).mockReturnValue(
+    scanMock.mockReturnValue(
       (function* () {
         yield {
           filename: "Some.Film.2000.mkv",
@@ -682,7 +735,7 @@ describe("sync API route", () => {
       "INSERT INTO movies (title, year, source, type, wishlist) VALUES (?, ?, ?, ?, ?)",
     ).run("Spider-Man: Homecoming", 2017, "filmweb", "movie", 1);
 
-    vi.mocked(scanDirectoryGenerator).mockReturnValue(
+    scanMock.mockReturnValue(
       (function* () {
         yield {
           filename: "Spider.Man.Homecoming.2018.1080p.mkv",
@@ -749,7 +802,7 @@ describe("sync API route", () => {
       wishlist: 1,
     });
 
-    vi.mocked(scanDirectoryGenerator).mockReturnValue(
+    scanMock.mockReturnValue(
       (function* () {
         yield {
           filename: "Bad.Filename.2013.mkv",
@@ -803,7 +856,7 @@ describe("sync API route", () => {
 
   it("emits scanning progress events during phase 1", async () => {
     setSetting(db as unknown as ReturnType<typeof getDb>, 'library_path', '/movies');
-    vi.mocked(scanDirectoryGenerator).mockReturnValue(
+    scanMock.mockReturnValue(
       (function* () {
         for (let i = 0; i < 3; i++) {
           yield {
@@ -843,7 +896,7 @@ describe("sync API route", () => {
       file_path: "/movies/Known.2000.mkv",
     });
 
-    vi.mocked(scanDirectoryGenerator).mockReturnValue(
+    scanMock.mockReturnValue(
       (function* () {
         yield {
           filename: "Known.2000.mkv",

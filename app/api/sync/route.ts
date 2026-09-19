@@ -8,9 +8,16 @@ import {
 } from "@/lib/db";
 import { getLibraryFolders, isWithinFolder } from "@/lib/library-folders";
 import { refreshStaleTmdbMetadata } from "@/lib/tmdb-refresh";
-import { SYNC_ENRICH_OPTIONS } from "@/lib/tmdb-enrich-options";
+import { rematchLocalMovies } from "@/lib/tmdb-rematch";
+import { SYNC_ENRICH_OPTIONS, SYNC_REMATCH_OPTIONS } from "@/lib/tmdb-enrich-options";
 import { linkToExistingPathlessRow } from "@/lib/pathless-row-link";
-import { scanDirectoryGenerator } from "@/lib/scanner";
+import { scanLibraryGenerator } from "@/lib/scanner";
+import type { ScanStats } from "@/lib/scanner";
+import {
+  createDbScanCache,
+  markFullScan,
+  shouldForceFullScan,
+} from "@/lib/scan-cache";
 import type { ScannedFile } from "@/lib/scanner";
 import { searchTmdb } from "@/lib/tmdb";
 import { selectTmdbSearchCandidates } from "@/lib/tmdb-match";
@@ -33,6 +40,10 @@ export async function POST(request?: NextRequest) {
   const limited = request ? rateLimit(request, "mutation") : null;
   if (limited) return limited;
   const db = getDb();
+  // `?full=1` re-lists every directory; otherwise unchanged directories are
+  // skipped, except that a full scan is forced once a week as a safety net.
+  const requestedFull = request?.nextUrl.searchParams.get("full") === "1";
+  const fullScan = requestedFull || shouldForceFullScan(db);
   const { primary: libraryPath, extras } = getLibraryFolders(db);
 
   if (!libraryPath) {
@@ -78,8 +89,14 @@ export async function POST(request?: NextRequest) {
       if (unavailableRoots.length > 0) {
         sendUpdate({ type: "skipped_roots", roots: unavailableRoots });
       }
+      const scanStats: ScanStats = { dirsListed: 0, dirsCached: 0 };
       for (const root of scanRoots) {
-        for (const file of scanDirectoryGenerator(root)) {
+        const { cache, flush } = createDbScanCache(db, root);
+        for await (const file of scanLibraryGenerator(root, {
+          cache,
+          full: fullScan,
+          stats: scanStats,
+        })) {
           // Folders may overlap; never process the same file twice.
           if (seenFiles.has(file.filePath)) continue;
           seenFiles.add(file.filePath);
@@ -89,7 +106,11 @@ export async function POST(request?: NextRequest) {
             sendUpdate({ type: "scanning", count: allFiles.length });
           }
         }
+        // The walk finished, so what it listed is safe to remember and what it
+        // did not reach is gone.
+        flush({ prune: true });
       }
+      if (fullScan) markFullScan(db);
       // Final scan count
       sendUpdate({ type: "scanning", count: allFiles.length });
 
@@ -115,6 +136,9 @@ export async function POST(request?: NextRequest) {
         total: allFiles.length,
         new_files: newFiles.length,
         unchanged,
+        full_scan: fullScan,
+        dirs_listed: scanStats.dirsListed,
+        dirs_cached: scanStats.dirsCached,
       });
 
       // Phase 2: Sync — link files to existing DB entries or fetch metadata for truly new ones
@@ -297,7 +321,16 @@ export async function POST(request?: NextRequest) {
       // collection), so films found by this sync are searchable by name, director
       // and cast without opening them first. Movies refreshed recently are skipped.
       let enriched = 0;
+      let rematched = 0;
       try {
+        // Films added earlier without a TMDb id get another chance first, so a
+        // match found now is enriched in this same pass.
+        const rematch = await rematchLocalMovies(db, {
+          ...SYNC_REMATCH_OPTIONS,
+          onProgress: (current, total) =>
+            sendUpdate({ type: "matching", current, total }),
+        });
+        rematched = rematch.matched;
         const result = await refreshStaleTmdbMetadata(db, {
           ...SYNC_ENRICH_OPTIONS,
           onProgress: (current, total) =>
@@ -311,6 +344,7 @@ export async function POST(request?: NextRequest) {
       sendUpdate({
         type: "complete",
         enriched,
+        rematched,
         added,
         linked,
         detached,

@@ -15,6 +15,7 @@ export interface RefreshMovieResult {
 export async function refreshMovieTmdbMetadata(
   db: Database.Database,
   id: number,
+  { fillOnly = false }: { fillOnly?: boolean } = {},
 ): Promise<RefreshMovieResult | null> {
   const existing = getMovie(db, id);
   if (!existing) return null;
@@ -30,7 +31,13 @@ export async function refreshMovieTmdbMetadata(
     throw new Error("tmdb_movie_not_found");
   }
 
-  const movie = updateMovieTmdbMetadata(db, id, snapshot);
+  const movie = updateMovieTmdbMetadata(
+    db,
+    id,
+    snapshot,
+    Math.floor(Date.now() / 1000),
+    { fillOnly },
+  );
   if (!movie) return null;
   return { movie, updated: true };
 }
@@ -41,6 +48,8 @@ export interface RefreshStaleOptions {
   delayMs: number;
   /** Parallel TMDb requests. Defaults to 1 (sequential). */
   concurrency?: number;
+  /** Only fill empty fields; never overwrite what is already stored (except the rating). */
+  fillOnly?: boolean;
   onProgress?: (current: number, total: number) => void;
 }
 
@@ -76,7 +85,9 @@ export async function refreshStaleTmdbMetadata(
       const row = rows[next++];
       if (!row) return;
       try {
-        const result = await refreshMovieTmdbMetadata(db, row.id);
+        const result = await refreshMovieTmdbMetadata(db, row.id, {
+          fillOnly: options.fillOnly,
+        });
         if (result?.updated) {
           updated += 1;
         } else {

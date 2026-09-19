@@ -99,7 +99,9 @@ pnpm backup              # Backup SQLite DB
 │   ├── utils.ts                      — Shared utilities
 │   ├── search.ts                     — Shared search types (SearchMatches, TmdbSearchMovieState)
 │   ├── latest-only-runner.ts         — Utility: run async tasks, discard stale (latest-wins)
-│   ├── scanner.ts                    — Filesystem video scanner + filename parser
+│   ├── scanner.ts                    — Filesystem video scanner + filename parser; `scanLibraryGenerator` = async parallel scan that skips directories whose mtime is unchanged (used by sync)
+│   ├── scan-cache.ts                 — `scan_dirs` directory-listing cache, weekly forced full scan (`last_full_scan_at` setting)
+│   ├── tmdb-rematch.ts               — Retry TMDb matching for `source=local` films without a tmdb_id (`tmdb_matched_at`)
 │   ├── library-folders.ts            — Library folders: primary (`library_path` setting) + extras (`library_extra_paths` JSON); standardize moves into the primary
 │   ├── fs-move.ts                    — moveFile: rename with copy+unlink fallback across filesystems (EXDEV)
 │   ├── tmdb-refresh.ts               — Refresh a movie from TMDb (`tmdb_refreshed_at` records when); sync/import run it for never/stale-refreshed movies so search finds them by Polish title, director, cast
@@ -171,7 +173,7 @@ pnpm backup              # Backup SQLite DB
 
 **movies**: id, title, year, genre, director, writer, actors, rating, user_rating, poster_url, source, imdb_id, tmdb_id, type (`movie`|`tv`), file_path, extra_files (JSON), video_metadata (JSON), filmweb_id, filmweb_url, cda_url, pl_title, description, rated_at, created_at, wishlist (0|1)
 
-**Other tables**: settings (key/value), dismissed_recommendations (tmdb_id), recommendation_events (tmdb_id, engine, event, created_at), recommendation_impressions (tmdb_id, engine, shown_count, last_shown_at — populated by `app/api/recommendations/route.ts` only for rotation-aware engines, currently `hidden_gem`; consumed via `getImpressionCounts` to demote titles surfaced repeatedly within a recent window), recommendation_cache (engine, data, movie_count, created_at — `created_at` drives the TTL checked by `getCachedEngine(db, engine, maxAgeHours)`), recommended_movies (tmdb_id, engine, reason, title, year, genre, rating, poster_url, pl_title, cda_url, description), tv_episode_progress (id, movie_id, season_number, episode_number, watched_at, created_at, updated_at — UNIQUE(movie_id, season_number, episode_number), FK to movies ON DELETE CASCADE), _migrations (migration guard)
+**Other tables**: scan_dirs (dir, mtime_ms, scanned_at_ms, listing JSON — remembered directory listings for incremental sync scans), settings (key/value), dismissed_recommendations (tmdb_id), recommendation_events (tmdb_id, engine, event, created_at), recommendation_impressions (tmdb_id, engine, shown_count, last_shown_at — populated by `app/api/recommendations/route.ts` only for rotation-aware engines, currently `hidden_gem`; consumed via `getImpressionCounts` to demote titles surfaced repeatedly within a recent window), recommendation_cache (engine, data, movie_count, created_at — `created_at` drives the TTL checked by `getCachedEngine(db, engine, maxAgeHours)`), recommended_movies (tmdb_id, engine, reason, title, year, genre, rating, poster_url, pl_title, cda_url, description), tv_episode_progress (id, movie_id, season_number, episode_number, watched_at, created_at, updated_at — UNIQUE(movie_id, season_number, episode_number), FK to movies ON DELETE CASCADE), _migrations (migration guard)
 
 **movies_fts**: FTS5 virtual table (external content over `movies`, rowid = movies.id) indexing title, pl_title, director, writer, actors; kept in sync by AFTER INSERT/UPDATE/DELETE triggers on `movies` and queried by `getMovies(db, type, query)` for `?q=` search
 
