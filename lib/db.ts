@@ -167,6 +167,31 @@ export function initDb(db: Database.Database): void {
     ).run();
   }
 
+  // When we last tried to match a film that has no TMDb id (epoch seconds), so a
+  // film TMDb does not know is not searched for again on every sync.
+  const hasTmdbMatchedAt = db
+    .prepare("SELECT 1 FROM _migrations WHERE name = 'add_tmdb_matched_at'")
+    .get();
+  if (!hasTmdbMatchedAt) {
+    const cols = (db.pragma("table_info(movies)") as { name: string }[]).map((c) => c.name);
+    if (!cols.includes("tmdb_matched_at")) {
+      db.exec("ALTER TABLE movies ADD COLUMN tmdb_matched_at INTEGER");
+    }
+    db.prepare(
+      "INSERT OR IGNORE INTO _migrations (name) VALUES ('add_tmdb_matched_at')",
+    ).run();
+  }
+
+  // Directory listings remembered between library syncs (see lib/scan-cache.ts).
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS scan_dirs (
+      dir TEXT PRIMARY KEY,
+      mtime_ms REAL NOT NULL,
+      scanned_at_ms REAL NOT NULL,
+      listing TEXT NOT NULL
+    )
+  `);
+
   const hasTmdbRefreshedAt = db
     .prepare("SELECT 1 FROM _migrations WHERE name = 'add_tmdb_refreshed_at'")
     .get();
@@ -700,6 +725,9 @@ export interface TmdbMetadataUpdate {
   imdb_id: string | null;
   pl_title?: string | null;
   description?: string | null;
+  // Present only when the movie belongs to a collection; never overwrites with null.
+  tmdb_collection_id?: number | null;
+  tmdb_collection_name?: string | null;
 }
 
 export function updateMovieTmdbMetadata(
@@ -707,20 +735,29 @@ export function updateMovieTmdbMetadata(
   id: number,
   metadata: TmdbMetadataUpdate,
   refreshedAt = Math.floor(Date.now() / 1000),
+  { fillOnly = false }: { fillOnly?: boolean } = {},
 ): Movie | null {
+  // fillOnly keeps whatever the row already has (a title or description edited by
+  // hand survives) and only fills gaps; the rating is a moving number, so it is
+  // always refreshed.
+  const col = (name: string) =>
+    fillOnly ? `COALESCE(NULLIF(${name}, ''), ?)` : "?";
   const result = db.prepare(`
     UPDATE movies SET
-      title = ?,
-      year = ?,
-      genre = ?,
-      director = ?,
-      writer = ?,
-      actors = ?,
+      title = ${col("title")},
+      year = ${fillOnly ? "COALESCE(year, ?)" : "?"},
+      genre = ${col("genre")},
+      director = ${col("director")},
+      writer = ${col("writer")},
+      actors = ${col("actors")},
       rating = ?,
-      poster_url = ?,
-      imdb_id = ?,
-      pl_title = ?,
-      description = ?,
+      poster_url = ${col("poster_url")},
+      imdb_id = ${col("imdb_id")},
+      pl_title = ${col("pl_title")},
+      description = ${col("description")},
+      tmdb_collection_id = COALESCE(?, tmdb_collection_id),
+      tmdb_collection_name = COALESCE(?, tmdb_collection_name),
+      tmdb_collection_checked = 1,
       source = 'tmdb',
       tmdb_refreshed_at = ?
     WHERE id = ?
@@ -737,6 +774,8 @@ export function updateMovieTmdbMetadata(
     metadata.imdb_id,
     metadata.pl_title ?? null,
     metadata.description ?? null,
+    metadata.tmdb_collection_id ?? null,
+    metadata.tmdb_collection_name ?? null,
     refreshedAt,
     id,
   );

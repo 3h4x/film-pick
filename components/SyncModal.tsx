@@ -12,6 +12,7 @@ interface SyncResult {
   unchanged: number;
   failed: number;
   total: number;
+  enriched?: number;
 }
 
 interface ScanCompleteUpdate {
@@ -19,6 +20,9 @@ interface ScanCompleteUpdate {
   total: number;
   new_files: number;
   unchanged: number;
+  full_scan?: boolean;
+  dirs_listed?: number;
+  dirs_cached?: number;
 }
 
 interface ProgressUpdate {
@@ -35,6 +39,8 @@ interface CompleteUpdate extends SyncResult {
 type StreamUpdate =
   | { type: "scanning"; count: number }
   | { type: "skipped_roots"; roots: string[] }
+  | { type: "enriching"; current: number; total: number }
+  | { type: "matching"; current: number; total: number }
   | ScanCompleteUpdate
   | ProgressUpdate
   | CompleteUpdate;
@@ -52,7 +58,7 @@ export default function SyncModal({
 }: SyncModalProps) {
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState<SyncResult | null>(null);
-  const [phase, setPhase] = useState<"idle" | "scanning" | "syncing">("idle");
+  const [phase, setPhase] = useState<"idle" | "scanning" | "syncing" | "enriching">("idle");
   const [scanCount, setScanCount] = useState(0);
   const [scanComplete, setScanComplete] = useState<ScanCompleteUpdate | null>(
     null,
@@ -60,6 +66,12 @@ export default function SyncModal({
   const [progress, setProgress] = useState<ProgressUpdate | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [skippedRoots, setSkippedRoots] = useState<string[]>([]);
+  const [fullRescan, setFullRescan] = useState(false);
+  const [enrichLabel, setEnrichLabel] = useState("Fetching titles & credits");
+  const [enrichProgress, setEnrichProgress] = useState<{
+    current: number;
+    total: number;
+  } | null>(null);
 
   useEffect(() => {
     if (!isOpen) return;
@@ -80,9 +92,12 @@ export default function SyncModal({
     setScanComplete(null);
     setProgress(null);
     setSkippedRoots([]);
+    setEnrichProgress(null);
 
     try {
-      const res = await fetch("/api/sync", { method: "POST" });
+      const res = await fetch(fullRescan ? "/api/sync?full=1" : "/api/sync", {
+        method: "POST",
+      });
 
       if (!res.ok) {
         const data = await res.json();
@@ -119,6 +134,14 @@ export default function SyncModal({
               setScanCount(update.count);
             } else if (update.type === "skipped_roots") {
               setSkippedRoots(update.roots);
+            } else if (update.type === "matching") {
+              setPhase("enriching");
+              setEnrichLabel("Matching films to TMDb");
+              setEnrichProgress({ current: update.current, total: update.total });
+            } else if (update.type === "enriching") {
+              setPhase("enriching");
+              setEnrichLabel("Fetching titles & credits");
+              setEnrichProgress({ current: update.current, total: update.total });
             } else if (update.type === "scan_complete") {
               setScanComplete(update);
               if (update.new_files > 0) {
@@ -155,6 +178,22 @@ export default function SyncModal({
           Re-scan your library folder to add new files and detach entries whose
           files are missing.
         </p>
+
+        {!loading && !result && (
+          <label className="mb-3 flex items-start gap-2 text-xs text-gray-400">
+            <input
+              type="checkbox"
+              checked={fullRescan}
+              onChange={(e) => setFullRescan(e.target.checked)}
+              className="mt-0.5"
+            />
+            <span>
+              Full rescan: re-read every folder. Normally only folders that
+              changed are read again (a full rescan runs automatically once a
+              week).
+            </span>
+          </label>
+        )}
 
         {!loading && !result && (
           <Button
@@ -194,6 +233,32 @@ export default function SyncModal({
                 <div className="w-full bg-gray-700 h-1.5 rounded-full overflow-hidden">
                   <div className="bg-indigo-500/50 h-full w-full animate-pulse" />
                 </div>
+              </>
+            )}
+
+            {/* Phase 3: TMDb details (titles, credits) for what was never fetched or is stale */}
+            {phase === "enriching" && enrichProgress && (
+              <>
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <Spinner size="md" className="flex-shrink-0" />
+                    <p className="text-gray-300 text-sm">{enrichLabel}</p>
+                  </div>
+                  <span className="text-indigo-400 font-mono text-sm font-medium">
+                    {enrichProgress.current}/{enrichProgress.total}
+                  </span>
+                </div>
+                <div className="w-full bg-gray-700 h-1.5 rounded-full overflow-hidden">
+                  <div
+                    className="bg-indigo-500 h-full rounded-full transition-all duration-300"
+                    style={{
+                      width: `${Math.round((enrichProgress.current / Math.max(enrichProgress.total, 1)) * 100)}%`,
+                    }}
+                  />
+                </div>
+                <p className="text-gray-600 text-xs">
+                  Only movies not refreshed in the last 30 days are fetched.
+                </p>
               </>
             )}
 
@@ -274,6 +339,21 @@ export default function SyncModal({
                 </span>
               </div>
             </div>
+            {scanComplete?.dirs_listed !== undefined && (
+              <p className="text-gray-500 text-xs mt-1">
+                {scanComplete.full_scan ? "Full rescan: " : ""}
+                read {scanComplete.dirs_listed} folder
+                {scanComplete.dirs_listed === 1 ? "" : "s"}
+                {(scanComplete.dirs_cached ?? 0) > 0 &&
+                  `, ${scanComplete.dirs_cached} unchanged skipped`}
+              </p>
+            )}
+            {(result.enriched ?? 0) > 0 && (
+              <p className="text-gray-500 text-xs mt-1">
+                Fetched titles &amp; credits for {result.enriched} movie
+                {result.enriched === 1 ? "" : "s"}
+              </p>
+            )}
             {result.failed > 0 && (
               <p className="text-yellow-500 text-xs mt-1">
                 {result.failed} file{result.failed > 1 ? "s" : ""} failed to
