@@ -86,12 +86,14 @@ function GenreBadges({ genre }: { genre: string | null }) {
   if (!genre) return null;
 
   return (
-    <ul aria-label="Genres" className="flex flex-wrap gap-1.5">
-      {parseGenreLabels(genre).map((label) => (
-        <li
-          key={label}
-          className="rounded-md border border-gray-700/50 bg-gray-800 px-2 py-0.5 text-xs text-gray-300"
-        >
+    <ul aria-label="Genres" className="flex flex-wrap items-center text-sm text-gray-400">
+      {parseGenreLabels(genre).map((label, i) => (
+        <li key={label} className="flex items-center">
+          {i > 0 && (
+            <span aria-hidden="true" className="px-1.5 text-gray-600">
+              ·
+            </span>
+          )}
           {label}
         </li>
       ))}
