@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Modal from "./ui/Modal";
 import Spinner from "./ui/Spinner";
 import Button from "./ui/Button";
@@ -36,17 +36,17 @@ interface ImportModalProps {
   isOpen: boolean;
   onClose: () => void;
   onComplete: () => void;
-  currentPath: string | null;
+  folders: { primary: string | null; extras: string[] };
 }
 
 export default function ImportModal({
   isOpen,
   onClose,
   onComplete,
-  currentPath,
+  folders,
 }: ImportModalProps) {
   const pathInputId = "import-folder-path";
-  const [path, setPath] = useState(currentPath || "");
+  const [path, setPath] = useState(folders.primary || "");
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState<ImportResult | null>(null);
   const [progress, setProgress] = useState<ProgressUpdate | null>(null);
@@ -54,7 +54,18 @@ export default function ImportModal({
   const [discoveryFile, setDiscoveryFile] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
+  // Settings load after mount; pre-fill the primary folder once it is known.
+  useEffect(() => {
+    if (folders.primary) setPath((current) => current || folders.primary || "");
+  }, [folders.primary]);
+
   if (!isOpen) return null;
+
+  const knownFolders = folders.primary
+    ? [folders.primary, ...folders.extras]
+    : [];
+  const isNewFolder =
+    Boolean(path.trim()) && !knownFolders.includes(path.trim());
 
   async function handleImport() {
     if (!path.trim()) return;
@@ -149,6 +160,31 @@ export default function ImportModal({
           >
             Folder path
           </label>
+          {knownFolders.length > 0 && (
+            <div className="mb-2 flex flex-wrap gap-1.5" role="group" aria-label="Library folders">
+              {knownFolders.map((folder) => (
+                <button
+                  key={folder}
+                  type="button"
+                  onClick={() => setPath(folder)}
+                  disabled={loading}
+                  className={`max-w-full truncate rounded-lg border px-2.5 py-1 font-mono text-xs transition-colors ${
+                    path.trim() === folder
+                      ? "border-indigo-500/50 bg-indigo-500/15 text-indigo-200"
+                      : "border-gray-700/50 bg-gray-800/60 text-gray-400 hover:text-white"
+                  }`}
+                  title={folder}
+                >
+                  {folder === folders.primary && (
+                    <span className="mr-1 text-[10px] font-black uppercase tracking-wider text-indigo-300">
+                      Primary
+                    </span>
+                  )}
+                  {folder}
+                </button>
+              ))}
+            </div>
+          )}
           <div className="flex gap-2">
             <input
               id={pathInputId}
@@ -169,6 +205,13 @@ export default function ImportModal({
               Import
             </Button>
           </div>
+          {isNewFolder && (
+            <p className="mt-2 text-xs text-gray-500">
+              {folders.primary
+                ? "This folder will be added to your library folders."
+                : "This folder will become your primary library folder."}
+            </p>
+          )}
         </div>
 
         {loading && (

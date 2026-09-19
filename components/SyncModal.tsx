@@ -34,6 +34,7 @@ interface CompleteUpdate extends SyncResult {
 
 type StreamUpdate =
   | { type: "scanning"; count: number }
+  | { type: "skipped_roots"; roots: string[] }
   | ScanCompleteUpdate
   | ProgressUpdate
   | CompleteUpdate;
@@ -58,6 +59,7 @@ export default function SyncModal({
   );
   const [progress, setProgress] = useState<ProgressUpdate | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [skippedRoots, setSkippedRoots] = useState<string[]>([]);
 
   useEffect(() => {
     if (!isOpen) return;
@@ -77,6 +79,7 @@ export default function SyncModal({
     setScanCount(0);
     setScanComplete(null);
     setProgress(null);
+    setSkippedRoots([]);
 
     try {
       const res = await fetch("/api/sync", { method: "POST" });
@@ -114,6 +117,8 @@ export default function SyncModal({
             const update = JSON.parse(line) as StreamUpdate;
             if (update.type === "scanning") {
               setScanCount(update.count);
+            } else if (update.type === "skipped_roots") {
+              setSkippedRoots(update.roots);
             } else if (update.type === "scan_complete") {
               setScanComplete(update);
               if (update.new_files > 0) {
@@ -218,6 +223,19 @@ export default function SyncModal({
                 </p>
               </>
             )}
+          </div>
+        )}
+
+        {skippedRoots.length > 0 && (
+          <div className="bg-amber-500/10 border border-amber-500/20 rounded-xl p-3 mb-4">
+            <p className="text-amber-300 text-sm">
+              Skipped folders that are not available (is the share mounted?):
+            </p>
+            <ul className="mt-1 font-mono text-xs text-amber-200/80">
+              {skippedRoots.map((root) => (
+                <li key={root}>{root}</li>
+              ))}
+            </ul>
           </div>
         )}
 

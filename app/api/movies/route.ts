@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto";
 import { NextRequest } from "next/server";
 import { getDb, getMovies, getDetachedMovies, insertMovie, type MovieInput } from "@/lib/db";
 import { rateLimit } from "@/lib/rate-limit";
@@ -10,7 +11,18 @@ export async function GET(request: NextRequest) {
   const type = request.nextUrl.searchParams.get("type") || undefined;
   const query = request.nextUrl.searchParams.get("q")?.trim() || undefined;
   const movies = getMovies(db, type, query);
-  return Response.json(movies);
+
+  // Conditional GET: the client always revalidates, but an unchanged library
+  // costs a 304 instead of a ~2MB body.
+  const body = JSON.stringify(movies);
+  const etag = `"${createHash("sha1").update(body).digest("base64url")}"`;
+  const headers = { ETag: etag, "Cache-Control": "private, no-cache" };
+  if (request.headers.get("if-none-match") === etag) {
+    return new Response(null, { status: 304, headers });
+  }
+  return new Response(body, {
+    headers: { ...headers, "Content-Type": "application/json" },
+  });
 }
 
 export async function POST(request: NextRequest) {

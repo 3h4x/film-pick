@@ -13,7 +13,9 @@ interface ConfigViewProps {
   disabledEngines: string[];
   setDisabledEngines: (engines: string[]) => void;
   libraryPath: string | null;
+  libraryExtraPaths: string[];
   setLibraryPath: (path: string | null) => void;
+  setLibraryExtraPaths: (paths: string[]) => void;
   setSyncOpen: (open: boolean) => void;
   addToast: (message: string, variant?: "default" | "success") => void;
   fetchEngine: (engine: string, refresh?: boolean) => Promise<void>;
@@ -30,25 +32,38 @@ export default function ConfigView({
   disabledEngines,
   setDisabledEngines,
   libraryPath,
+  libraryExtraPaths,
   setLibraryPath,
+  setLibraryExtraPaths,
   setSyncOpen,
   addToast,
   fetchEngine,
   setRecGroups,
   onOpenMovie,
 }: ConfigViewProps) {
-  async function handleSaveLibraryPath(path: string): Promise<boolean> {
+  async function handleSaveFolders(
+    primary: string | null,
+    extras: string[],
+  ): Promise<boolean> {
     const res = await fetch("/api/settings", {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ library_path: path }),
+      body: JSON.stringify({
+        library_path: primary ?? "",
+        library_extra_paths: extras,
+      }),
     });
     if (res.ok) {
-      setLibraryPath(path || null);
+      // Re-read so the UI shows what the server normalised (dedupe, promoted primary).
+      const settings = await fetch("/api/settings")
+        .then((r) => r.json())
+        .catch(() => null);
+      setLibraryPath(settings ? settings.library_path : primary);
+      setLibraryExtraPaths(settings?.library_extra_paths ?? extras);
       return true;
     }
     const data = await res.json().catch(() => ({}));
-    addToast(data.error || "Failed to save library path");
+    addToast(data.error || "Failed to save library folders");
     return false;
   }
 
@@ -99,7 +114,8 @@ export default function ConfigView({
       disabledEngines={disabledEngines}
       engines={REC_ENGINE_CATEGORIES}
       libraryPath={libraryPath}
-      onSaveLibraryPath={handleSaveLibraryPath}
+      libraryExtraPaths={libraryExtraPaths}
+      onSaveFolders={handleSaveFolders}
       onSync={() => setSyncOpen(true)}
       onSave={handleSaveConfig}
       onToggleEngine={handleToggleEngine}

@@ -4,6 +4,7 @@ import { useState, useCallback, useMemo, useEffect, useRef } from "react";
 import type { Movie, SortOption } from "@/lib/types";
 import { PAGE_SIZE } from "@/lib/types";
 import { createLatestOnlyRunner } from "@/lib/latest-only-runner";
+import { readLibraryCache, writeLibraryCache } from "@/lib/library-cache";
 import {
   filterMovies,
   sortMovies,
@@ -60,6 +61,7 @@ export function useLibrary(
 ) {
   const [movies, setMovies] = useState<Movie[]>([]);
   const [searchMovies, setSearchMovies] = useState<Movie[] | null>(null);
+  const [searching, setSearching] = useState(false);
   const [initialLoad, setInitialLoad] = useState(true);
   const [sort, setSort] = useState<SortOption>("created_at");
   const [sortDir, setSortDir] = useState<"asc" | "desc">("desc");
@@ -101,12 +103,32 @@ export function useLibrary(
     [movies],
   );
 
+  const networkLoadedRef = useRef(false);
+
+  // Stale-while-revalidate: paint the last snapshot from IndexedDB right away,
+  // then let the network response replace it.
+  useEffect(() => {
+    let cancelled = false;
+    void (async () => {
+      const cached = await readLibraryCache();
+      if (cancelled || !cached || networkLoadedRef.current) return;
+      setMovies(cached);
+      setInitialLoad(false);
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
   const fetchMovies = useCallback(async () => {
     try {
-      const res = await fetch("/api/movies");
-      const data = await res.json();
+      const res = await fetch("/api/movies", { cache: "no-cache" });
+      if (!res.ok) throw new Error(`Library fetch failed (${res.status})`);
+      const data = (await res.json()) as Movie[];
+      networkLoadedRef.current = true;
       setMovies(data);
       setInitialLoad(false);
+      void writeLibraryCache(data);
     } catch (err) {
       console.error("[movies-organizer] fetchMovies: error", err);
     }
@@ -117,12 +139,15 @@ export function useLibrary(
     if (!query) {
       searchRunnerRef.current.invalidate();
       setSearchMovies(null);
+      setSearching(false);
       return;
     }
 
     const controller = new AbortController();
     let searchError: unknown = null;
-    setSearchMovies([]);
+    // Keep showing the previous results while the new query is in flight;
+    // blanking the list here made the whole view flash empty on every keystroke.
+    setSearching(true);
     const timeoutId = window.setTimeout(async () => {
       await searchRunnerRef.current.run(
         async () => {
@@ -134,10 +159,14 @@ export function useLibrary(
           }
         },
         {
-          onSuccess: setSearchMovies,
+          onSuccess: (results) => {
+            setSearchMovies(results);
+            setSearching(false);
+          },
           onError: () => {
             if (controller.signal.aborted) return;
             setSearchMovies([]);
+            setSearching(false);
             console.error("[movies-organizer] searchMovies: error", searchError);
           },
         },
@@ -283,6 +312,7 @@ export function useLibrary(
     setMovies,
     fetchMovies,
     initialLoad,
+    searching,
     sort,
     setSortOption: setSort,
     sortDir,

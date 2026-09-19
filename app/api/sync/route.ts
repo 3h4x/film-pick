@@ -2,11 +2,11 @@ import {
   enrichMovieMetadata,
   getDb,
   getExistingMovieInsertTargetId,
-  getSetting,
   insertMovie,
   type MovieInput,
   movieNeedsTmdbEnrichment,
 } from "@/lib/db";
+import { getLibraryFolders, isWithinFolder } from "@/lib/library-folders";
 import { linkToExistingPathlessRow } from "@/lib/pathless-row-link";
 import { scanDirectoryGenerator } from "@/lib/scanner";
 import type { ScannedFile } from "@/lib/scanner";
@@ -31,7 +31,7 @@ export async function POST(request?: NextRequest) {
   const limited = request ? rateLimit(request, "mutation") : null;
   if (limited) return limited;
   const db = getDb();
-  const libraryPath = getSetting(db, "library_path");
+  const { primary: libraryPath, extras } = getLibraryFolders(db);
 
   if (!libraryPath) {
     return Response.json(
@@ -40,6 +40,8 @@ export async function POST(request?: NextRequest) {
     );
   }
 
+  // The primary folder is required; an unmounted extra folder is skipped so one
+  // offline share does not block syncing the rest.
   if (!fs.existsSync(libraryPath)) {
     return Response.json(
       {
@@ -47,6 +49,11 @@ export async function POST(request?: NextRequest) {
       },
       { status: 404 },
     );
+  }
+  const scanRoots = [libraryPath];
+  const unavailableRoots: string[] = [];
+  for (const extra of extras) {
+    (fs.existsSync(extra) ? scanRoots : unavailableRoots).push(extra);
   }
 
   const encoder = new TextEncoder();
@@ -58,11 +65,20 @@ export async function POST(request?: NextRequest) {
 
       // Phase 1: Scan — discover all files quickly (no network calls)
       const allFiles: ScannedFile[] = [];
-      for (const file of scanDirectoryGenerator(libraryPath)) {
-        allFiles.push(file);
-        // Send discovery updates in batches to avoid flooding
-        if (allFiles.length % 10 === 0 || allFiles.length === 1) {
-          sendUpdate({ type: "scanning", count: allFiles.length });
+      const seenFiles = new Set<string>();
+      if (unavailableRoots.length > 0) {
+        sendUpdate({ type: "skipped_roots", roots: unavailableRoots });
+      }
+      for (const root of scanRoots) {
+        for (const file of scanDirectoryGenerator(root)) {
+          // Folders may overlap; never process the same file twice.
+          if (seenFiles.has(file.filePath)) continue;
+          seenFiles.add(file.filePath);
+          allFiles.push(file);
+          // Send discovery updates in batches to avoid flooding
+          if (allFiles.length % 10 === 0 || allFiles.length === 1) {
+            sendUpdate({ type: "scanning", count: allFiles.length });
+          }
         }
       }
       // Final scan count
@@ -237,6 +253,10 @@ export async function POST(request?: NextRequest) {
         "UPDATE movies SET file_path = NULL, extra_files = NULL, video_metadata = NULL WHERE id = ?",
       );
       for (const movie of currentMovies) {
+        // Files on an offline folder are unknown, not deleted: leave them attached.
+        if (unavailableRoots.some((root) => isWithinFolder(root, movie.file_path))) {
+          continue;
+        }
         const existingExtras = parseExtraFiles(movie.extra_files).filter(
           (extraPath) => filePathSet.has(extraPath),
         );

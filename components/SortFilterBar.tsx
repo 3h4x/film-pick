@@ -21,7 +21,6 @@ interface SortFilterBarProps {
   years: number[];
   unratedOnly: boolean;
   hasFileOnly: boolean;
-  searchQuery: string;
   onSortChange: (sort: SortOption) => void;
   onSortDirChange: () => void;
   onGenreChange: (genre: string) => void;
@@ -29,7 +28,6 @@ interface SortFilterBarProps {
   onYearChange: (year: string) => void;
   onUnratedChange: (unrated: boolean) => void;
   onHasFileChange: (hasFile: boolean) => void;
-  onSearchChange: (query: string) => void;
 }
 
 const SORT_LABELS: Record<SortOption, string> = {
@@ -125,7 +123,6 @@ export default function SortFilterBar({
   years,
   unratedOnly,
   hasFileOnly,
-  searchQuery,
   onSortChange,
   onSortDirChange,
   onGenreChange,
@@ -133,7 +130,6 @@ export default function SortFilterBar({
   onYearChange,
   onUnratedChange,
   onHasFileChange,
-  onSearchChange,
 }: SortFilterBarProps) {
   const sortTabsRef = useRef<HTMLDivElement | null>(null);
 
@@ -155,20 +151,6 @@ export default function SortFilterBar({
 
   return (
     <div className="space-y-3 mb-6">
-      <div className="relative w-full sm:max-w-sm">
-        <div className="pointer-events-none absolute inset-y-0 left-3 flex items-center">
-          <span className="text-sm text-gray-500">⌕</span>
-        </div>
-        <input
-          type="search"
-          value={searchQuery}
-          onChange={(e) => onSearchChange(e.target.value)}
-          placeholder="Search title, director, actor..."
-          aria-label="Search library"
-          className="min-h-11 w-full rounded-xl border border-gray-700/50 bg-gray-800/60 py-2 pl-9 pr-3 text-sm text-white placeholder-gray-600 transition-all focus:border-indigo-500/50 focus:outline-none focus:ring-1 focus:ring-indigo-500/20"
-        />
-      </div>
-
       {/* Sort + filter row */}
       <div className="flex flex-wrap items-center gap-3">
         {/* Sort buttons — scrollable on mobile */}
