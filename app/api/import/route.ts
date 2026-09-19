@@ -169,12 +169,27 @@ export async function POST(request: NextRequest) {
         }
       }
 
+      // Only the films under the folder just imported. Library-wide backfill is the
+      // sync's job; doing it here made a one-file import look hung for minutes.
       try {
-        await refreshStaleTmdbMetadata(db, {
-          ...SYNC_ENRICH_OPTIONS,
-          onProgress: (current, total) =>
-            sendUpdate({ type: "enriching", current, total }),
-        });
+        const prefix = dirPath.replace(/\/+$/, "") + "/";
+        const importedIds = (
+          db
+            .prepare(
+              `SELECT id FROM movies
+               WHERE tmdb_id IS NOT NULL AND tmdb_refreshed_at IS NULL
+                 AND substr(file_path, 1, ?) = ?`,
+            )
+            .all(prefix.length, prefix) as { id: number }[]
+        ).map((row) => row.id);
+        if (importedIds.length > 0) {
+          await refreshStaleTmdbMetadata(db, {
+            ...SYNC_ENRICH_OPTIONS,
+            onlyIds: importedIds,
+            onProgress: (current, total) =>
+              sendUpdate({ type: "enriching", current, total }),
+          });
+        }
       } catch (error) {
         console.error("[Import] enrich step failed:", error);
       }

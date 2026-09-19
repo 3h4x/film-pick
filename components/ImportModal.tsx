@@ -30,7 +30,17 @@ interface CompleteUpdate extends ImportResult {
   type: "complete";
 }
 
-type StreamUpdate = DiscoveryUpdate | ProgressUpdate | CompleteUpdate;
+interface EnrichingUpdate {
+  type: "enriching";
+  current: number;
+  total: number;
+}
+
+type StreamUpdate =
+  | DiscoveryUpdate
+  | ProgressUpdate
+  | EnrichingUpdate
+  | CompleteUpdate;
 
 interface ImportModalProps {
   isOpen: boolean;
@@ -53,6 +63,10 @@ export default function ImportModal({
   const [discoveryCount, setDiscoveryCount] = useState<number>(0);
   const [discoveryFile, setDiscoveryFile] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [enrichProgress, setEnrichProgress] = useState<{
+    current: number;
+    total: number;
+  } | null>(null);
 
   // Settings load after mount; pre-fill the primary folder once it is known.
   useEffect(() => {
@@ -75,6 +89,7 @@ export default function ImportModal({
     setProgress(null);
     setDiscoveryCount(0);
     setDiscoveryFile(null);
+    setEnrichProgress(null);
 
     try {
       const res = await fetch("/api/import", {
@@ -117,6 +132,8 @@ export default function ImportModal({
               setDiscoveryFile(update.filename);
             } else if (update.type === "progress") {
               setProgress(update);
+            } else if (update.type === "enriching") {
+              setEnrichProgress({ current: update.current, total: update.total });
             } else if (update.type === "complete") {
               setResult(update);
               onComplete();
@@ -236,7 +253,22 @@ export default function ImportModal({
                 </div>
               )}
 
-              {progress ? (
+              {enrichProgress ? (
+                <div className="space-y-2 border-t border-gray-700/50 pt-3 mt-1">
+                  <p className="text-indigo-400 text-sm font-medium">
+                    Fetching titles &amp; credits {enrichProgress.current}/
+                    {enrichProgress.total}
+                  </p>
+                  <div className="w-full bg-gray-700 h-1.5 rounded-full overflow-hidden">
+                    <div
+                      className="bg-indigo-500 h-full rounded-full transition-all duration-300"
+                      style={{
+                        width: `${Math.round((enrichProgress.current / Math.max(enrichProgress.total, 1)) * 100)}%`,
+                      }}
+                    />
+                  </div>
+                </div>
+              ) : progress ? (
                 <div className="space-y-2 border-t border-gray-700/50 pt-3 mt-1">
                   <p className="text-indigo-400 text-sm font-medium">
                     Processing Metadata

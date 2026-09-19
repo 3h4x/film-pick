@@ -50,6 +50,8 @@ export interface RefreshStaleOptions {
   concurrency?: number;
   /** Only fill empty fields; never overwrite what is already stored (except the rating). */
   fillOnly?: boolean;
+  /** Restrict the run to these movie ids (still only the never-refreshed / stale ones). */
+  onlyIds?: number[];
   onProgress?: (current: number, total: number) => void;
 }
 
@@ -70,7 +72,10 @@ export async function refreshStaleTmdbMetadata(
   const cutoff = Math.floor(Date.now() / 1000) - options.maxAgeDays * 24 * 60 * 60;
   // Only never-refreshed rows and rows older than the cutoff: anything refreshed
   // recently is skipped, which is what makes repeated syncs cheap.
-  const rows = getStaleTmdbMovies(db, options.limit, cutoff);
+  const only = options.onlyIds ? new Set(options.onlyIds) : null;
+  const rows = getStaleTmdbMovies(db, options.limit, cutoff).filter(
+    (row) => !only || only.has(row.id),
+  );
   const markRefreshed = db.prepare(
     "UPDATE movies SET tmdb_refreshed_at = ? WHERE id = ?",
   );
@@ -107,11 +112,15 @@ export async function refreshStaleTmdbMetadata(
           markRefreshed.run(Math.floor(Date.now() / 1000), row.id);
         }
         skipped += 1;
-        console.warn("[tmdb-refresh] Skipped movie refresh", {
-          id: row.id,
-          tmdbId: row.tmdb_id,
-          error,
-        });
+        if (error instanceof Error && error.message === "tmdb_movie_not_found") {
+          console.warn(`[tmdb-refresh] movie ${row.id} (tmdb ${row.tmdb_id}) is not on TMDb`);
+        } else {
+          console.warn("[tmdb-refresh] Skipped movie refresh", {
+            id: row.id,
+            tmdbId: row.tmdb_id,
+            error,
+          });
+        }
       }
       done += 1;
       options.onProgress?.(done, rows.length);
