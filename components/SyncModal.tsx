@@ -12,6 +12,7 @@ interface SyncResult {
   unchanged: number;
   failed: number;
   total: number;
+  enriched?: number;
 }
 
 interface ScanCompleteUpdate {
@@ -35,6 +36,7 @@ interface CompleteUpdate extends SyncResult {
 type StreamUpdate =
   | { type: "scanning"; count: number }
   | { type: "skipped_roots"; roots: string[] }
+  | { type: "enriching"; current: number; total: number }
   | ScanCompleteUpdate
   | ProgressUpdate
   | CompleteUpdate;
@@ -52,7 +54,7 @@ export default function SyncModal({
 }: SyncModalProps) {
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState<SyncResult | null>(null);
-  const [phase, setPhase] = useState<"idle" | "scanning" | "syncing">("idle");
+  const [phase, setPhase] = useState<"idle" | "scanning" | "syncing" | "enriching">("idle");
   const [scanCount, setScanCount] = useState(0);
   const [scanComplete, setScanComplete] = useState<ScanCompleteUpdate | null>(
     null,
@@ -60,6 +62,10 @@ export default function SyncModal({
   const [progress, setProgress] = useState<ProgressUpdate | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [skippedRoots, setSkippedRoots] = useState<string[]>([]);
+  const [enrichProgress, setEnrichProgress] = useState<{
+    current: number;
+    total: number;
+  } | null>(null);
 
   useEffect(() => {
     if (!isOpen) return;
@@ -80,6 +86,7 @@ export default function SyncModal({
     setScanComplete(null);
     setProgress(null);
     setSkippedRoots([]);
+    setEnrichProgress(null);
 
     try {
       const res = await fetch("/api/sync", { method: "POST" });
@@ -119,6 +126,9 @@ export default function SyncModal({
               setScanCount(update.count);
             } else if (update.type === "skipped_roots") {
               setSkippedRoots(update.roots);
+            } else if (update.type === "enriching") {
+              setPhase("enriching");
+              setEnrichProgress({ current: update.current, total: update.total });
             } else if (update.type === "scan_complete") {
               setScanComplete(update);
               if (update.new_files > 0) {
@@ -194,6 +204,34 @@ export default function SyncModal({
                 <div className="w-full bg-gray-700 h-1.5 rounded-full overflow-hidden">
                   <div className="bg-indigo-500/50 h-full w-full animate-pulse" />
                 </div>
+              </>
+            )}
+
+            {/* Phase 3: TMDb details (titles, credits) for what was never fetched or is stale */}
+            {phase === "enriching" && enrichProgress && (
+              <>
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <Spinner size="md" className="flex-shrink-0" />
+                    <p className="text-gray-300 text-sm">
+                      Fetching titles &amp; credits
+                    </p>
+                  </div>
+                  <span className="text-indigo-400 font-mono text-sm font-medium">
+                    {enrichProgress.current}/{enrichProgress.total}
+                  </span>
+                </div>
+                <div className="w-full bg-gray-700 h-1.5 rounded-full overflow-hidden">
+                  <div
+                    className="bg-indigo-500 h-full rounded-full transition-all duration-300"
+                    style={{
+                      width: `${Math.round((enrichProgress.current / Math.max(enrichProgress.total, 1)) * 100)}%`,
+                    }}
+                  />
+                </div>
+                <p className="text-gray-600 text-xs">
+                  Only movies not refreshed in the last 30 days are fetched.
+                </p>
               </>
             )}
 
@@ -274,6 +312,12 @@ export default function SyncModal({
                 </span>
               </div>
             </div>
+            {(result.enriched ?? 0) > 0 && (
+              <p className="text-gray-500 text-xs mt-1">
+                Fetched titles &amp; credits for {result.enriched} movie
+                {result.enriched === 1 ? "" : "s"}
+              </p>
+            )}
             {result.failed > 0 && (
               <p className="text-yellow-500 text-xs mt-1">
                 {result.failed} file{result.failed > 1 ? "s" : ""} failed to

@@ -9,7 +9,8 @@ import {
   movieNeedsTmdbEnrichment,
 } from "@/lib/db";
 import { addLibraryFolder } from "@/lib/library-folders";
-import { enrichMissingMovieDetails } from "@/lib/enrich-movie-details";
+import { refreshStaleTmdbMetadata } from "@/lib/tmdb-refresh";
+import { SYNC_ENRICH_OPTIONS } from "@/lib/tmdb-enrich-options";
 import { linkToExistingPathlessRow } from "@/lib/pathless-row-link";
 import { scanDirectoryGenerator } from "@/lib/scanner";
 import { searchTmdb } from "@/lib/tmdb";
@@ -169,7 +170,11 @@ export async function POST(request: NextRequest) {
       }
 
       try {
-        await enrichMissingMovieDetails(db, { limit: 150 });
+        await refreshStaleTmdbMetadata(db, {
+          ...SYNC_ENRICH_OPTIONS,
+          onProgress: (current, total) =>
+            sendUpdate({ type: "enriching", current, total }),
+        });
       } catch (error) {
         console.error("[Import] enrich step failed:", error);
       }

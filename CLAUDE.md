@@ -102,7 +102,7 @@ pnpm backup              # Backup SQLite DB
 │   ├── scanner.ts                    — Filesystem video scanner + filename parser
 │   ├── library-folders.ts            — Library folders: primary (`library_path` setting) + extras (`library_extra_paths` JSON); standardize moves into the primary
 │   ├── fs-move.ts                    — moveFile: rename with copy+unlink fallback across filesystems (EXDEV)
-│   ├── enrich-movie-details.ts       — Backfill pl_title/description/director/writer/actors/collection from TMDb at the end of sync/import (library search matches them)
+│   ├── tmdb-refresh.ts               — Refresh a movie from TMDb (`tmdb_refreshed_at` records when); sync/import run it for never/stale-refreshed movies so search finds them by Polish title, director, cast
 │   ├── subtitles.ts                  — Subtitle format sniffing (SubRip/MicroDVD/MPL2/TMP/VTT/ASS), encoding detection, conversion to SubRip
 │   ├── ffprobe.ts                    — probeFps: video frame rate via ffprobe, used to time frame-based subtitles
 │   ├── hooks/                        — React hooks
@@ -141,6 +141,7 @@ pnpm backup              # Backup SQLite DB
 
 | File | Topic | Load when |
 |------|-------|-----------|
+| `docs/TODO.md` | Known follow-ups: incremental/faster library scan, enrichment leftovers | Read before working on sync/scan speed or TMDb enrichment |
 | `docs/superpowers/plans/2026-04-17-cda-refresh-scheduling.md` | Task plan for CDA refresh scheduling UI/API/scheduler work | Read when implementing or reviewing the CDA refresh scheduler rollout step-by-step |
 | `docs/superpowers/specs/2026-04-17-cda-refresh-scheduling-design.md` | Approved design spec for CDA refresh scheduling architecture | Read when changing CDA refresh behavior, settings, API semantics, or scheduler startup flow |
 

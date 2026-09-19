@@ -700,6 +700,9 @@ export interface TmdbMetadataUpdate {
   imdb_id: string | null;
   pl_title?: string | null;
   description?: string | null;
+  // Present only when the movie belongs to a collection; never overwrites with null.
+  tmdb_collection_id?: number | null;
+  tmdb_collection_name?: string | null;
 }
 
 export function updateMovieTmdbMetadata(
@@ -721,6 +724,9 @@ export function updateMovieTmdbMetadata(
       imdb_id = ?,
       pl_title = ?,
       description = ?,
+      tmdb_collection_id = COALESCE(?, tmdb_collection_id),
+      tmdb_collection_name = COALESCE(?, tmdb_collection_name),
+      tmdb_collection_checked = 1,
       source = 'tmdb',
       tmdb_refreshed_at = ?
     WHERE id = ?
@@ -737,6 +743,8 @@ export function updateMovieTmdbMetadata(
     metadata.imdb_id,
     metadata.pl_title ?? null,
     metadata.description ?? null,
+    metadata.tmdb_collection_id ?? null,
+    metadata.tmdb_collection_name ?? null,
     refreshedAt,
     id,
   );

@@ -7,7 +7,8 @@ import {
   movieNeedsTmdbEnrichment,
 } from "@/lib/db";
 import { getLibraryFolders, isWithinFolder } from "@/lib/library-folders";
-import { enrichMissingMovieDetails } from "@/lib/enrich-movie-details";
+import { refreshStaleTmdbMetadata } from "@/lib/tmdb-refresh";
+import { SYNC_ENRICH_OPTIONS } from "@/lib/tmdb-enrich-options";
 import { linkToExistingPathlessRow } from "@/lib/pathless-row-link";
 import { scanDirectoryGenerator } from "@/lib/scanner";
 import type { ScannedFile } from "@/lib/scanner";
@@ -60,8 +61,15 @@ export async function POST(request?: NextRequest) {
   const encoder = new TextEncoder();
   const stream = new ReadableStream({
     async start(controller) {
+      // The client may close the modal mid-sync; the work should still finish.
+      let clientGone = false;
       function sendUpdate(data: Record<string, unknown>) {
-        controller.enqueue(encoder.encode(JSON.stringify(data) + "\n"));
+        if (clientGone) return;
+        try {
+          controller.enqueue(encoder.encode(JSON.stringify(data) + "\n"));
+        } catch {
+          clientGone = true;
+        }
       }
 
       // Phase 1: Scan — discover all files quickly (no network calls)
@@ -285,13 +293,13 @@ export async function POST(request?: NextRequest) {
         detached++;
       }
 
-      // Phase 4: Polish title, description and credits, so films found by this sync
-      // are searchable by name, director and cast without opening them first.
-      // Bounded per run; the rest of an old backlog catches up over later syncs.
+      // Phase 4: TMDb details (Polish title, description, director, writer, actors,
+      // collection), so films found by this sync are searchable by name, director
+      // and cast without opening them first. Movies refreshed recently are skipped.
       let enriched = 0;
       try {
-        const result = await enrichMissingMovieDetails(db, {
-          limit: 150,
+        const result = await refreshStaleTmdbMetadata(db, {
+          ...SYNC_ENRICH_OPTIONS,
           onProgress: (current, total) =>
             sendUpdate({ type: "enriching", current, total }),
         });
