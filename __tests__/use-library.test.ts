@@ -3,6 +3,8 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   buildWishlistActionRequest,
   fetchLibrarySearchMovies,
+  requestMovieDelete,
+  restoreMovieAt,
 } from "@/lib/hooks/useLibrary";
 import { createLatestOnlyRunner } from "@/lib/latest-only-runner";
 import type { Movie } from "@/lib/types";
@@ -141,5 +143,81 @@ describe("library search requests", () => {
     );
 
     expect(appliedMovies).toEqual([]);
+  });
+});
+
+describe("requestMovieDelete", () => {
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  it("reports success when the server deletes the movie", async () => {
+    const fetchMock = vi.fn().mockResolvedValue(new Response("{}", { status: 200 }));
+    vi.stubGlobal("fetch", fetchMock);
+
+    await expect(requestMovieDelete(7, "Twin")).resolves.toEqual({ ok: true });
+    expect(fetchMock).toHaveBeenCalledWith("/api/movies/7", { method: "DELETE" });
+  });
+
+  it("tells the user when the rate limit rejected the delete", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue(
+        new Response(JSON.stringify({ error: "rate_limited", retry_after: 5 }), {
+          status: 429,
+        }),
+      ),
+    );
+
+    const result = await requestMovieDelete(7, "Twin");
+    expect(result.ok).toBe(false);
+    expect(result.ok === false && result.message).toContain("was not removed");
+    expect(result.ok === false && result.message).toContain("5s");
+  });
+
+  it("prefers the Retry-After header", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue(
+        new Response("{}", { status: 429, headers: { "Retry-After": "12" } }),
+      ),
+    );
+
+    const result = await requestMovieDelete(7, "Twin");
+    expect(result.ok === false && result.message).toContain("12s");
+  });
+
+  it("reports a server error with its status", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(new Response("", { status: 500 })));
+
+    const result = await requestMovieDelete(7, "Twin");
+    expect(result.ok === false && result.message).toContain("500");
+  });
+
+  it("reports a network failure instead of throwing", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockRejectedValue(new Error("offline")));
+
+    const result = await requestMovieDelete(7, "Twin");
+    expect(result.ok).toBe(false);
+  });
+});
+
+describe("restoreMovieAt", () => {
+  const a = makeMovie({ id: 1 });
+  const b = makeMovie({ id: 2 });
+  const c = makeMovie({ id: 3 });
+
+  it("puts the movie back at its original position", () => {
+    expect(restoreMovieAt([a, c], b, 1).map((m) => m.id)).toEqual([1, 2, 3]);
+  });
+
+  it("clamps an out-of-range index", () => {
+    expect(restoreMovieAt([a], b, 99).map((m) => m.id)).toEqual([1, 2]);
+    expect(restoreMovieAt([a], b, -3).map((m) => m.id)).toEqual([2, 1]);
+  });
+
+  it("does not duplicate a movie that is already there", () => {
+    const list = [a, b];
+    expect(restoreMovieAt(list, b, 0)).toBe(list);
   });
 });

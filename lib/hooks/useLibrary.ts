@@ -56,6 +56,48 @@ export function buildWishlistActionRequest(
   };
 }
 
+export type MovieDeleteResult = { ok: true } | { ok: false; message: string };
+
+/** DELETE /api/movies/:id, reporting failures instead of swallowing them. */
+export async function requestMovieDelete(
+  id: number,
+  title: string,
+): Promise<MovieDeleteResult> {
+  try {
+    const res = await fetch(`/api/movies/${id}`, { method: "DELETE" });
+    if (res.ok) return { ok: true };
+    if (res.status === 429) {
+      let retry = Number(res.headers.get("Retry-After"));
+      if (!Number.isFinite(retry) || retry <= 0) {
+        const body = (await res.json().catch(() => null)) as {
+          retry_after?: number;
+        } | null;
+        retry = Number(body?.retry_after);
+      }
+      const wait =
+        Number.isFinite(retry) && retry > 0 ? ` Try again in ${retry}s.` : "";
+      return {
+        ok: false,
+        message: `Too many removals at once - "${title}" was not removed.${wait}`,
+      };
+    }
+    return { ok: false, message: `Could not remove "${title}" (${res.status})` };
+  } catch {
+    return { ok: false, message: `Could not remove "${title}"` };
+  }
+}
+
+/** Put a movie back where it was (or at the end) unless it is already there. */
+export function restoreMovieAt(
+  list: Movie[],
+  movie: Movie,
+  index: number,
+): Movie[] {
+  if (list.some((m) => m.id === movie.id)) return list;
+  const at = Math.min(Math.max(index, 0), list.length);
+  return [...list.slice(0, at), movie, ...list.slice(at)];
+}
+
 export function useLibrary(
   addToast: (message: string, variant?: "default" | "success") => void,
 ) {
@@ -240,10 +282,26 @@ export function useLibrary(
   );
 
   function handleDeleteMovie(id: number, title: string) {
+    const removedIndex = movies.findIndex((m) => m.id === id);
+    const removed = removedIndex >= 0 ? movies[removedIndex] : undefined;
+    // Optimistic: hide the card at once, but put it back if the server refused
+    // (a 429 from the mutation rate limit used to leave a card that vanished
+    // from the screen and came back on the next reload).
     setMovies((prev) => prev.filter((m) => m.id !== id));
     setSearchMovies((prev) => prev?.filter((m) => m.id !== id) ?? null);
-    fetch(`/api/movies/${id}`, { method: "DELETE" });
-    addToast(`Removed "${title}"`);
+    void requestMovieDelete(id, title).then((result) => {
+      if (result.ok) {
+        addToast(`Removed "${title}"`);
+        return;
+      }
+      if (removed) {
+        setMovies((prev) => restoreMovieAt(prev, removed, removedIndex));
+        setSearchMovies((prev) =>
+          prev ? restoreMovieAt(prev, removed, removedIndex) : prev,
+        );
+      }
+      addToast(result.message);
+    });
   }
 
   function handleMoveToWatchlist(id: number, title: string) {
