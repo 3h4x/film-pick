@@ -236,4 +236,25 @@ describe("refreshStaleTmdbMetadata (used by sync/import)", () => {
       expect(row).toEqual({ genre: "Adventure", pl_title: "Odyseja" });
     });
   });
+
+  describe("scope", () => {
+    it("onlyIds restricts the run to those movies", async () => {
+      const a = addMovie(db, "A", 1);
+      addMovie(db, "B", 2);
+      const c = addMovie(db, "C", 3);
+
+      const result = await refreshStaleTmdbMetadata(db, { ...opts, onlyIds: [a, c] });
+
+      expect(result.updated).toBe(2);
+      expect(vi.mocked(getTmdbMovieSnapshot).mock.calls.map((x) => x[0]).sort()).toEqual([1, 3]);
+    });
+
+    it("never asks TMDb about CDA pseudo ids (32-bit URL hashes)", async () => {
+      addMovie(db, "Real", 1);
+      addMovie(db, "Pseudo", 1_747_246_420);
+
+      await refreshStaleTmdbMetadata(db, opts);
+      expect(vi.mocked(getTmdbMovieSnapshot).mock.calls.map((x) => x[0])).toEqual([1]);
+    });
+  });
 });
