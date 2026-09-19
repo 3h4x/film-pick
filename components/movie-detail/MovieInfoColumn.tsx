@@ -86,23 +86,18 @@ function GenreBadges({ genre }: { genre: string | null }) {
   if (!genre) return null;
 
   return (
-    <div className="space-y-4">
-      <div className="space-y-2">
-        <p className="text-[10px] text-gray-500 font-black uppercase tracking-widest">
-          Genres
-        </p>
-        <div className="flex flex-wrap gap-2">
-          {parseGenreLabels(genre).map((label) => (
-            <span
-              key={label}
-              className="text-xs px-3 py-1 bg-gray-800 text-gray-300 rounded-lg border border-gray-700/50"
-            >
-              {label}
+    <ul aria-label="Genres" className="flex flex-wrap items-center text-sm text-gray-400">
+      {parseGenreLabels(genre).map((label, i) => (
+        <li key={label} className="flex items-center">
+          {i > 0 && (
+            <span aria-hidden="true" className="px-1.5 text-gray-600">
+              ·
             </span>
-          ))}
-        </div>
-      </div>
-    </div>
+          )}
+          {label}
+        </li>
+      ))}
+    </ul>
   );
 }
 
@@ -110,11 +105,11 @@ function PlotSummary({ description }: { description: string | null }) {
   if (!description) return null;
 
   return (
-    <div className="space-y-2">
+    <div className="space-y-1.5">
       <p className="text-[10px] text-gray-500 font-black uppercase tracking-widest">
         Plot Summary
       </p>
-      <p className="text-gray-300 text-base leading-relaxed font-normal">
+      <p className="text-gray-300 text-sm leading-relaxed font-normal sm:text-base">
         {description}
       </p>
     </div>
@@ -161,35 +156,42 @@ export default function MovieInfoColumn({
   onStandardize,
 }: MovieInfoColumnProps) {
   return (
-    <div className="order-1 lg:order-2 lg:col-span-8 space-y-6 sm:space-y-8">
+    <div className="order-1 lg:order-2 lg:col-span-8 space-y-4 sm:space-y-5">
       <MovieTitleBlock movieTitle={movieTitle} plTitle={plTitle} />
 
-      <MovieMetadataBadges
-        year={movie.year}
-        source={movie.source}
-        filePath={filePath}
-      />
+      <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
+        <MovieMetadataBadges
+          year={movie.year}
+          source={movie.source}
+          filePath={filePath}
+        />
+        <RatingControls
+          globalRating={movie.rating}
+          userRating={userRating}
+          isRating={isRating}
+          showRatingPicker={showRatingPicker}
+          onTogglePicker={onToggleRatingPicker}
+          onRate={onRate}
+        />
+      </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-        <div className="space-y-6">
-          <RatingControls
-            globalRating={movie.rating}
-            userRating={userRating}
-            isRating={isRating}
-            showRatingPicker={showRatingPicker}
-            onTogglePicker={onToggleRatingPicker}
-            onRate={onRate}
-          />
+      <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
+        <GenreBadges genre={movie.genre} />
+        <QuickLinks
+          title={movie.title}
+          year={movie.year}
+          tmdbId={movie.tmdb_id}
+          filmwebUrl={movie.filmweb_url}
+          cdaUrl={movie.cda_url}
+          plTitle={plTitle}
+        />
+      </div>
 
-          <GenreBadges genre={movie.genre} />
+      {(movie.type === "tv" || movie.type === "series") && (
+        <TvEpisodeProgressSection movieId={movie.id} />
+      )}
 
-          {(movie.type === "tv" || movie.type === "series") && (
-            <TvEpisodeProgressSection movieId={movie.id} />
-          )}
-        </div>
-
-        <div className="space-y-6">
-          {isMergeMode && (
+      {isMergeMode && (
             <MergeTargetSelector
               variant="compact"
               mergeQuery={mergeQuery}
@@ -201,16 +203,6 @@ export default function MovieInfoColumn({
             />
           )}
 
-          <QuickLinks
-            title={movie.title}
-            year={movie.year}
-            tmdbId={movie.tmdb_id}
-            filmwebUrl={movie.filmweb_url}
-            cdaUrl={movie.cda_url}
-            plTitle={plTitle}
-          />
-        </div>
-      </div>
 
       <MoviePoster title={movie.title} posterUrl={posterUrl} size="mobile" />
 

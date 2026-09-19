@@ -326,6 +326,66 @@ describe("movies/[id]/standardize POST handler", () => {
     );
   });
 
+  it("moves a film from a secondary folder into the primary folder", async () => {
+    const put = db.prepare("INSERT OR REPLACE INTO settings (key, value) VALUES (?, ?)");
+    put.run("library_path", "/mnt/primary");
+    put.run("library_extra_paths", JSON.stringify(["/mnt/archive"]));
+
+    movieId = insertMovie(db, {
+      title: "Dune",
+      year: 2021,
+      genre: null,
+      director: null,
+      rating: null,
+      poster_url: null,
+      source: "tmdb",
+      imdb_id: null,
+      tmdb_id: 438631,
+      type: "movie",
+    });
+    const oldPath = "/mnt/archive/dune_2021_bluray/dune.mkv";
+    db.prepare("UPDATE movies SET file_path = ? WHERE id = ?").run(oldPath, movieId);
+    mockExistsSync.mockImplementation((p: string) => p === oldPath);
+
+    const res = await POST(postReq(movieId), makeParams(movieId));
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body.newPath).toBe("/mnt/primary/Dune [2021]/Dune.mkv");
+    expect(mockRename).toHaveBeenCalledWith(oldPath, "/mnt/primary/Dune [2021]/Dune.mkv");
+    // The emptied release folder goes, the archive folder itself stays.
+    expect(mockRm).toHaveBeenCalledWith(
+      "/mnt/archive/dune_2021_bluray",
+      expect.anything(),
+    );
+    expect(mockRm).not.toHaveBeenCalledWith("/mnt/archive", expect.anything());
+  });
+
+  it("never removes a library folder when the film sits directly in it", async () => {
+    const put = db.prepare("INSERT OR REPLACE INTO settings (key, value) VALUES (?, ?)");
+    put.run("library_path", "/mnt/primary");
+    put.run("library_extra_paths", JSON.stringify(["/mnt/archive"]));
+
+    movieId = insertMovie(db, {
+      title: "Dune",
+      year: 2021,
+      genre: null,
+      director: null,
+      rating: null,
+      poster_url: null,
+      source: "tmdb",
+      imdb_id: null,
+      tmdb_id: 438631,
+      type: "movie",
+    });
+    const oldPath = "/mnt/archive/dune.mkv";
+    db.prepare("UPDATE movies SET file_path = ? WHERE id = ?").run(oldPath, movieId);
+    mockExistsSync.mockImplementation((p: string) => p === oldPath);
+
+    const res = await POST(postReq(movieId), makeParams(movieId));
+    expect(res.status).toBe(200);
+    expect(mockRm).not.toHaveBeenCalled();
+  });
+
   it("recovers when file already at standard path but DB not updated", async () => {
     movieId = insertMovie(db, {
       title: "Inception",

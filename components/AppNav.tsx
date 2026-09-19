@@ -93,9 +93,9 @@ export default function AppNav({
         {/* Row 1: Logo + Actions */}
         <div
           data-testid="app-header-row"
-          className="mb-3 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between"
+          className="mb-3 flex items-center justify-between gap-3"
         >
-          <div className="flex items-center justify-between gap-3 sm:justify-start sm:gap-4">
+          <div className="flex items-center gap-3 sm:gap-4">
             <h1 className="text-lg font-bold tracking-tight">
               <a
                 href="#recommendations"
@@ -116,14 +116,13 @@ export default function AppNav({
               </a>
             </h1>
           </div>
-          {!initialLoad && (
-            <div className="flex items-center gap-2">
-              {activeTab === "library" && libraryPath && (
+          <div className="flex items-center gap-2">
                 <button
                   onClick={onSync}
+                  disabled={!libraryPath}
                   aria-label="Sync library"
-                  className="flex h-11 w-11 items-center justify-center rounded-lg text-gray-500 transition-all hover:bg-gray-800/60 hover:text-white"
-                  title="Sync library"
+                  className="flex h-11 w-11 items-center justify-center rounded-lg text-gray-500 transition-all hover:bg-gray-800/60 hover:text-white disabled:pointer-events-none disabled:opacity-40"
+                  title={libraryPath ? "Sync library" : "Set a library path in Config to sync"}
                 >
                   <svg
                     className="w-4 h-4"
@@ -139,8 +138,6 @@ export default function AppNav({
                     />
                   </svg>
                 </button>
-              )}
-              {activeTab === "library" && (
                 <button
                   onClick={onImport}
                   aria-label="Import folder"
@@ -161,9 +158,7 @@ export default function AppNav({
                     />
                   </svg>
                 </button>
-              )}
-            </div>
-          )}
+          </div>
         </div>
 
         {!initialLoad && (
@@ -208,7 +203,7 @@ export default function AppNav({
                     setActiveTab("library");
                   }
                 }}
-                placeholder="Search library..."
+                placeholder="Search title, director, actor..."
                 aria-label="Search library"
                 className="h-11 w-full rounded-lg border border-gray-700/50 bg-gray-800/40 pl-8 pr-8 text-sm text-white transition-all placeholder-gray-600 focus:border-indigo-500/50 focus:outline-none focus:ring-1 focus:ring-indigo-500/20"
               />

@@ -88,7 +88,7 @@ test.describe("page load", () => {
   test("shows search input after movies load", async ({ page }) => {
     await mockAPIs(page);
     await page.goto("/");
-    await expect(page.getByPlaceholder("Search library...")).toBeVisible();
+    await expect(page.getByPlaceholder("Search title, director, actor...")).toBeVisible();
   });
 });
 
@@ -97,7 +97,7 @@ test.describe("tab navigation", () => {
     await mockAPIs(page);
     await page.goto("/");
     // Wait for movies to load (needed for library/watchlist counts to appear)
-    await expect(page.getByPlaceholder("Search library...")).toBeVisible();
+    await expect(page.getByPlaceholder("Search title, director, actor...")).toBeVisible();
   });
 
   test("switches to Library tab", async ({ page }) => {
@@ -168,7 +168,7 @@ test.describe("library search filter", () => {
   });
 
   test("filters movies by title as user types", async ({ page }) => {
-    const searchInput = page.getByPlaceholder("Search library...");
+    const searchInput = page.getByPlaceholder("Search title, director, actor...");
     await searchInput.fill("godfather");
 
     await expect(page.getByText("The Godfather")).toBeVisible();
@@ -176,7 +176,7 @@ test.describe("library search filter", () => {
   });
 
   test("clears filter with ESC", async ({ page }) => {
-    const searchInput = page.getByPlaceholder("Search library...");
+    const searchInput = page.getByPlaceholder("Search title, director, actor...");
     await searchInput.fill("godfather");
     await expect(page.getByText("Blade Runner 2049")).not.toBeVisible();
 
@@ -185,7 +185,7 @@ test.describe("library search filter", () => {
   });
 
   test("shows movie count with filter active", async ({ page }) => {
-    const searchInput = page.getByPlaceholder("Search library...");
+    const searchInput = page.getByPlaceholder("Search title, director, actor...");
     await searchInput.fill("godfather");
     await expect(page.getByText(/Showing 1 of 1/)).toBeVisible();
   });
@@ -372,7 +372,7 @@ test.describe("mobile regressions", () => {
   async function gotoMobile(page: Page, path = "/") {
     await page.setViewportSize(mobileViewport);
     await page.goto(path);
-    await expect(page.getByPlaceholder("Search library...")).toBeVisible({
+    await expect(page.getByPlaceholder("Search title, director, actor...")).toBeVisible({
       timeout: 20_000,
     });
   }
@@ -473,7 +473,7 @@ test.describe("mobile regressions", () => {
 
     const headerRowBox = await visibleBox(page.getByTestId("app-header-row"));
     const searchRowBox = await visibleBox(page.getByTestId("app-search-row"));
-    const searchBox = await visibleBox(page.getByPlaceholder("Search library..."));
+    const searchBox = await visibleBox(page.getByPlaceholder("Search title, director, actor..."));
 
     expect(searchRowBox.y).toBeGreaterThanOrEqual(headerRowBox.y + headerRowBox.height);
     expect(searchBox.x).toBeGreaterThanOrEqual(0);
@@ -651,7 +651,7 @@ test.describe("discover / recommendations tab", () => {
     await mockAPIs(page);
     await page.goto("/");
     // Wait for movies to load first (needed for rec dropdowns to appear)
-    await expect(page.getByPlaceholder("Search library...")).toBeVisible();
+    await expect(page.getByPlaceholder("Search title, director, actor...")).toBeVisible();
     // Engine dropdown trigger shows "All" (default category), Mood dropdown trigger shows "Mood"
     await expect(page.getByRole("button", { name: /^All/ })).toBeVisible();
     await expect(page.getByRole("button", { name: /^Mood/ })).toBeVisible();
@@ -660,7 +660,7 @@ test.describe("discover / recommendations tab", () => {
   test("switching category tab updates URL hash", async ({ page }) => {
     await mockAPIs(page);
     await page.goto("/");
-    await expect(page.getByPlaceholder("Search library...")).toBeVisible();
+    await expect(page.getByPlaceholder("Search title, director, actor...")).toBeVisible();
     // Open the engine dropdown, then pick "By Genre" from inside it
     await page.getByRole("button", { name: /^All/ }).click();
     await page.getByRole("button", { name: "By Genre" }).click();
@@ -672,7 +672,7 @@ test.describe("discover / recommendations tab", () => {
   }) => {
     await mockAPIs(page);
     await page.goto("/");
-    await expect(page.getByPlaceholder("Search library...")).toBeVisible();
+    await expect(page.getByPlaceholder("Search title, director, actor...")).toBeVisible();
 
     const engineButton = page.getByRole("button", { name: /^All/ }).first();
     const moodButton = page.getByRole("button", { name: /^Mood/ }).first();
@@ -698,7 +698,7 @@ test.describe("discover / recommendations tab", () => {
     await mockAPIs(page);
     await page.setViewportSize({ width: 990, height: 344 });
     await page.goto("/");
-    await expect(page.getByPlaceholder("Search library...")).toBeVisible();
+    await expect(page.getByPlaceholder("Search title, director, actor...")).toBeVisible();
 
     const activeTab = page.getByRole("button", { name: /^Discover/ });
     const engineButton = page.getByRole("button", { name: /^All/ }).first();
@@ -764,7 +764,7 @@ test.describe("discover / recommendations tab", () => {
 
     await page.setViewportSize({ width: 990, height: 344 });
     await page.goto("/");
-    await expect(page.getByPlaceholder("Search library...")).toBeVisible();
+    await expect(page.getByPlaceholder("Search title, director, actor...")).toBeVisible();
 
     await page.evaluate(() => window.scrollTo(0, 220));
 
@@ -805,11 +805,11 @@ test.describe("search input typing across tabs", () => {
     await mockAPIs(page);
     await page.setViewportSize({ width: 375, height: 812 });
     await page.goto("/");
-    await expect(page.getByPlaceholder("Search library...")).toBeVisible();
+    await expect(page.getByPlaceholder("Search title, director, actor...")).toBeVisible();
   });
 
   test("lets the user type in search on the Discover tab", async ({ page }) => {
-    const searchInput = page.getByPlaceholder("Search library...");
+    const searchInput = page.getByPlaceholder("Search title, director, actor...");
     await searchInput.fill("godfather");
     await expect(searchInput).toHaveValue("godfather");
   });
@@ -818,7 +818,7 @@ test.describe("search input typing across tabs", () => {
     await page.getByRole("button", { name: /^Watchlist/ }).first().click();
     await expect(page).toHaveURL(/#wishlist/);
 
-    const searchInput = page.getByPlaceholder("Search library...");
+    const searchInput = page.getByPlaceholder("Search title, director, actor...");
     await searchInput.fill("godfather");
     await expect(searchInput).toHaveValue("godfather");
   });
@@ -827,7 +827,7 @@ test.describe("search input typing across tabs", () => {
     await page.getByRole("button", { name: /^Config/ }).click();
     await expect(page).toHaveURL(/#config/);
 
-    const searchInput = page.getByPlaceholder("Search library...");
+    const searchInput = page.getByPlaceholder("Search title, director, actor...");
     await searchInput.fill("godfather");
     await expect(searchInput).toHaveValue("godfather");
   });
@@ -835,7 +835,7 @@ test.describe("search input typing across tabs", () => {
   test("typing on Discover surfaces the matching library movie", async ({
     page,
   }) => {
-    const searchInput = page.getByPlaceholder("Search library...");
+    const searchInput = page.getByPlaceholder("Search title, director, actor...");
     await searchInput.fill("godfather");
 
     await expect(page.getByText("The Godfather")).toBeVisible();

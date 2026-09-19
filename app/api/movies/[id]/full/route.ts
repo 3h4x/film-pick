@@ -2,6 +2,7 @@
 import { NextRequest } from "next/server";
 import { getDb, deleteMovie, Movie } from "@/lib/db";
 import { getErrorMessage } from "@/lib/utils";
+import { getLibraryRoots } from "@/lib/library-folders";
 import { rateLimit } from "@/lib/rate-limit";
 import { SUBTITLE_EXTENSIONS } from "@/lib/subtitles";
 import fs from "fs";
@@ -42,14 +43,23 @@ export async function DELETE(
     .prepare("SELECT value FROM settings WHERE key = 'library_path'")
     .get() as { value: string } | undefined;
   const libraryRoot = setting?.value || "/Volumes/video/Movies";
+  const allRoots = getLibraryRoots(db);
 
   if (movie.file_path) {
     const filePath = movie.file_path;
     const parentDir = path.dirname(filePath);
 
     // Safety check: Don't delete the library root!
-    const resolvedLibraryRoot = path.resolve(libraryRoot);
     const resolvedParentDir = path.resolve(parentDir);
+    // Judge against whichever configured folder actually contains the movie.
+    const resolvedLibraryRoot =
+      allRoots
+        .map((root) => path.resolve(root))
+        .find(
+          (root) =>
+            resolvedParentDir === root ||
+            resolvedParentDir.startsWith(root + path.sep),
+        ) ?? path.resolve(libraryRoot);
 
     if (resolvedParentDir === resolvedLibraryRoot) {
       // The movie is directly in the library root (not in its own folder)

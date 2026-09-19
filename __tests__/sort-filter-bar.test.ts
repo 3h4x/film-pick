@@ -70,7 +70,6 @@ function renderSortFilterBar(sortDir: "asc" | "desc") {
       years: [],
       unratedOnly: false,
       hasFileOnly: false,
-      searchQuery: "",
       onSortChange: vi.fn(),
       onSortDirChange: vi.fn(),
       onGenreChange: vi.fn(),
@@ -78,7 +77,6 @@ function renderSortFilterBar(sortDir: "asc" | "desc") {
       onYearChange: vi.fn(),
       onUnratedChange: vi.fn(),
       onHasFileChange: vi.fn(),
-      onSearchChange: vi.fn(),
     }),
   );
 }

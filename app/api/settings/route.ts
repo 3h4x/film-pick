@@ -1,5 +1,6 @@
 import { NextRequest } from "next/server";
 import { getDb, getSetting, setSetting } from "@/lib/db";
+import { getLibraryFolders, saveLibraryFolders } from "@/lib/library-folders";
 import { rateLimit } from "@/lib/rate-limit";
 import { rescheduleCdaJob } from "@/lib/cda-scheduler";
 import { invalidateMemCache } from "@/lib/epg-fetch";
@@ -9,7 +10,7 @@ const VALID_REFRESH_INTERVAL_HOURS = [0, 6, 12, 24];
 
 export async function GET() {
   const db = getDb();
-  const libraryPath = getSetting(db, "library_path");
+  const { primary: libraryPath, extras: libraryExtraPaths } = getLibraryFolders(db);
   const groupOrder = getSetting(db, "rec_group_order");
   const recConfig = getSetting(db, "rec_config");
   const dbKey = getSetting(db, "tmdb_api_key");
@@ -20,6 +21,7 @@ export async function GET() {
   const cdaMovieCountStr = getSetting(db, "cda_movie_count");
   return Response.json({
     library_path: libraryPath,
+    library_extra_paths: libraryExtraPaths,
     rec_group_order: groupOrder ? JSON.parse(groupOrder) : [],
     rec_config: recConfig ? JSON.parse(recConfig) : null,
     tmdb_api_key_set: !!(envKey || dbKey),
@@ -65,12 +67,28 @@ export async function PATCH(request: NextRequest) {
   if (body.disabled_engines) {
     setSetting(db, "disabled_engines", JSON.stringify(body.disabled_engines));
   }
-  if (typeof body.library_path === "string") {
-    if (body.library_path.trim()) {
-      setSetting(db, "library_path", body.library_path.trim());
-    } else {
-      db.prepare("DELETE FROM settings WHERE key = ?").run("library_path");
-    }
+  if (
+    body.library_extra_paths !== undefined &&
+    (!Array.isArray(body.library_extra_paths) ||
+      !body.library_extra_paths.every((p: unknown) => typeof p === "string"))
+  ) {
+    return Response.json(
+      { error: "library_extra_paths must be an array of strings" },
+      { status: 400 },
+    );
+  }
+  if (
+    typeof body.library_path === "string" ||
+    body.library_extra_paths !== undefined
+  ) {
+    const current = getLibraryFolders(db);
+    saveLibraryFolders(db, {
+      primary:
+        typeof body.library_path === "string"
+          ? body.library_path
+          : current.primary,
+      extras: body.library_extra_paths ?? current.extras,
+    });
   }
   if (typeof body.backup_enabled === "boolean") {
     setSetting(db, "backup_enabled", body.backup_enabled ? "true" : "false");

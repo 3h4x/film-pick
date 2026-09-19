@@ -56,6 +56,34 @@ describe("GET /api/movies", () => {
     expect(body).toEqual([]);
   });
 
+  it("returns an ETag and answers 304 when the library is unchanged", async () => {
+    db.prepare(
+      "INSERT INTO movies (title, year, type, source) VALUES (?, ?, ?, ?)",
+    ).run("Inception", 2010, "movie", "tmdb");
+
+    const first = await GET(getReq());
+    const etag = first.headers.get("etag");
+    expect(etag).toBeTruthy();
+    expect(first.headers.get("cache-control")).toContain("no-cache");
+
+    const revalidated = await GET(
+      new NextRequest("http://localhost/api/movies", {
+        headers: { "If-None-Match": etag! },
+      }),
+    );
+    expect(revalidated.status).toBe(304);
+
+    db.prepare(
+      "INSERT INTO movies (title, year, type, source) VALUES (?, ?, ?, ?)",
+    ).run("Dune", 2021, "movie", "tmdb");
+    const changed = await GET(
+      new NextRequest("http://localhost/api/movies", {
+        headers: { "If-None-Match": etag! },
+      }),
+    );
+    expect(changed.status).toBe(200);
+  });
+
   it("returns all movies when no type filter is given", async () => {
     db.prepare(
       "INSERT INTO movies (title, year, type, source) VALUES (?, ?, ?, ?)",

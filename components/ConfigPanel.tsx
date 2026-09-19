@@ -52,7 +52,8 @@ interface ConfigPanelProps {
   engines: { value: string; label: string }[];
   onToggleEngine: (engineKey: string) => void;
   libraryPath: string | null;
-  onSaveLibraryPath: (path: string) => Promise<boolean>;
+  libraryExtraPaths: string[];
+  onSaveFolders: (primary: string | null, extras: string[]) => Promise<boolean>;
   onSync: () => void;
   onOpenMovie: (id: number) => void;
   addToast: (message: string, variant?: "default" | "success") => void;
@@ -130,7 +131,8 @@ export default function ConfigPanel({
   engines,
   onToggleEngine,
   libraryPath,
-  onSaveLibraryPath,
+  libraryExtraPaths,
+  onSaveFolders,
   onSync,
   onOpenMovie,
   addToast,
@@ -142,9 +144,8 @@ export default function ConfigPanel({
   const [apiKey, setApiKey] = useState("");
   const [apiKeySource, setApiKeySource] = useState(tmdbKeySource);
   const [apiKeySaving, setApiKeySaving] = useState(false);
-  const [pathDraft, setPathDraft] = useState(libraryPath || "");
+  const [pathDraft, setPathDraft] = useState("");
   const [pathSaving, setPathSaving] = useState(false);
-  const [pathSaved, setPathSaved] = useState(false);
   const [backupState, setBackupState] = useState<"idle" | "running" | "done" | "error">("idle");
   const [backupFile, setBackupFile] = useState<string | null>(null);
   const [backupStats, setBackupStats] = useState<{ lastBackup: string | null; count: number } | null>(null);
@@ -177,7 +178,6 @@ export default function ConfigPanel({
   }, [config]);
 
   useEffect(() => { setApiKeySource(tmdbKeySource); }, [tmdbKeySource]);
-  useEffect(() => { setPathDraft(libraryPath || ""); }, [libraryPath]);
 
   useEffect(() => {
     if (activeTab !== "library" || detachedLoaded) return;
@@ -331,14 +331,35 @@ export default function ConfigPanel({
     }
   }
 
-  async function handleSavePath() {
-    setPathSaved(false);
+  async function saveFolders(primary: string | null, extras: string[]) {
     setPathSaving(true);
-    const saved = await onSaveLibraryPath(pathDraft.trim());
+    const saved = await onSaveFolders(primary, extras);
     setPathSaving(false);
-    if (!saved) return;
-    setPathSaved(true);
-    setTimeout(() => setPathSaved(false), 2000);
+    return saved;
+  }
+
+  async function handleAddFolder() {
+    const value = pathDraft.trim();
+    if (!value) return;
+    const saved = libraryPath
+      ? await saveFolders(libraryPath, [...libraryExtraPaths, value])
+      : await saveFolders(value, []);
+    if (saved) setPathDraft("");
+  }
+
+  function handleMakePrimary(folder: string) {
+    // Swap: the chosen extra becomes primary, the old primary drops into the extras.
+    const extras = libraryExtraPaths.filter((p) => p !== folder);
+    if (libraryPath) extras.unshift(libraryPath);
+    return saveFolders(folder, extras);
+  }
+
+  function handleRemoveFolder(folder: string) {
+    if (folder === libraryPath) {
+      // Removing the primary promotes the first extra (the server does the same).
+      return saveFolders(libraryExtraPaths[0] ?? null, libraryExtraPaths.slice(1));
+    }
+    return saveFolders(libraryPath, libraryExtraPaths.filter((p) => p !== folder));
   }
 
   function update(partial: Partial<RecConfig>) {
@@ -455,23 +476,67 @@ export default function ConfigPanel({
         <div className="space-y-8">
 
           <section>
-            <SubHeader>Library Path</SubHeader>
-            <Hint>Directory to scan for video files. Used for import and sync.</Hint>
+            <SubHeader>Library Folders</SubHeader>
+            <Hint>
+              Folders to scan for video files. Standardize moves and renames a
+              film into the <strong className="text-gray-300">primary</strong>{" "}
+              folder.
+            </Hint>
+            {libraryPath && (
+              <ul className="mb-3 space-y-2" aria-label="Library folders">
+                {[libraryPath, ...libraryExtraPaths].map((folder) => {
+                  const isPrimary = folder === libraryPath;
+                  return (
+                    <li
+                      key={folder}
+                      className="flex flex-wrap items-center gap-2 rounded-lg border border-gray-700/30 bg-gray-800/40 px-3 py-2"
+                    >
+                      <span className="min-w-0 flex-1 truncate font-mono text-sm text-gray-200" title={folder}>
+                        {folder}
+                      </span>
+                      {isPrimary ? (
+                        <span className="rounded-md border border-indigo-500/30 bg-indigo-500/10 px-2 py-0.5 text-[10px] font-black uppercase tracking-widest text-indigo-300">
+                          Primary
+                        </span>
+                      ) : (
+                        <button
+                          onClick={() => handleMakePrimary(folder)}
+                          disabled={pathSaving}
+                          className="min-h-9 rounded-md px-2 text-xs font-medium text-indigo-400 transition-colors hover:bg-indigo-500/10 hover:text-indigo-300 disabled:opacity-50"
+                        >
+                          Make primary
+                        </button>
+                      )}
+                      <button
+                        onClick={() => handleRemoveFolder(folder)}
+                        disabled={pathSaving}
+                        aria-label={`Remove ${folder}`}
+                        title="Remove folder (files stay on disk)"
+                        className="flex h-9 w-9 items-center justify-center rounded-md text-gray-500 transition-colors hover:bg-red-500/10 hover:text-red-400 disabled:opacity-50"
+                      >
+                        ✕
+                      </button>
+                    </li>
+                  );
+                })}
+              </ul>
+            )}
             <div className="flex flex-wrap items-center gap-2">
               <input
                 type="text"
                 value={pathDraft}
                 onChange={(e) => setPathDraft(e.target.value)}
-                onKeyDown={(e) => e.key === "Enter" && handleSavePath()}
-                placeholder="/Volumes/video/Movies"
+                onKeyDown={(e) => e.key === "Enter" && handleAddFolder()}
+                placeholder={libraryPath ? "Add another folder, e.g. /Volumes/video/Archive" : "/Volumes/video/Movies"}
+                aria-label="Folder path"
                 className="h-11 flex-1 min-w-0 rounded-lg border border-gray-700/30 bg-gray-800/60 px-3 text-sm font-mono text-white placeholder-gray-600 focus:border-indigo-500/50 focus:outline-none"
               />
               <Button
-                onClick={handleSavePath}
-                disabled={pathSaving || !pathDraft.trim() || pathDraft.trim() === libraryPath}
+                onClick={handleAddFolder}
+                disabled={pathSaving || !pathDraft.trim()}
                 className="min-h-11 shrink-0 rounded-lg px-4 py-2 text-sm"
               >
-                {pathSaving ? "Saving..." : pathSaved ? "Saved" : "Save"}
+                {pathSaving ? "Saving..." : "Add folder"}
               </Button>
               {libraryPath && (
                 <button
@@ -482,9 +547,6 @@ export default function ConfigPanel({
                 </button>
               )}
             </div>
-            {libraryPath && (
-              <p className="text-gray-600 text-xs mt-2 font-mono">Current: {libraryPath}</p>
-            )}
           </section>
 
           <section>

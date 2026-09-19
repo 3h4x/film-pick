@@ -97,6 +97,15 @@ describe("settings API", () => {
       expect(data.disabled_engines).toEqual(["genre", "actor"]);
     });
 
+    it("returns the primary and extra library folders", async () => {
+      setSetting(db, "library_path", "/movies");
+      setSetting(db, "library_extra_paths", JSON.stringify(["/archive"]));
+
+      const data = await (await GET()).json();
+      expect(data.library_path).toBe("/movies");
+      expect(data.library_extra_paths).toEqual(["/archive"]);
+    });
+
     it("parses rec_config JSON and returns it as an object", async () => {
       const cfg = {
         max_per_group: 5,
@@ -157,6 +166,47 @@ describe("settings API", () => {
   });
 
   // ── PATCH /api/settings ────────────────────────────────────────────────────
+
+  describe("PATCH /api/settings — library folders", () => {
+    function patch(body: object) {
+      return PATCH(
+        new NextRequest("http://localhost/api/settings", {
+          method: "PATCH",
+          body: JSON.stringify(body),
+          headers: { "Content-Type": "application/json" },
+        }),
+      );
+    }
+
+    it("saves a primary folder and extras together", async () => {
+      const res = await patch({
+        library_path: "/movies",
+        library_extra_paths: ["/archive", "/movies", "/archive/"],
+      });
+      expect(res.status).toBe(200);
+      expect(getSetting(db, "library_path")).toBe("/movies");
+      expect(JSON.parse(getSetting(db, "library_extra_paths")!)).toEqual(["/archive"]);
+    });
+
+    it("keeps extras untouched when only the primary is patched", async () => {
+      await patch({ library_path: "/movies", library_extra_paths: ["/archive"] });
+      await patch({ library_path: "/new" });
+      expect(getSetting(db, "library_path")).toBe("/new");
+      expect(JSON.parse(getSetting(db, "library_extra_paths")!)).toEqual(["/archive"]);
+    });
+
+    it("promotes the first extra when the primary is cleared", async () => {
+      await patch({ library_path: "/movies", library_extra_paths: ["/archive"] });
+      await patch({ library_path: "" });
+      expect(getSetting(db, "library_path")).toBe("/archive");
+      expect(getSetting(db, "library_extra_paths")).toBeNull();
+    });
+
+    it("rejects a malformed library_extra_paths", async () => {
+      const res = await patch({ library_extra_paths: "/archive" });
+      expect(res.status).toBe(400);
+    });
+  });
 
   describe("PATCH /api/settings", () => {
     function makeRequest(body: object) {
