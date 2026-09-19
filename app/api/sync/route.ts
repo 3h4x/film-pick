@@ -7,6 +7,7 @@ import {
   movieNeedsTmdbEnrichment,
 } from "@/lib/db";
 import { getLibraryFolders, isWithinFolder } from "@/lib/library-folders";
+import { enrichMissingLocalizedTitles } from "@/lib/localize-movies";
 import { linkToExistingPathlessRow } from "@/lib/pathless-row-link";
 import { scanDirectoryGenerator } from "@/lib/scanner";
 import type { ScannedFile } from "@/lib/scanner";
@@ -284,8 +285,23 @@ export async function POST(request?: NextRequest) {
         detached++;
       }
 
+      // Phase 4: Polish titles, so films found by this sync are searchable by name.
+      // Bounded per run; the rest of an old backlog catches up over later syncs.
+      let localized = 0;
+      try {
+        const result = await enrichMissingLocalizedTitles(db, {
+          limit: 150,
+          onProgress: (current, total) =>
+            sendUpdate({ type: "localizing", current, total }),
+        });
+        localized = result.updated;
+      } catch (error) {
+        console.error("[Sync] localize step failed:", error);
+      }
+
       sendUpdate({
         type: "complete",
+        localized,
         added,
         linked,
         detached,
