@@ -392,6 +392,23 @@ describe("import API route", () => {
     expect(stored).toBe("/movies/library");
   });
 
+  it("adds a second imported folder next to the primary instead of replacing it", async () => {
+    vi.mocked(scanDirectoryGenerator).mockReturnValue(
+      (function* () {})() as ReturnType<typeof scanDirectoryGenerator>,
+    );
+
+    await POST(makeRequest({ path: "/movies/library" }));
+    vi.mocked(scanDirectoryGenerator).mockReturnValue(
+      (function* () {})() as ReturnType<typeof scanDirectoryGenerator>,
+    );
+    await POST(makeRequest({ path: "/movies/archive" }));
+
+    expect(getSetting(db, "library_path")).toBe("/movies/library");
+    expect(JSON.parse(getSetting(db, "library_extra_paths")!)).toEqual([
+      "/movies/archive",
+    ]);
+  });
+
   // ── Pathless-row linking ────────────────────────────────────────────────────
 
   it("links a metadata-poor pathless row and enriches it from TMDb", async () => {

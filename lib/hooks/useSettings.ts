@@ -15,6 +15,7 @@ export function useSettings({
   setDisabledEngines,
 }: UseSettingsParams) {
   const [libraryPath, setLibraryPath] = useState<string | null>(null);
+  const [libraryExtraPaths, setLibraryExtraPaths] = useState<string[]>([]);
   const [tmdbKeySource, setTmdbKeySource] = useState<"env" | "db" | null>(null);
   const [epgEnabled, setEpgEnabled] = useState(true);
 
@@ -22,6 +23,7 @@ export function useSettings({
     const res = await fetch("/api/settings");
     const data = await res.json();
     setLibraryPath(data.library_path);
+    setLibraryExtraPaths(data.library_extra_paths ?? []);
     setTmdbKeySource(data.tmdb_api_key_source ?? null);
     setDisabledEngines(data.disabled_engines ?? []);
     setEpgEnabled(data.epg_enabled ?? true);
@@ -29,5 +31,5 @@ export function useSettings({
     if (data.rec_config) onConfigLoaded(data.rec_config);
   }, [setDisabledEngines, onGroupOrderLoaded, onConfigLoaded]);
 
-  return { libraryPath, setLibraryPath, tmdbKeySource, epgEnabled, fetchSettings };
+  return { libraryPath, setLibraryPath, libraryExtraPaths, setLibraryExtraPaths, tmdbKeySource, epgEnabled, fetchSettings };
 }

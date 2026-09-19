@@ -7,8 +7,8 @@ import {
   insertMovie,
   type MovieInput,
   movieNeedsTmdbEnrichment,
-  setSetting,
 } from "@/lib/db";
+import { addLibraryFolder } from "@/lib/library-folders";
 import { linkToExistingPathlessRow } from "@/lib/pathless-row-link";
 import { scanDirectoryGenerator } from "@/lib/scanner";
 import { searchTmdb } from "@/lib/tmdb";
@@ -36,8 +36,9 @@ export async function POST(request: NextRequest) {
 
   const db = getDb();
 
-  // Save the library path for future syncs
-  setSetting(db, "library_path", dirPath);
+  // Remember the folder for future syncs: the first one becomes the primary,
+  // later ones are added alongside it instead of replacing it.
+  addLibraryFolder(db, dirPath);
 
   const results = { added: 0, linked: 0, skipped: 0, failed: 0, total: 0 };
 

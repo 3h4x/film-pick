@@ -449,7 +449,9 @@ export default function Home() {
           <ConfigView recConfig={recConfig} setRecConfig={setRecConfig}
             tmdbKeySource={settings.tmdbKeySource} disabledEngines={disabledEngines}
             setDisabledEngines={setDisabledEngines} libraryPath={settings.libraryPath}
-            setLibraryPath={settings.setLibraryPath} setSyncOpen={setSyncOpen}
+            libraryExtraPaths={settings.libraryExtraPaths}
+            setLibraryPath={settings.setLibraryPath}
+            setLibraryExtraPaths={settings.setLibraryExtraPaths} setSyncOpen={setSyncOpen}
             addToast={addToast} fetchEngine={recs.fetchEngine} setRecGroups={recs.setRecGroups}
             onOpenMovie={(id) => {
               const found = movies.find((m) => m.id === id);
@@ -464,7 +466,7 @@ export default function Home() {
         onAdd={search.handleAddMovie} initialQuery={searchQuery} targetMovieId={search.searchTargetId} />
       <ImportModal isOpen={importOpen} onClose={() => setImportOpen(false)}
         onComplete={() => { fetchMovies(); settings.fetchSettings(); addToast("Import complete"); }}
-        currentPath={settings.libraryPath} />
+        folders={{ primary: settings.libraryPath, extras: settings.libraryExtraPaths }} />
       <SyncModal isOpen={syncOpen} onClose={() => setSyncOpen(false)} onComplete={fetchMovies} />
 
       {selectedMovie && (

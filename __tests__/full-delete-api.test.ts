@@ -171,6 +171,27 @@ describe("movies/[id]/full DELETE handler", () => {
     expect(still).toBeUndefined();
   });
 
+  it("treats a secondary library folder as a root too", async () => {
+    db.prepare("INSERT OR REPLACE INTO settings (key, value) VALUES (?, ?)").run(
+      "library_extra_paths",
+      JSON.stringify(["/archive"]),
+    );
+
+    // Directly in the secondary root: only the file goes, never the folder.
+    const direct = insertWithFile("/archive/somemovie.mkv");
+    await DELETE(deleteReq(direct), makeParams(direct));
+    expect(mockUnlinkSync).toHaveBeenCalledWith("/archive/somemovie.mkv");
+    expect(mockRmSync).not.toHaveBeenCalled();
+
+    // In its own subfolder: the whole folder is removed.
+    const nested = insertWithFile("/archive/Inception.2010/Inception.2010.mkv");
+    await DELETE(deleteReq(nested), makeParams(nested));
+    expect(mockRmSync).toHaveBeenCalledWith(
+      "/archive/Inception.2010",
+      expect.objectContaining({ recursive: true }),
+    );
+  });
+
   it("refuses to delete protected folder names", async () => {
     // LIBRARY_ROOT is /movies; parent dir is /movies/movies (folder named "movies" which is protected)
     const filePath = `${LIBRARY_ROOT}/movies/somefile.mkv`;

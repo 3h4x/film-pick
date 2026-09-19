@@ -7,6 +7,8 @@ import {
   subtitleExtensionForContent,
 } from "@/lib/subtitles";
 import fs from "fs/promises";
+import { moveFile } from "@/lib/fs-move";
+import { getLibraryRoots } from "@/lib/library-folders";
 import fsSync from "fs";
 import path from "path";
 
@@ -328,7 +330,7 @@ export async function POST(
     // 3. Move movie file
     if (normOld !== normNew) {
       console.log(`- Moving file: ${oldPath} -> ${newPath}`);
-      await fs.rename(oldPath, newPath);
+      await moveFile(oldPath, newPath);
     }
 
     // 4. Group multi-part files (CD2, etc.) if current is CD1 or vice versa
@@ -350,7 +352,7 @@ export async function POST(
         console.log(
           `- Moving sibling part: ${siblingFile} -> ${newSiblingPath}`,
         );
-        await fs.rename(path.join(oldDir, siblingFile), newSiblingPath);
+        await moveFile(path.join(oldDir, siblingFile), newSiblingPath);
 
         // Update extra_files JSON
         const extra = movie.extra_files ? JSON.parse(movie.extra_files) : [];
@@ -397,7 +399,7 @@ export async function POST(
             targetSubExt;
           const newSubPath = path.join(targetDir, newSubName);
           console.log(`- Moving subtitle: ${file} -> ${newSubName}`);
-          await fs.rename(oldSubPath, newSubPath);
+          await moveFile(oldSubPath, newSubPath);
         }
       }
     }
@@ -412,7 +414,11 @@ export async function POST(
     try {
       if (normOld !== normNew) {
         const oldDir = path.dirname(oldPath);
-        if (oldDir !== libraryRoot && oldDir !== targetDir) {
+        // Never remove a configured library folder itself, only the movie's own folder.
+        const isLibraryRoot = getLibraryRoots(db).some(
+          (root) => path.resolve(root) === path.resolve(oldDir),
+        );
+        if (oldDir !== libraryRoot && oldDir !== targetDir && !isLibraryRoot) {
           // Safety: skip if remaining contents exceed 10 MB (something valuable may be there)
           const getDirSize = async (dir: string): Promise<number> => {
             let total = 0;

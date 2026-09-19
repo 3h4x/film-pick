@@ -71,6 +71,68 @@ describe("sync API route", () => {
     expect(body.error).toMatch(/not found/i);
   });
 
+  it("scans every configured folder and reports unavailable extras", async () => {
+    const dbx = db as unknown as ReturnType<typeof getDb>;
+    setSetting(dbx, "library_path", "/movies");
+    setSetting(dbx, "library_extra_paths", JSON.stringify(["/archive", "/offline"]));
+    existsSyncSpy.mockImplementation(((p: string) => p !== "/offline") as never);
+    const scanned: string[] = [];
+    vi.mocked(scanDirectoryGenerator).mockImplementation(((root: string) => {
+      scanned.push(root);
+      return (function* () {})();
+    }) as unknown as typeof scanDirectoryGenerator);
+
+    const events = await readNDJSON(await POST());
+
+    expect(scanned).toEqual(["/movies", "/archive"]);
+    expect(events.find((e) => e.type === "skipped_roots")).toEqual({
+      type: "skipped_roots",
+      roots: ["/offline"],
+    });
+  });
+
+  it("does not detach movies stored on an unavailable folder", async () => {
+    const dbx = db as unknown as ReturnType<typeof getDb>;
+    setSetting(dbx, "library_path", "/movies");
+    setSetting(dbx, "library_extra_paths", JSON.stringify(["/offline"]));
+    existsSyncSpy.mockImplementation(((p: string) => p !== "/offline") as never);
+    const offlineId = insertMovie(db, {
+      title: "Offline Film",
+      year: 2001,
+      genre: null,
+      director: null,
+      rating: null,
+      poster_url: null,
+      source: "local",
+      imdb_id: null,
+      tmdb_id: null,
+      type: "movie",
+      file_path: "/offline/Offline Film [2001]/Offline Film.mkv",
+    });
+    const goneId = insertMovie(db, {
+      title: "Gone Film",
+      year: 2002,
+      genre: null,
+      director: null,
+      rating: null,
+      poster_url: null,
+      source: "local",
+      imdb_id: null,
+      tmdb_id: null,
+      type: "movie",
+      file_path: "/movies/Gone Film [2002]/Gone Film.mkv",
+    });
+
+    await readNDJSON(await POST());
+
+    const path = (id: number | bigint) =>
+      (db.prepare("SELECT file_path FROM movies WHERE id = ?").get(id) as {
+        file_path: string | null;
+      }).file_path;
+    expect(path(offlineId)).toBe("/offline/Offline Film [2001]/Offline Film.mkv");
+    expect(path(goneId)).toBeNull();
+  });
+
   it("streams ndjson with scan_complete and complete events when no files found", async () => {
     setSetting(db as unknown as ReturnType<typeof getDb>, 'library_path', '/movies');
     vi.mocked(scanDirectoryGenerator).mockReturnValue((function* () {})());
