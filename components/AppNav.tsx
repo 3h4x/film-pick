@@ -90,12 +90,15 @@ export default function AppNav({
   return (
     <nav className="sticky top-0 z-40 -mx-4 sm:-mx-6 px-4 sm:px-6 pt-4 pb-0 bg-[#0a0e1a]/90 backdrop-blur-2xl border-b border-white/[0.05] shadow-[0_1px_0_0_rgba(255,255,255,0.03)]">
       <div className="max-w-7xl mx-auto">
-        {/* Row 1: Logo + Actions */}
+        {/* Row 1: on mobile the logo/actions row sits above the search row; from sm up
+            the header row is `display: contents`, so logo, search and actions become
+            siblings of one flex line: logo | search (fills the space) | actions. */}
+        <div className="sm:mb-3 sm:flex sm:items-center sm:justify-between sm:gap-4">
         <div
           data-testid="app-header-row"
-          className="mb-3 flex items-center justify-between gap-3"
+          className="mb-3 flex items-center justify-between gap-3 sm:mb-0 sm:contents"
         >
-          <div className="flex items-center gap-3 sm:gap-4">
+          <div className="flex items-center gap-3 sm:order-1 sm:shrink-0 sm:gap-4">
             <h1 className="text-lg font-bold tracking-tight">
               <a
                 href="#recommendations"
@@ -116,7 +119,7 @@ export default function AppNav({
               </a>
             </h1>
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 sm:order-3 sm:shrink-0">
                 <button
                   onClick={onSync}
                   disabled={!libraryPath}
@@ -162,8 +165,11 @@ export default function AppNav({
         </div>
 
         {!initialLoad && (
-          <div data-testid="app-search-row" className="mb-3 sm:-mt-1">
-            <div className="relative group transition-all sm:max-w-xs">
+          <div
+            data-testid="app-search-row"
+            className="mb-3 sm:order-2 sm:mb-0 sm:min-w-0 sm:flex-1"
+          >
+            <div className="relative group transition-all">
               <div className="absolute inset-y-0 left-3 flex items-center pointer-events-none">
                 <svg
                   aria-hidden="true"
@@ -234,6 +240,8 @@ export default function AppNav({
             </div>
           </div>
         )}
+
+        </div>
 
         {/* Row 2: Tabs */}
         <div className="relative">
