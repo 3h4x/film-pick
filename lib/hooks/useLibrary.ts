@@ -5,6 +5,7 @@ import type { Movie, SortOption } from "@/lib/types";
 import { PAGE_SIZE } from "@/lib/types";
 import { createLatestOnlyRunner } from "@/lib/latest-only-runner";
 import { readLibraryCache, writeLibraryCache } from "@/lib/library-cache";
+import { readLibraryViewPrefs, writeLibraryViewPrefs } from "@/lib/library-view-prefs";
 import {
   filterMovies,
   sortMovies,
@@ -123,6 +124,34 @@ export function useLibrary(
   const genres = useMemo(() => extractGenres(movies), [movies]);
   const sources = useMemo(() => extractSources(movies), [movies]);
   const years = useMemo(() => extractYears(movies), [movies]);
+
+  // Restore the last sort/filters once on mount (after hydration, so the server
+  // render and the first client render agree), then save every change.
+  const [viewPrefsRestored, setViewPrefsRestored] = useState(false);
+  useEffect(() => {
+    const saved = readLibraryViewPrefs();
+    if (saved.sort) setSort(saved.sort);
+    if (saved.sortDir) setSortDir(saved.sortDir);
+    if (saved.genreFilter !== undefined) setGenreFilter(saved.genreFilter);
+    if (saved.sourceFilter !== undefined) setSourceFilter(saved.sourceFilter);
+    if (saved.yearFilter !== undefined) setYearFilter(saved.yearFilter);
+    if (saved.unratedOnly !== undefined) setUnratedOnly(saved.unratedOnly);
+    if (saved.hasFileOnly !== undefined) setHasFileOnly(saved.hasFileOnly);
+    setViewPrefsRestored(true);
+  }, []);
+  useEffect(() => {
+    if (!viewPrefsRestored) return;
+    writeLibraryViewPrefs({ sort, sortDir, genreFilter, sourceFilter, yearFilter, unratedOnly, hasFileOnly });
+  }, [viewPrefsRestored, sort, sortDir, genreFilter, sourceFilter, yearFilter, unratedOnly, hasFileOnly]);
+
+  // A remembered genre/source/year that no longer exists in the library would
+  // silently hide everything, so drop it once the library is loaded.
+  useEffect(() => {
+    if (initialLoad || !viewPrefsRestored) return;
+    if (genreFilter && !genres.includes(genreFilter)) setGenreFilter("");
+    if (sourceFilter && !sources.includes(sourceFilter)) setSourceFilter("");
+    if (yearFilter && !years.includes(Number(yearFilter))) setYearFilter("");
+  }, [initialLoad, viewPrefsRestored, genres, sources, years, genreFilter, sourceFilter, yearFilter]);
 
   const sortedMovies = useMemo(() => {
     const filtered = filterMovies(searchMovies ?? movies, {
