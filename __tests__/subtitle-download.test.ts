@@ -28,7 +28,7 @@ vi.mock("child_process", async (importOriginal) => {
   };
 });
 
-const MICRODVD = "{24}{48}Wykryto ruch.\r\n{96}{120}Co to jest?\r\n";
+const MICRODVD = "{24}{48}Dzień dobry.\r\n{96}{120}Jak się masz?\r\n";
 
 function napiXml(content: string | null) {
   return content === null
@@ -133,7 +133,7 @@ describe("downloadSubtitle", () => {
       "utf8",
     );
     expect(written).toContain("00:00:01,001 --> 00:00:02,002");
-    expect(written).toContain("Wykryto ruch.");
+    expect(written).toContain("Dzień dobry.");
   });
 
   it("leaves a movie that already has subtitles alone", async () => {
@@ -152,7 +152,7 @@ describe("downloadSubtitle", () => {
     expect(result.status).toBe("downloaded");
     expect(
       fs.readFileSync(path.join(tmpDir, "Movie", "Movie (1999).srt"), "utf8"),
-    ).toContain("Wykryto ruch.");
+    ).toContain("Dzień dobry.");
   });
 
   it("reports not_found when NapiProjekt misses and OpenSubtitles is not configured", async () => {
