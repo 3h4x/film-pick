@@ -326,6 +326,43 @@ describe("movies/[id]/standardize POST handler", () => {
     );
   });
 
+  it("refuses a second standardize of the same movie while the first is still moving", async () => {
+    const put = db.prepare("INSERT OR REPLACE INTO settings (key, value) VALUES (?, ?)");
+    put.run("library_path", "/mnt/primary");
+    movieId = insertMovie(db, {
+      title: "Dune",
+      year: 2021,
+      genre: null,
+      director: null,
+      rating: null,
+      poster_url: null,
+      source: "tmdb",
+      imdb_id: null,
+      tmdb_id: 438631,
+      type: "movie",
+    });
+    const oldPath = "/mnt/archive/dune_2021_bluray/dune.mkv";
+    db.prepare("UPDATE movies SET file_path = ? WHERE id = ?").run(oldPath, movieId);
+    mockExistsSync.mockImplementation((p: string) => p === oldPath);
+
+    // The first move hangs, like a multi-GB copy between shares.
+    let finishMove!: () => void;
+    mockRename.mockImplementationOnce(
+      () => new Promise<void>((resolve) => (finishMove = resolve)),
+    );
+    const first = POST(postReq(movieId), makeParams(movieId));
+    await vi.waitFor(() => expect(mockRename).toHaveBeenCalledTimes(1));
+
+    const second = await POST(postReq(movieId), makeParams(movieId));
+    expect(second.status).toBe(409);
+    expect((await second.json()).error).toMatch(/already moving/i);
+
+    finishMove();
+    expect((await first).status).toBe(200);
+    // Once done, the movie can be standardized again.
+    expect((await POST(postReq(movieId), makeParams(movieId))).status).not.toBe(409);
+  });
+
   it("moves a film from a secondary folder into the primary folder", async () => {
     const put = db.prepare("INSERT OR REPLACE INTO settings (key, value) VALUES (?, ?)");
     put.run("library_path", "/mnt/primary");
