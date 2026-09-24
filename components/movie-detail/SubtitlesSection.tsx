@@ -1,7 +1,10 @@
 "use client";
 
 import type { DragEvent } from "react";
-import type { SubtitleTrack } from "@/components/movie-detail/types";
+import type {
+  SubtitleNotice,
+  SubtitleTrack,
+} from "@/components/movie-detail/types";
 
 interface SubtitlesSectionProps {
   movieTitle: string;
@@ -11,10 +14,13 @@ interface SubtitlesSectionProps {
   isSubtitleUploading: boolean;
   isDraggingSub: boolean;
   subtitleError: string | null;
+  isSubtitleDownloading: boolean;
+  subtitleNotice: SubtitleNotice | null;
   onDragOver: (event: DragEvent<HTMLLabelElement>) => void;
   onDragLeave: (event: DragEvent<HTMLLabelElement>) => void;
   onDrop: (event: DragEvent<HTMLLabelElement>) => void;
   onSubtitleUpload: (file: File) => void;
+  onSubtitleDownload: () => void;
 }
 
 export default function SubtitlesSection({
@@ -25,10 +31,13 @@ export default function SubtitlesSection({
   isSubtitleUploading,
   isDraggingSub,
   subtitleError,
+  isSubtitleDownloading,
+  subtitleNotice,
   onDragOver,
   onDragLeave,
   onDrop,
   onSubtitleUpload,
+  onSubtitleDownload,
 }: SubtitlesSectionProps) {
   const openSubtitlesUrl = `https://www.opensubtitles.org/en/search2/moviename-${encodeURIComponent(movieTitle)}/sublanguageid-pol`;
 
@@ -80,6 +89,22 @@ export default function SubtitlesSection({
                 </p>
               </div>
             )}
+
+            <button
+              type="button"
+              onClick={onSubtitleDownload}
+              disabled={isSubtitleDownloading || isSubtitleUploading}
+              className="w-full min-h-11 flex items-center justify-center gap-2 bg-indigo-500 hover:bg-indigo-400 disabled:bg-gray-700 disabled:text-gray-500 disabled:cursor-not-allowed text-white py-3 rounded-xl transition-all"
+            >
+              <span className="text-sm">{isSubtitleDownloading ? "⏳" : "⬇"}</span>
+              <span className="text-xs font-black uppercase tracking-widest">
+                {isSubtitleDownloading
+                  ? "Searching NapiProjekt / OpenSubtitles..."
+                  : hasSubtitles
+                    ? "Download Polish subtitles again"
+                    : "Download Polish subtitles"}
+              </span>
+            </button>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-2">
               <a
@@ -147,6 +172,18 @@ export default function SubtitlesSection({
               OpenSubtitles.org ↗
             </a>
           </div>
+        )}
+
+        {subtitleNotice && !subtitleError && (
+          <p
+            className={`mt-3 px-3 py-2 text-[10px] font-bold uppercase rounded-lg border text-center ${
+              subtitleNotice.warn
+                ? "bg-yellow-500/10 text-yellow-400 border-yellow-500/20"
+                : "bg-green-500/10 text-green-400 border-green-500/20"
+            }`}
+          >
+            {subtitleNotice.text}
+          </p>
         )}
 
         {subtitleError && (

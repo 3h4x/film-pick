@@ -39,7 +39,7 @@ Tracks and ranks directors, writers, and actors based on your watch history. See
 - **Filmweb import** — bring in your ratings history from Poland's biggest movie site
 - **TMDb search** — manually add any movie
 - **Sync** — re-scan your library path to pick up new files and clean up deleted ones
-- **Subtitles** — automatic detection of subtitle files, direct link to OpenSubtitles.com, and drop-to-add that renames and organizes subtitles to match your movie files
+- **Subtitles** — automatic detection of subtitle files, drop-to-add that renames and organizes subtitles to match your movie files, and one-click Polish subtitle download from NapiProjekt (matched by file hash) with an OpenSubtitles fallback. A Config button fetches them for every movie file that has none, and `scripts/fetch-subtitles.ts <dir>` does the same for any folder
 
 ### Wishlist
 
@@ -75,11 +75,14 @@ Two options for secrets:
 ```bash
 bioenv set TMDB_API_KEY <your-tmdb-read-access-token>
 bioenv set ANTHROPIC_API_KEY <your-anthropic-api-key>  # Optional: enables For You AI recommendations
+bioenv set OPENSUBTITLES_API_KEY <key>                 # Optional: OpenSubtitles fallback for subtitle downloads
+bioenv set OPENSUBTITLES_USERNAME <user>               # Optional: raises the OpenSubtitles download quota
+bioenv set OPENSUBTITLES_PASSWORD <password>
 eval "$(bioenv load)"    # Touch ID prompt, then start dev server
 pnpm dev
 ```
 
-Environment variables take priority over database settings. `ANTHROPIC_API_KEY` is only read from the environment.
+Environment variables take priority over database settings. `ANTHROPIC_API_KEY` and the `OPENSUBTITLES_*` variables are only read from the environment.
 
 ## Docker
 

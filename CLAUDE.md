@@ -39,7 +39,9 @@ pnpm backup              # Backup SQLite DB
 │       ├── movies/[id]/full/route.ts — DELETE movie from disk and DB (use ?disk_only=1 to keep DB row)
 │       ├── movies/[id]/play/route.ts — Launch local player
 │       ├── movies/[id]/stream/route.ts — Stream video file
-│       ├── movies/[id]/subtitles/route.ts — Subtitle management
+│       ├── movies/[id]/subtitles/route.ts — Subtitle management (list / upload)
+│       ├── movies/[id]/subtitles/download/route.ts — Download Polish subtitles (NapiProjekt → OpenSubtitles); 409 if some exist unless `?replace=1`
+│       ├── subtitles/download-missing/route.ts — Library-wide subtitle download for files with none; streams NDJSON progress, one run at a time
 │       ├── movies/[id]/standardize/route.ts — Standardize file naming
 │       ├── movies/[id]/episodes/route.ts — TV episode watch progress (GET list / PUT mark watched / DELETE clear)
 │       ├── movies/merge/route.ts     — Merge duplicate entries
@@ -105,13 +107,17 @@ pnpm backup              # Backup SQLite DB
 │   ├── library-folders.ts            — Library folders: primary (`library_path` setting) + extras (`library_extra_paths` JSON); standardize moves into the primary
 │   ├── fs-move.ts                    — moveFile: rename with copy+unlink fallback across filesystems (EXDEV)
 │   ├── tmdb-refresh.ts               — Refresh a movie from TMDb (`tmdb_refreshed_at` records when); sync/import run it for never/stale-refreshed movies so search finds them by Polish title, director, cast
-│   ├── subtitles.ts                  — Subtitle format sniffing (SubRip/MicroDVD/MPL2/TMP/VTT/ASS), encoding detection, conversion to SubRip
+│   ├── subtitles.ts                  — Subtitle format sniffing (SubRip/MicroDVD/MPL2/TMP/VTT/ASS), encoding detection, conversion to SubRip, injected-ad cue detection (`isSubtitleAdCue`)
 │   ├── ffprobe.ts                    — probeFps: video frame rate via ffprobe, used to time frame-based subtitles
+│   ├── napiprojekt.ts                — NapiProjekt client: MD5-of-first-10-MiB hash + subtitle fetch (base64 in XML)
+│   ├── opensubtitles.ts              — OpenSubtitles REST v1 client: moviehash, search by hash/IMDb/TMDb/title, download (env keys only)
+│   ├── subtitle-download.ts          — downloadSubtitle (NapiProjekt, then OpenSubtitles, normalized, saved as `<video>.srt`), findExistingSubtitles, downloadMissingSubtitles
 │   ├── hooks/                        — React hooks
 │   │   ├── useLibrary.ts             — Library fetch + filtering state
 │   │   ├── useRecommendations.ts     — Recommendations fetch + state
 │   │   ├── useSearch.ts              — TMDb search state
-│   │   └── useSettings.ts            — App settings fetch/update
+│   │   ├── useSettings.ts            — App settings fetch/update
+│   │   └── useSubtitleBulkDownload.ts — Streams /api/subtitles/download-missing progress for the Config tab
 │   └── engines/                      — Recommendation engines
 │       ├── index.ts                  — Engine registry
 │       ├── director.ts               — By director
@@ -131,6 +137,7 @@ pnpm backup              # Backup SQLite DB
 │   ├── enrich-tmdb.ts                — Enrich existing movies with TMDb posters/genres
 │   ├── fix-credits.ts                — Re-fetch director/writer/actors from TMDb for all movies
 │   ├── fetch-cda.ts                  — Fetch CDA Premium movies into recommended_movies
+│   ├── fetch-subtitles.ts            — Download Polish subtitles for every video under a directory (no DB; titles from filenames)
 │   ├── dedupe-movies.ts              — Merge rows sharing a tmdb_id into a canonical row (uses lib/dedup.ts)
 │   └── ensure-native-abi.mjs         — Pre-test native ABI check (run by pnpm pretest)
 ├── __tests__/                        — Vitest tests
@@ -159,6 +166,7 @@ pnpm backup              # Backup SQLite DB
 - **Search:** TMDb search to manually add movies
 - **Library search (FTS):** `GET /api/movies?q=` runs an SQLite FTS5 prefix search over title, pl_title, director, writer, and actors (backed by the `movies_fts` virtual table); the Library search box debounces and queries this endpoint
 - **TV episode progress:** TV/series detail view tracks watched episodes per season/episode via `app/api/movies/[id]/episodes` (`TvEpisodeProgressSection`); progress is stored in `tv_episode_progress` and removed on movie delete via `ON DELETE CASCADE`
+- **Subtitle download:** the movie detail's "Download Polish subtitles" button and Config → Library → "Download missing subtitles" try NapiProjekt first (hash of the first 10 MiB, so it only ever matches that exact release), then OpenSubtitles when `OPENSUBTITLES_API_KEY` is set (hash match preferred, then IMDb/TMDb/title). A title match is flagged in the UI because the timing may not fit a home DVD/VHS rip. Downloads go through `normalizeSubtitle` like uploads, with `dropCue: isSubtitleAdCue` stripping the ad cues OpenSubtitles' free API tier injects, and land at `<video basename>.srt`; movies that already have any subtitle are skipped unless the user asks to replace. The Docker container needs write access to the video folders for this
 - **Wishlist:** Flag movies with `wishlist=1`; dedicated tab; watchlist recommendation engine picks from it
 - **TV guide (EPG):** Fetches and caches an M3U/EPG feed; configurable via settings; scheduled refresh; channel blacklist
 - **Mood recommendations:** Predefined mood presets map to TMDb genre/keyword queries
@@ -184,6 +192,7 @@ Secrets managed via `bioenv`:
 ```bash
 bioenv init                          # First time setup
 bioenv set TMDB_API_KEY <token>      # Store TMDb read access token
+bioenv set OPENSUBTITLES_API_KEY <key>  # Optional: OpenSubtitles fallback for subtitle downloads (+ OPENSUBTITLES_USERNAME/PASSWORD for a higher quota)
 eval "$(bioenv load)"                # Load into shell before running dev
 ```
 
@@ -195,6 +204,9 @@ pnpm dlx tsx scripts/import-filmweb.ts <path-to-json> [--enrich]
 
 # Enrich existing movies with TMDb posters (requires TMDB_API_KEY)
 eval "$(bioenv load)" && pnpm dlx tsx scripts/enrich-tmdb.ts
+
+# Download Polish subtitles for every video under a directory that has none (--replace to redo)
+pnpm dlx tsx scripts/fetch-subtitles.ts <dir> [--replace]
 
 # Backup DB (also available as: pnpm backup)
 bash scripts/backup-db.sh

@@ -1,7 +1,10 @@
 "use client";
 
 import { useEffect, useState, type DragEvent } from "react";
-import type { SubtitleTrack } from "@/components/movie-detail/types";
+import type {
+  SubtitleNotice,
+  SubtitleTrack,
+} from "@/components/movie-detail/types";
 import { getErrorMessage } from "@/lib/utils";
 
 interface SubtitlesResponse {
@@ -14,6 +17,37 @@ interface SubtitleUploadResponse {
   fileName?: string;
   path?: string;
   error?: string;
+}
+
+interface SubtitleDownloadResponse {
+  ok?: boolean;
+  fileName?: string;
+  path?: string;
+  provider?: "napiprojekt" | "opensubtitles";
+  hashMatch?: boolean;
+  error?: string;
+}
+
+const PROVIDER_LABELS = {
+  napiprojekt: "NapiProjekt",
+  opensubtitles: "OpenSubtitles",
+} as const;
+
+/**
+ * What to tell the user after a download. A title/IMDb match was timed against
+ * someone else's release, so a home rip may drift — say so rather than let the
+ * user discover it halfway through the film.
+ */
+export function describeSubtitleDownload(
+  data: SubtitleDownloadResponse,
+): SubtitleNotice {
+  const source = data.provider ? PROVIDER_LABELS[data.provider] : "provider";
+  return data.hashMatch === false
+    ? {
+        text: `Downloaded from ${source} by title, not this exact file. Timing may be off.`,
+        warn: true,
+      }
+    : { text: `Downloaded from ${source}, matched to this exact file.`, warn: false };
 }
 
 /**
@@ -59,6 +93,10 @@ export function useMovieSubtitles({
   const [isSubtitleUploading, setIsSubtitleUploading] = useState(false);
   const [subtitleError, setSubtitleError] = useState<string | null>(null);
   const [isDraggingSub, setIsDraggingSub] = useState(false);
+  const [isSubtitleDownloading, setIsSubtitleDownloading] = useState(false);
+  const [subtitleNotice, setSubtitleNotice] = useState<SubtitleNotice | null>(
+    null,
+  );
   const subtitleContextKey = getSubtitleContextKey({
     movieId,
     filePath,
@@ -67,6 +105,7 @@ export function useMovieSubtitles({
 
   useEffect(() => {
     setSubtitleError(null);
+    setSubtitleNotice(null);
   }, [subtitleContextKey]);
 
   useEffect(() => {
@@ -144,6 +183,36 @@ export function useMovieSubtitles({
     }
   };
 
+  const handleSubtitleDownload = async () => {
+    setIsSubtitleDownloading(true);
+    setSubtitleError(null);
+    setSubtitleNotice(null);
+    try {
+      // An explicit click with tracks already present means "try again".
+      const query = hasSubtitles ? "?replace=1" : "";
+      const response = await fetch(
+        `/api/movies/${movieId}/subtitles/download${query}`,
+        { method: "POST" },
+      );
+      const data = (await response.json()) as SubtitleDownloadResponse;
+      if (data.ok && data.fileName && data.path) {
+        const track = { name: data.fileName, path: data.path };
+        setHasSubtitles(true);
+        setSubtitlesList((prev) => upsertSubtitleTrack(prev, track));
+        setSubtitleNotice(describeSubtitleDownload(data));
+      } else {
+        setSubtitleError(data.error || "Download failed");
+      }
+    } catch (error) {
+      console.error("[Subtitles] Download error:", error);
+      setSubtitleError(
+        `Network error: ${getErrorMessage(error) || "Check console"}`,
+      );
+    } finally {
+      setIsSubtitleDownloading(false);
+    }
+  };
+
   const onDragOverSub = (event: DragEvent<HTMLLabelElement>) => {
     event.preventDefault();
     event.stopPropagation();
@@ -175,6 +244,9 @@ export function useMovieSubtitles({
     subtitleError,
     isDraggingSub,
     handleSubtitleUpload,
+    isSubtitleDownloading,
+    subtitleNotice,
+    handleSubtitleDownload,
     onDragOverSub,
     onDragLeaveSub,
     onDropSub,

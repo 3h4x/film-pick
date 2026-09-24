@@ -1,5 +1,6 @@
 import { describe, it, expect } from "vitest";
 import {
+  isSubtitleAdCue,
   decodeSubtitleBuffer,
   detectSubtitleFormat,
   normalizeSubtitle,
@@ -307,5 +308,37 @@ describe("subtitleExtensionForContent", () => {
     expect(
       subtitleExtensionForContent(Buffer.from("random notes", "utf8"), ".txt"),
     ).toBe(".txt");
+  });
+});
+
+describe("isSubtitleAdCue", () => {
+  it("recognises the ads OpenSubtitles injects", () => {
+    expect(isSubtitleAdCue("Advertise your product or brand here\ncontact www.OpenSubtitles.org today")).toBe(true);
+    expect(isSubtitleAdCue("Support us and become VIP member\nto remove all ads")).toBe(true);
+    expect(isSubtitleAdCue("Please rate this subtitle at www.osdb.link/abc")).toBe(true);
+  });
+
+  it("leaves dialogue alone", () => {
+    expect(isSubtitleAdCue("Co to jest 2 plus 2?")).toBe(false);
+    expect(isSubtitleAdCue("Chcesz zostać członkiem VIP?")).toBe(false);
+  });
+});
+
+describe("normalizeSubtitle dropCue", () => {
+  const srt =
+    "1\r\n00:00:01,000 --> 00:00:02,000\r\nAdvertise your product or brand here\r\n\r\n" +
+    "2\r\n00:00:03,000 --> 00:00:04,000\r\nCześć\r\n";
+
+  it("removes matching cues and renumbers the rest", () => {
+    const result = normalizeSubtitle(Buffer.from(srt), { dropCue: isSubtitleAdCue });
+    expect(result.cueCount).toBe(1);
+    expect(result.droppedCues).toBe(1);
+    expect(result.content.toString()).toBe("1\r\n00:00:03,000 --> 00:00:04,000\r\nCześć\r\n\r\n");
+  });
+
+  it("keeps every cue without a predicate", () => {
+    const result = normalizeSubtitle(Buffer.from(srt));
+    expect(result.cueCount).toBe(2);
+    expect(result.droppedCues).toBe(0);
   });
 });

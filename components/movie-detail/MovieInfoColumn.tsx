@@ -14,6 +14,7 @@ import TvEpisodeProgressSection from "@/components/movie-detail/TvEpisodeProgres
 import type {
   MovieDetailMovie,
   StandardizeMessage,
+  SubtitleNotice,
   SubtitleTrack,
 } from "@/components/movie-detail/types";
 import { parseGenreLabels } from "@/lib/utils";
@@ -40,6 +41,8 @@ interface MovieInfoColumnProps {
   isSubtitleUploading: boolean;
   isDraggingSub: boolean;
   subtitleError: string | null;
+  isSubtitleDownloading: boolean;
+  subtitleNotice: SubtitleNotice | null;
   isStandard: boolean;
   isStandardNoYear: boolean;
   isStandardizing: boolean;
@@ -55,6 +58,7 @@ interface MovieInfoColumnProps {
   onDragLeaveSub: (event: DragEvent<HTMLLabelElement>) => void;
   onDropSub: (event: DragEvent<HTMLLabelElement>) => void;
   onSubtitleUpload: (file: File) => void;
+  onSubtitleDownload: () => void;
   onStandardize: () => void;
 }
 
@@ -138,6 +142,8 @@ export default function MovieInfoColumn({
   isSubtitleUploading,
   isDraggingSub,
   subtitleError,
+  isSubtitleDownloading,
+  subtitleNotice,
   isStandard,
   isStandardNoYear,
   isStandardizing,
@@ -153,6 +159,7 @@ export default function MovieInfoColumn({
   onDragLeaveSub,
   onDropSub,
   onSubtitleUpload,
+  onSubtitleDownload,
   onStandardize,
 }: MovieInfoColumnProps) {
   return (
@@ -241,10 +248,13 @@ export default function MovieInfoColumn({
         isSubtitleUploading={isSubtitleUploading}
         isDraggingSub={isDraggingSub}
         subtitleError={subtitleError}
+        isSubtitleDownloading={isSubtitleDownloading}
+        subtitleNotice={subtitleNotice}
         onDragOver={onDragOverSub}
         onDragLeave={onDragLeaveSub}
         onDrop={onDropSub}
         onSubtitleUpload={onSubtitleUpload}
+        onSubtitleDownload={onSubtitleDownload}
       />
 
       {filePath && (

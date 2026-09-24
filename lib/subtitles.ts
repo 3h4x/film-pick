@@ -286,6 +286,21 @@ function parseTimestamp(value: string): number | null {
   );
 }
 
+// Cues subtitle sites inject into downloads: OpenSubtitles' free API tier adds
+// ads ("Advertise your product or brand here", "Support us and become VIP
+// member...") as standalone cues, usually at the start and end of the file.
+const AD_CUE_PATTERNS: readonly RegExp[] = [
+  /opensubtitles\.(org|com)/i,
+  /osdb\.link/i,
+  /advertise your product or brand/i,
+  /become vip member/i,
+];
+
+/** True for a cue that is an injected ad rather than dialogue. */
+export function isSubtitleAdCue(text: string): boolean {
+  return AD_CUE_PATTERNS.some((pattern) => pattern.test(text));
+}
+
 export interface NormalizedSubtitle {
   /** What the uploaded bytes actually were. */
   format: SubtitleFormat;
@@ -299,6 +314,8 @@ export interface NormalizedSubtitle {
   converted: boolean;
   /** Number of cues in the result; 0 for formats passed through untouched. */
   cueCount: number;
+  /** Cues removed by `dropCue`; always 0 for formats passed through untouched. */
+  droppedCues: number;
 }
 
 /**
@@ -313,7 +330,13 @@ export function normalizeSubtitle(
   {
     fps = DEFAULT_FPS,
     fallbackExtension = ".srt",
-  }: { fps?: number; fallbackExtension?: string } = {},
+    dropCue,
+  }: {
+    fps?: number;
+    fallbackExtension?: string;
+    /** Cues to leave out of the result, e.g. `isSubtitleAdCue` for downloads. */
+    dropCue?: (text: string) => boolean;
+  } = {},
 ): NormalizedSubtitle {
   const { text, encoding } = decodeSubtitleBuffer(buffer);
   const format = detectSubtitleFormat(text);
@@ -325,6 +348,7 @@ export function normalizeSubtitle(
     content: buffer,
     converted: false,
     cueCount: 0,
+    droppedCues: 0,
   });
 
   if (!CONVERTIBLE.has(format)) {
@@ -349,6 +373,9 @@ export function normalizeSubtitle(
   // Nothing parsed out — keep the original bytes rather than write an empty file.
   // A WebVTT payload still has to be named .vtt: storing it as .srt is exactly the
   // mislabelling this module exists to prevent.
+  const parsedCount = cues.length;
+  if (dropCue) cues = cues.filter((cue) => !dropCue(cue.text));
+
   if (cues.length === 0) {
     return passThrough(format === "vtt" ? ".vtt" : fallbackExtension);
   }
@@ -360,6 +387,7 @@ export function normalizeSubtitle(
     content: Buffer.from(renderSrt(cues), "utf8"),
     converted: true,
     cueCount: cues.length,
+    droppedCues: parsedCount - cues.length,
   };
 }
 

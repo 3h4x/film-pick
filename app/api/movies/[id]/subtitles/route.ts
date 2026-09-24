@@ -4,6 +4,7 @@ import { getErrorMessage } from "@/lib/utils";
 import { rateLimit } from "@/lib/rate-limit";
 import { SUBTITLE_EXTENSIONS, normalizeSubtitle } from "@/lib/subtitles";
 import { probeFps } from "@/lib/ffprobe";
+import { findExistingSubtitles } from "@/lib/subtitle-download";
 import fs from "fs/promises";
 import fsSync from "fs";
 import path from "path";
@@ -31,26 +32,11 @@ export async function GET(
     });
   }
 
-  const movieDir = path.dirname(filePath);
-  const movieFileNameNoExt = path.basename(filePath, path.extname(filePath));
-
   try {
-    const files = await fs.readdir(movieDir);
-    const subtitles: { name: string; path: string }[] = [];
-    for (const file of files) {
-      const ext = path.extname(file).toLowerCase();
-      const nameNoExt = path.basename(file, ext);
-      if (
-        SUBTITLE_EXTENSIONS.includes(ext) &&
-        (nameNoExt === movieFileNameNoExt ||
-          nameNoExt.startsWith(movieFileNameNoExt))
-      ) {
-        subtitles.push({
-          name: file,
-          path: path.join(movieDir, file),
-        });
-      }
-    }
+    const subtitles = (await findExistingSubtitles(filePath)).map((p) => ({
+      name: path.basename(p),
+      path: p,
+    }));
 
     return Response.json({
       hasSubtitles: subtitles.length > 0,
