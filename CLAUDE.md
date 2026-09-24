@@ -107,7 +107,7 @@ pnpm backup              # Backup SQLite DB
 │   ├── library-folders.ts            — Library folders: primary (`library_path` setting) + extras (`library_extra_paths` JSON); standardize moves into the primary
 │   ├── fs-move.ts                    — moveFile: rename with copy+unlink fallback across filesystems (EXDEV)
 │   ├── tmdb-refresh.ts               — Refresh a movie from TMDb (`tmdb_refreshed_at` records when); sync/import run it for never/stale-refreshed movies so search finds them by Polish title, director, cast
-│   ├── subtitles.ts                  — Subtitle format sniffing (SubRip/MicroDVD/MPL2/TMP/VTT/ASS), encoding detection, conversion to SubRip
+│   ├── subtitles.ts                  — Subtitle format sniffing (SubRip/MicroDVD/MPL2/TMP/VTT/ASS), encoding detection, conversion to SubRip, injected-ad cue detection (`isSubtitleAdCue`)
 │   ├── ffprobe.ts                    — probeFps: video frame rate via ffprobe, used to time frame-based subtitles
 │   ├── napiprojekt.ts                — NapiProjekt client: MD5-of-first-10-MiB hash + subtitle fetch (base64 in XML)
 │   ├── opensubtitles.ts              — OpenSubtitles REST v1 client: moviehash, search by hash/IMDb/TMDb/title, download (env keys only)
@@ -166,7 +166,7 @@ pnpm backup              # Backup SQLite DB
 - **Search:** TMDb search to manually add movies
 - **Library search (FTS):** `GET /api/movies?q=` runs an SQLite FTS5 prefix search over title, pl_title, director, writer, and actors (backed by the `movies_fts` virtual table); the Library search box debounces and queries this endpoint
 - **TV episode progress:** TV/series detail view tracks watched episodes per season/episode via `app/api/movies/[id]/episodes` (`TvEpisodeProgressSection`); progress is stored in `tv_episode_progress` and removed on movie delete via `ON DELETE CASCADE`
-- **Subtitle download:** the movie detail's "Download Polish subtitles" button and Config → Library → "Download missing subtitles" try NapiProjekt first (hash of the first 10 MiB, so it only ever matches that exact release), then OpenSubtitles when `OPENSUBTITLES_API_KEY` is set (hash match preferred, then IMDb/TMDb/title). A title match is flagged in the UI because the timing may not fit a home DVD/VHS rip. Downloads go through `normalizeSubtitle` like uploads and land at `<video basename>.srt`; movies that already have any subtitle are skipped unless the user asks to replace. The Docker container needs write access to the video folders for this
+- **Subtitle download:** the movie detail's "Download Polish subtitles" button and Config → Library → "Download missing subtitles" try NapiProjekt first (hash of the first 10 MiB, so it only ever matches that exact release), then OpenSubtitles when `OPENSUBTITLES_API_KEY` is set (hash match preferred, then IMDb/TMDb/title). A title match is flagged in the UI because the timing may not fit a home DVD/VHS rip. Downloads go through `normalizeSubtitle` like uploads, with `dropCue: isSubtitleAdCue` stripping the ad cues OpenSubtitles' free API tier injects, and land at `<video basename>.srt`; movies that already have any subtitle are skipped unless the user asks to replace. The Docker container needs write access to the video folders for this
 - **Wishlist:** Flag movies with `wishlist=1`; dedicated tab; watchlist recommendation engine picks from it
 - **TV guide (EPG):** Fetches and caches an M3U/EPG feed; configurable via settings; scheduled refresh; channel blacklist
 - **Mood recommendations:** Predefined mood presets map to TMDb genre/keyword queries

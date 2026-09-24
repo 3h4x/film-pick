@@ -125,6 +125,7 @@ describe("applySubtitleBulkEvent", () => {
         format: "srt",
         converted: true,
         cueCount: 10,
+        adCuesRemoved: 0,
       }),
     );
     state = applySubtitleBulkEvent(

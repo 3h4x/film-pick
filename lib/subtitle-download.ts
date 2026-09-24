@@ -1,7 +1,11 @@
 import type Database from "better-sqlite3";
 import fs from "fs/promises";
 import path from "path";
-import { SUBTITLE_EXTENSIONS, normalizeSubtitle } from "@/lib/subtitles";
+import {
+  SUBTITLE_EXTENSIONS,
+  isSubtitleAdCue,
+  normalizeSubtitle,
+} from "@/lib/subtitles";
 import { probeFps } from "@/lib/ffprobe";
 import { fetchNapiprojektSubtitle, napiprojektHash } from "@/lib/napiprojekt";
 import {
@@ -31,6 +35,8 @@ export type SubtitleDownloadResult =
       format: string;
       converted: boolean;
       cueCount: number;
+      /** Injected ad cues stripped from the download. */
+      adCuesRemoved: number;
     }
   | { status: "exists"; existing: string[] }
   | { status: "not_found" }
@@ -120,6 +126,7 @@ export async function downloadSubtitle(
     const normalized = normalizeSubtitle(found.content, {
       fps,
       fallbackExtension: ".srt",
+      dropCue: isSubtitleAdCue,
     });
     const baseName = path.basename(
       target.filePath,
@@ -131,7 +138,8 @@ export async function downloadSubtitle(
 
     console.log(
       `[Subtitles] ${found.provider}${found.hashMatch ? "" : " (title match)"} -> ${targetPath}: ` +
-        `${normalized.format}${normalized.format === "microdvd" ? ` at ${fps.toFixed(3)} fps` : ""}, ${normalized.cueCount} cues`,
+        `${normalized.format}${normalized.format === "microdvd" ? ` at ${fps.toFixed(3)} fps` : ""}, ${normalized.cueCount} cues` +
+        (normalized.droppedCues ? `, ${normalized.droppedCues} ad cues removed` : ""),
     );
 
     return {
@@ -143,6 +151,7 @@ export async function downloadSubtitle(
       format: normalized.format,
       converted: normalized.converted,
       cueCount: normalized.cueCount,
+      adCuesRemoved: normalized.droppedCues,
     };
   } catch (error) {
     return { status: "error", error: getErrorMessage(error) };

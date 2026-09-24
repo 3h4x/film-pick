@@ -166,7 +166,12 @@ describe("downloadSubtitle", () => {
 
   it("falls back to OpenSubtitles by IMDb id, preferring a hash match", async () => {
     process.env.OPENSUBTITLES_API_KEY = "test-key";
-    const srt = "1\n00:00:01,000 --> 00:00:02,000\nCześć\n";
+    // The free API tier injects ads as their own cues at both ends.
+    const srt = [
+      "1\n00:00:00,500 --> 00:00:03,000\nAdvertise your product or brand here\ncontact www.OpenSubtitles.org today\n",
+      "2\n00:00:04,000 --> 00:00:05,000\nCześć\n",
+      "3\n01:30:00,000 --> 01:30:03,000\nSupport us and become VIP member\nto remove all ads from www.OpenSubtitles.org\n",
+    ].join("\n");
     const fetchMock = vi.fn(async (url: string | URL, init?: RequestInit) => {
       const href = String(url);
       if (href.includes("napiprojekt")) return textResponse(napiXml(null));
@@ -203,7 +208,14 @@ describe("downloadSubtitle", () => {
       status: "downloaded",
       provider: "opensubtitles",
       hashMatch: true,
+      cueCount: 1,
+      adCuesRemoved: 2,
     });
+    const written = fs.readFileSync(
+      path.join(tmpDir, "Movie", "Movie (1999).srt"),
+      "utf8",
+    );
+    expect(written).toBe("1\r\n00:00:04,000 --> 00:00:05,000\r\nCześć\r\n\r\n");
 
     const searchUrl = new URL(String(fetchMock.mock.calls[1][0]));
     // Parameters must arrive sorted, and the IMDb id without "tt" and zeros.
