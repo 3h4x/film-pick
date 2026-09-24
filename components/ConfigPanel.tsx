@@ -6,6 +6,7 @@ import type { TmdbHealthSnapshot } from "@/lib/tmdb-health";
 import type { RecConfig } from "@/lib/types";
 import type { Movie } from "@/lib/db";
 import Button from "@/components/ui/Button";
+import { useSubtitleBulkDownload } from "@/lib/hooks/useSubtitleBulkDownload";
 
 export type { RecConfig };
 
@@ -146,6 +147,8 @@ export default function ConfigPanel({
   const [apiKeySaving, setApiKeySaving] = useState(false);
   const [pathDraft, setPathDraft] = useState("");
   const [pathSaving, setPathSaving] = useState(false);
+  const { state: subtitleBulk, start: startSubtitleBulk } =
+    useSubtitleBulkDownload();
   const [backupState, setBackupState] = useState<"idle" | "running" | "done" | "error">("idle");
   const [backupFile, setBackupFile] = useState<string | null>(null);
   const [backupStats, setBackupStats] = useState<{ lastBackup: string | null; count: number } | null>(null);
@@ -547,6 +550,55 @@ export default function ConfigPanel({
                 </button>
               )}
             </div>
+          </section>
+
+          <section>
+            <SubHeader>Polish Subtitles</SubHeader>
+            <Hint>
+              Download subtitles for every movie file that has none, from
+              NapiProjekt, then OpenSubtitles if{" "}
+              <span className="font-mono">OPENSUBTITLES_API_KEY</span> is set.
+              They are saved next to each file. Existing subtitles are left alone.
+            </Hint>
+            <div className="flex flex-wrap items-center gap-3 mb-2">
+              <button
+                onClick={startSubtitleBulk}
+                disabled={subtitleBulk.running}
+                className="min-h-11 rounded-lg bg-gray-700 px-4 py-2 text-sm text-gray-300 transition-colors hover:bg-gray-600 hover:text-white disabled:cursor-not-allowed disabled:opacity-40"
+              >
+                {subtitleBulk.running
+                  ? `Downloading... ${subtitleBulk.processed}/${subtitleBulk.total}`
+                  : "Download missing subtitles"}
+              </button>
+              {subtitleBulk.error && (
+                <span className="text-red-400 text-xs">{subtitleBulk.error}</span>
+              )}
+            </div>
+            {(subtitleBulk.running || subtitleBulk.finished) && (
+              <div className="text-xs text-gray-500 space-y-0.5">
+                {subtitleBulk.current && subtitleBulk.running && (
+                  <p className="truncate">
+                    Last: <span className="text-gray-400">{subtitleBulk.current}</span>
+                  </p>
+                )}
+                <p>
+                  Downloaded <span className="text-green-400">{subtitleBulk.downloaded}</span>
+                  {" · "}not found <span className="text-gray-400">{subtitleBulk.notFound}</span>
+                  {" · "}already had <span className="text-gray-400">{subtitleBulk.skipped}</span>
+                  {subtitleBulk.errors > 0 && (
+                    <>
+                      {" · "}failed <span className="text-red-400">{subtitleBulk.errors}</span>
+                    </>
+                  )}
+                </p>
+                {subtitleBulk.titleMatches.length > 0 && (
+                  <p className="text-yellow-400/80">
+                    Matched by title, not by file, so timing may be off:{" "}
+                    {subtitleBulk.titleMatches.join(", ")}
+                  </p>
+                )}
+              </div>
+            )}
           </section>
 
           <section>

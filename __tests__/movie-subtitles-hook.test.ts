@@ -1,7 +1,13 @@
 import {
+  describeSubtitleDownload,
   getSubtitleContextKey,
   upsertSubtitleTrack,
 } from "@/components/movie-detail/useMovieSubtitles";
+import {
+  applySubtitleBulkEvent,
+  INITIAL_SUBTITLE_BULK_STATE,
+} from "@/lib/hooks/useSubtitleBulkDownload";
+import type { SubtitleDownloadResult } from "@/lib/subtitle-download";
 import { describe, expect, it } from "vitest";
 
 describe("upsertSubtitleTrack", () => {
@@ -73,5 +79,76 @@ describe("getSubtitleContextKey", () => {
     });
 
     expect(after).not.toBe(before);
+  });
+});
+
+describe("describeSubtitleDownload", () => {
+  it("confirms a hash match", () => {
+    expect(
+      describeSubtitleDownload({ provider: "napiprojekt", hashMatch: true }),
+    ).toEqual({
+      text: "Downloaded from NapiProjekt, matched to this exact file.",
+      warn: false,
+    });
+  });
+
+  it("warns that a title match may be out of sync", () => {
+    const notice = describeSubtitleDownload({
+      provider: "opensubtitles",
+      hashMatch: false,
+    });
+    expect(notice.warn).toBe(true);
+    expect(notice.text).toContain("OpenSubtitles");
+    expect(notice.text).toContain("Timing may be off");
+  });
+});
+
+describe("applySubtitleBulkEvent", () => {
+  it("tallies progress and collects title matches", () => {
+    let state = applySubtitleBulkEvent(
+      { ...INITIAL_SUBTITLE_BULK_STATE, running: true },
+      { type: "start", total: 3 },
+    );
+    const progress = (
+      index: number,
+      title: string,
+      result: SubtitleDownloadResult,
+    ) => ({ type: "progress", index, total: 3, movieId: index, title, result }) as const;
+    state = applySubtitleBulkEvent(
+      state,
+      progress(1, "A", {
+        status: "downloaded",
+        provider: "opensubtitles",
+        hashMatch: false,
+        fileName: "A.srt",
+        path: "/m/A.srt",
+        format: "srt",
+        converted: true,
+        cueCount: 10,
+      }),
+    );
+    state = applySubtitleBulkEvent(
+      state,
+      progress(2, "B", { status: "exists", existing: ["/m/B.srt"] }),
+    );
+    state = applySubtitleBulkEvent(state, progress(3, "C", { status: "not_found" }));
+    expect(state).toMatchObject({
+      total: 3,
+      processed: 3,
+      downloaded: 1,
+      skipped: 1,
+      notFound: 1,
+      titleMatches: ["A"],
+      running: true,
+    });
+    state = applySubtitleBulkEvent(state, {
+      type: "done",
+      downloaded: 1,
+      notFound: 1,
+      skipped: 1,
+      errors: 0,
+    });
+    expect(state.running).toBe(false);
+    expect(state.finished).toBe(true);
   });
 });

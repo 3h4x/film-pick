@@ -109,6 +109,9 @@ export default function MovieDetail({
     subtitleError,
     isDraggingSub,
     handleSubtitleUpload,
+    isSubtitleDownloading,
+    subtitleNotice,
+    handleSubtitleDownload,
     onDragOverSub,
     onDragLeaveSub,
     onDropSub,
@@ -371,6 +374,8 @@ export default function MovieDetail({
               isSubtitleUploading={isSubtitleUploading}
               isDraggingSub={isDraggingSub}
               subtitleError={subtitleError}
+              isSubtitleDownloading={isSubtitleDownloading}
+              subtitleNotice={subtitleNotice}
               isStandard={isStandard}
               isStandardNoYear={isStandardNoYear}
               isStandardizing={isStandardizing}
@@ -386,6 +391,7 @@ export default function MovieDetail({
               onDragLeaveSub={onDragLeaveSub}
               onDropSub={onDropSub}
               onSubtitleUpload={handleSubtitleUpload}
+              onSubtitleDownload={handleSubtitleDownload}
               onStandardize={handleStandardize}
             />
           </div>
