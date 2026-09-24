@@ -52,6 +52,12 @@ export interface SubtitleTrack {
   path: string;
 }
 
+export interface SubtitleNotice {
+  text: string;
+  /** True when the result needs a second look (e.g. matched by title, timing may drift). */
+  warn: boolean;
+}
+
 export interface StandardizeMessage {
   type: "success" | "error";
   text: string;
