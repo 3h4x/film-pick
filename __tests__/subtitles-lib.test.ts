@@ -319,7 +319,7 @@ describe("isSubtitleAdCue", () => {
   });
 
   it("leaves dialogue alone", () => {
-    expect(isSubtitleAdCue("Co to jest 2 plus 2?")).toBe(false);
+    expect(isSubtitleAdCue("Jak się masz?")).toBe(false);
     expect(isSubtitleAdCue("Chcesz zostać członkiem VIP?")).toBe(false);
   });
 });
