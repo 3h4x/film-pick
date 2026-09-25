@@ -105,7 +105,7 @@ pnpm backup              # Backup SQLite DB
 │   ├── scan-cache.ts                 — `scan_dirs` directory-listing cache, weekly forced full scan (`last_full_scan_at` setting)
 │   ├── tmdb-rematch.ts               — Retry TMDb matching for `source=local` films without a tmdb_id (`tmdb_matched_at`)
 │   ├── library-folders.ts            — Library folders: primary (`library_path` setting) + extras (`library_extra_paths` JSON); standardize moves into the primary
-│   ├── fs-move.ts                    — moveFile: rename with copy+unlink fallback across filesystems (EXDEV)
+│   ├── fs-move.ts                    — moveFile: rename with copy+unlink fallback across filesystems (EXDEV); the copy lands as `<dest>.filmpick-partial` and is renamed into place only when complete
 │   ├── tmdb-refresh.ts               — Refresh a movie from TMDb (`tmdb_refreshed_at` records when); sync/import run it for never/stale-refreshed movies so search finds them by Polish title, director, cast
 │   ├── subtitles.ts                  — Subtitle format sniffing (SubRip/MicroDVD/MPL2/TMP/VTT/ASS), encoding detection, conversion to SubRip, injected-ad cue detection (`isSubtitleAdCue`)
 │   ├── ffprobe.ts                    — probeFps: video frame rate via ffprobe, used to time frame-based subtitles
@@ -365,3 +365,10 @@ TMDB_API_KEY=<your_key> docker run -p 4000:4000 -v $(pwd)/data:/app/data -e TMDB
 8. **Do not change ports, image names, deployment wiring, or container volume paths without verifying all downstream references** (`README.md`, `docker-compose.yml`, Playwright base URL, and docs).
 9. **Never place real TMDb credentials in committed fixtures, screenshots, docs, or seeded SQLite data.** Use `bioenv` for local runs and obvious placeholders in any artifact that can land in git.
 10. **Mutating and TMDb-hitting API routes are rate-limited.** `lib/rate-limit.ts` ships an in-memory per-IP token bucket; new write routes must call `rateLimit(request, "mutation")` (default 10 rpm/IP) and new TMDb-hitting routes must call `rateLimit(request, "tmdb")` (default 30 rpm/IP) at the top of the handler. `X-Forwarded-For` is only trusted when `TRUSTED_PROXY=1` in the environment. Limits are bypassed under Vitest unless `RATE_LIMIT_ENFORCE_IN_TESTS=1`.
+11. **This repo is PUBLIC. Everything that lands on GitHub must be anonymized.** That covers commits, commit messages, code comments, test fixtures, docs, screenshots, PR titles, PR bodies and PR/issue comments. Never include:
+    - the owner's real paths, mount points, share or folder names (`/Volumes/...`, `/Users/...`, NAS volumes, download/torrent folders);
+    - hostnames, IPs, private repo names, infrastructure or deployment details of the owner's machines;
+    - usernames or local temp/session paths (e.g. anything under `/private/tmp/claude-*`);
+    - the contents of the owner's library: real movie titles, release names or tags (`[YTS]`, `WEBRip-GROUP`), file sizes, or lines copied from real subtitle files.
+
+    Use obvious placeholders instead: `Sample Movie (1999)`, `/mnt/library/...`, `/mnt/archive/...`, invented dialogue. Describe bugs generically ("a file in an extra library folder on another share"), not with the owner's actual paths. For UI screenshots, seed a placeholder movie and rewrite any local path in API responses before capturing (e.g. a Playwright `page.route` that replaces the path prefix), then check the image before committing. If something private does get pushed, scrub the PR text, replace the file, and rewrite the unmerged branch so the old blob is not in its history; tell the owner that GitHub keeps PR edit history and old commit SHAs until they are purged.

@@ -26,6 +26,11 @@ const VIDEO_EXTENSIONS = new Set([
 const UNSAFE_FILENAME_CHARS = /[\\/:*?"<>|]/g;
 
 
+// Movies with a standardize in progress. Moving across shares copies the whole
+// file and can outlast the browser's patience; a second click must not start a
+// second move of the same file while the first is still copying.
+const inFlight = new Set<number>();
+
 export async function POST(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> },
@@ -33,8 +38,26 @@ export async function POST(
   const limited = rateLimit(request, "mutation");
   if (limited) return limited;
   const { id } = await params;
-  const db = getDb();
   const movieId = parseInt(id, 10);
+  if (inFlight.has(movieId)) {
+    return Response.json(
+      {
+        error:
+          "Already moving this movie's file. Large files between shares can take several minutes; reopen the movie later to see the result.",
+      },
+      { status: 409 },
+    );
+  }
+  inFlight.add(movieId);
+  try {
+    return await standardize(request, movieId);
+  } finally {
+    inFlight.delete(movieId);
+  }
+}
+
+async function standardize(request: NextRequest, movieId: number) {
+  const db = getDb();
 
   const movie = db
     .prepare("SELECT * FROM movies WHERE id = ?")

@@ -64,13 +64,13 @@ export function useMovieFileActions({
   const handleStandardize = async () => {
     setIsStandardizing(true);
     setStandardizeMsg(null);
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 60000);
 
+    // No client timeout: moving a file between shares copies every byte and
+    // takes minutes for a large movie. The server finishes the move regardless,
+    // so aborting here only hid the outcome behind "Request timed out".
     try {
       const res = await fetch(`/api/movies/${movie.id}/standardize`, {
         method: "POST",
-        signal: controller.signal,
       });
 
       const data = await parseStandardizeResponse(res);
@@ -106,13 +106,9 @@ export function useMovieFileActions({
       console.error("Standardization fetch error:", error);
       setStandardizeMsg({
         type: "error",
-        text:
-          error instanceof Error && error.name === "AbortError"
-            ? "Request timed out"
-            : "Network error (check server logs)",
+        text: "Lost the connection before the move finished. The server keeps going; reopen the movie in a few minutes to see where the file ended up.",
       });
     } finally {
-      clearTimeout(timeoutId);
       setIsStandardizing(false);
     }
   };

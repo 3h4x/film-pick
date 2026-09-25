@@ -58,7 +58,7 @@ export default function StorageSection({
                 >
                   <span className="text-xs">{isStandardizing ? "⏳" : "✨"}</span>
                   <span className="text-[10px] font-black uppercase tracking-widest">
-                    Standardize
+                    {isStandardizing ? "Moving..." : "Standardize"}
                   </span>
                 </button>
               )}
@@ -82,6 +82,14 @@ export default function StorageSection({
             </div>
           ))}
         </div>
+
+        {isStandardizing && (
+          <p className="px-4 py-3 rounded-xl border bg-indigo-500/5 border-indigo-500/20 text-indigo-300 text-xs font-medium leading-relaxed">
+            Moving the file into your library. Between two shares this copies the
+            whole file, which can take several minutes for a large movie. You can
+            leave this open.
+          </p>
+        )}
 
         {standardizeMsg && (
           <div
