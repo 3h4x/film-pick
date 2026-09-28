@@ -64,6 +64,7 @@ export default function MovieDetail({
   const personRatings = usePersonRatings(movie);
   const {
     isStandardizing,
+    standardizeProgress,
     isRemoving,
     isDeletingDisk,
     standardizeMsg,
@@ -379,6 +380,7 @@ export default function MovieDetail({
               isStandard={isStandard}
               isStandardNoYear={isStandardNoYear}
               isStandardizing={isStandardizing}
+              standardizeProgress={standardizeProgress}
               standardizeMsg={standardizeMsg}
               onToggleRatingPicker={() => setShowRatingPicker((v) => !v)}
               onRate={handleRate}
