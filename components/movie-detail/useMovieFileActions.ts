@@ -67,6 +67,11 @@ export function useMovieFileActions({
   // True between clicking Standardize and the POST answering: a poll in that
   // window may still see the previous (finished) job and must not end polling.
   const postPendingRef = useRef(false);
+  // A finished job's file path and title are only applied when this view
+  // started it or watched it run. One that ended before the movie was opened
+  // already shows in the freshly loaded movie; applying its old newPath could
+  // undo a later change, so only its message is shown.
+  const followJobRef = useRef<number | "clicked" | null>(null);
 
   useEffect(() => {
     setStandardizeMsg(null);
@@ -74,12 +79,16 @@ export function useMovieFileActions({
     setIsDeletingDisk(false);
   }, [movie]);
 
-  const applyStandardizeResult = (data: StandardizeResponse) => {
+  const applyStandardizeResult = (
+    data: StandardizeResponse,
+    messageOnly: boolean,
+  ) => {
     if (data.ok) {
       setStandardizeMsg({
         type: "success",
         text: data.message || "Path standardized!",
       });
+      if (messageOnly) return;
       // "Already standard" answers without newPath; the file did not move.
       if (data.newPath) setFilePath(data.newPath);
       if (data.newTitle) {
@@ -117,6 +126,7 @@ export function useMovieFileActions({
     setIsStandardizing(false);
     setStandardizeProgress(null);
     appliedJobRef.current = null;
+    followJobRef.current = null;
   }, [movie.id]);
 
   useEffect(() => {
@@ -129,6 +139,7 @@ export function useMovieFileActions({
         const job = (await res.json()) as StandardizeJob | { status: "idle" };
         if (cancelled) return;
         if (job.status === "running") {
+          followJobRef.current = job.startedAt;
           setIsStandardizing(true);
           setStandardizeProgress(job);
           timer = setTimeout(poll, STANDARDIZE_POLL_MS);
@@ -146,7 +157,11 @@ export function useMovieFileActions({
           appliedJobRef.current !== job.startedAt
         ) {
           appliedJobRef.current = job.startedAt;
-          applyResultRef.current(job.result as StandardizeResponse);
+          const followed =
+            followJobRef.current === "clicked" ||
+            followJobRef.current === job.startedAt;
+          followJobRef.current = null;
+          applyResultRef.current(job.result as StandardizeResponse, !followed);
         }
       } catch (error) {
         console.error("Standardize progress fetch error:", error);
@@ -166,6 +181,7 @@ export function useMovieFileActions({
     setStandardizeMsg(null);
     setStandardizeProgress(null);
     postPendingRef.current = true;
+    followJobRef.current = "clicked";
     setStandardizePoll((n) => n + 1);
 
     // No client timeout: moving a file between shares copies every byte and
@@ -178,6 +194,8 @@ export function useMovieFileActions({
       // Refused before a job started (rate limit, already running): the job
       // state has nothing new to say about this click.
       if (res.status === 409 || res.status === 429) {
+        // A 409 means a move is running: follow that one when polling sees it.
+        followJobRef.current = null;
         const data = await parseStandardizeResponse(res);
         setStandardizeMsg({
           type: "error",
