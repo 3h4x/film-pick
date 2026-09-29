@@ -54,6 +54,8 @@ interface TmdbRawMovie {
   poster_path: string | null;
   imdb_id?: string | null;
   overview?: string | null;
+  runtime?: number | null;
+  original_language?: string | null;
   belongs_to_collection?: { id: number; name: string } | null;
   credits?: {
     crew?: TmdbRawCrewMember[];
@@ -94,6 +96,8 @@ type DetailsResult = {
   tmdb_collection_id?: number | null;
   tmdb_collection_name?: string | null;
   tmdb_collection_checked?: boolean;
+  runtime?: number | null;
+  original_language?: string | null;
 };
 
 const localizedCache = new Map<number, CacheEntry<LocalizedResult>>();
@@ -310,6 +314,8 @@ export interface TmdbMovieSnapshot extends TmdbSearchResult {
   description: string | null;
   tmdb_collection_id?: number | null;
   tmdb_collection_name?: string | null;
+  runtime?: number | null;
+  original_language?: string | null;
 }
 
 function normalizeSearchText(value: string): string {
@@ -611,6 +617,11 @@ export async function getPolishTitle(tmdbId: number): Promise<string | null> {
   return pl_title;
 }
 
+// TMDb reports 0 when it does not know the runtime.
+function runtimeFromMovie(data: TmdbRawMovie): number | null {
+  return data.runtime && data.runtime > 0 ? data.runtime : null;
+}
+
 export async function getTmdbMovieDetails(
   tmdbId: number,
 ): Promise<DetailsResult> {
@@ -631,6 +642,8 @@ export async function getTmdbMovieDetails(
   const result: DetailsResult = {
     ...creditsFromMovie(data),
     tmdb_collection_checked: true,
+    runtime: runtimeFromMovie(data),
+    original_language: data.original_language || null,
     ...(collection
       ? {
           tmdb_collection_id: collection.id,
@@ -704,6 +717,8 @@ export async function getTmdbMovieSnapshot(
     actors: credits.actors,
     tmdb_collection_id: data.belongs_to_collection?.id ?? null,
     tmdb_collection_name: data.belongs_to_collection?.name ?? null,
+    runtime: runtimeFromMovie(data),
+    original_language: data.original_language || null,
   };
   snapshotCache.set(tmdbId, { data: result, expiry: Date.now() + CACHE_TTL_MS });
   return result;
@@ -736,15 +751,24 @@ export async function getTmdbSimilar(
   return (data.results || []).slice(0, 5).map(mapResult);
 }
 
+export interface DiscoverFilters {
+  maxRuntime?: number | null;
+  originalLanguage?: string | null;
+}
+
 export async function discoverByGenre(
   genreId: number,
   pages = 3,
+  { maxRuntime, originalLanguage }: DiscoverFilters = {},
 ): Promise<TmdbSearchResult[]> {
   const apiKey = getApiKey();
+  let filters = "";
+  if (maxRuntime) filters += `&with_runtime.lte=${maxRuntime}`;
+  if (originalLanguage) filters += `&with_original_language=${encodeURIComponent(originalLanguage)}`;
   const urls = Array.from(
     { length: pages },
     (_, i) =>
-      `${TMDB_BASE}/discover/movie?with_genres=${genreId}&sort_by=vote_average.desc&vote_count.gte=500&language=en-US&page=${i + 1}`,
+      `${TMDB_BASE}/discover/movie?with_genres=${genreId}&sort_by=vote_average.desc&vote_count.gte=500&language=en-US&page=${i + 1}${filters}`,
   );
   return fetchDiscoverPages(urls, apiKey, "discoverByGenre");
 }

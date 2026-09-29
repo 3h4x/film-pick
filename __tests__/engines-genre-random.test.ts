@@ -148,8 +148,30 @@ describe("genreEngine", () => {
 
     await genreEngine(ctx);
     // Should only be called for Sci-Fi (drama has user_rating < 5)
-    expect(mockDiscoverByGenre).toHaveBeenCalledWith(878);
-    expect(mockDiscoverByGenre).not.toHaveBeenCalledWith(18);
+    const genreIds = mockDiscoverByGenre.mock.calls.map((call) => call[0]);
+    expect(genreIds).toContain(878);
+    expect(genreIds).not.toContain(18);
+  });
+
+  it("forwards max_runtime and original_language from config to TMDb discover", async () => {
+    const library = [makeMovie({ id: 1, title: "Good Sci-Fi", genre: "Sci-Fi", user_rating: 9 })];
+    const ctx = buildContext(library, new Set(), {
+      excluded_genres: [],
+      min_year: null,
+      min_rating: null,
+      max_per_group: 10,
+      max_runtime: 100,
+      original_language: "pl",
+    });
+    mockGenreNameToId.mockReturnValue(878);
+    mockDiscoverByGenre.mockResolvedValue([]);
+
+    await genreEngine(ctx);
+
+    expect(mockDiscoverByGenre).toHaveBeenCalledWith(878, 3, {
+      maxRuntime: 100,
+      originalLanguage: "pl",
+    });
   });
 
   it("treats user_rating=0 as unrated — still generates results via fallback for fresh libraries", async () => {
@@ -165,7 +187,7 @@ describe("genreEngine", () => {
     const result = await genreEngine(ctx);
     expect(result).toHaveLength(1);
     expect(result[0].reason).toContain("Drama");
-    expect(mockDiscoverByGenre).toHaveBeenCalledWith(18);
+    expect(mockDiscoverByGenre).toHaveBeenCalledWith(18, 3, expect.anything());
   });
 
   it("unrated (user_rating=0) and null-rated movies both reach the fallback and produce results", async () => {
@@ -181,7 +203,7 @@ describe("genreEngine", () => {
     expect(result).toHaveLength(1);
     // Both go through fallback 2 with neutral weight; Drama still wins
     expect(mockDiscoverByGenre).toHaveBeenCalledTimes(1);
-    expect(mockDiscoverByGenre).toHaveBeenCalledWith(18);
+    expect(mockDiscoverByGenre).toHaveBeenCalledWith(18, 3, expect.anything());
   });
 
   it("skips genres marked as 'Unknown'", async () => {
@@ -227,7 +249,7 @@ describe("genreEngine", () => {
     const result = await genreEngine(ctx);
 
     expect(result[0].reason).toContain("Crime");
-    expect(mockDiscoverByGenre).toHaveBeenNthCalledWith(1, 80);
+    expect(mockDiscoverByGenre).toHaveBeenNthCalledWith(1, 80, 3, expect.anything());
   });
 
   it("limits recommendations to 15 per group", async () => {

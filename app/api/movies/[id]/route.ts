@@ -324,7 +324,10 @@ export async function GET(
       !movie.director ||
       !movie.writer ||
       !movie.actors ||
-      !movie.tmdb_collection_checked
+      !movie.tmdb_collection_checked ||
+      // TMDb always has an original language for a movie, so this only fires
+      // until the row is backfilled once.
+      (movie.type === "movie" && !movie.original_language)
     )
   ) {
     try {
@@ -347,6 +350,16 @@ export async function GET(
         sets.push("tmdb_collection_name = ?");
         vals.push(credits.tmdb_collection_name);
         movie.tmdb_collection_name = credits.tmdb_collection_name;
+      }
+      if (credits.runtime && !movie.runtime) {
+        sets.push("runtime = ?");
+        vals.push(credits.runtime);
+        movie.runtime = credits.runtime;
+      }
+      if (credits.original_language && !movie.original_language) {
+        sets.push("original_language = ?");
+        vals.push(credits.original_language);
+        movie.original_language = credits.original_language;
       }
       if (credits.tmdb_collection_checked && !movie.tmdb_collection_checked) {
         sets.push("tmdb_collection_checked = ?");

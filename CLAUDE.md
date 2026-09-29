@@ -34,7 +34,7 @@ pnpm backup              # Backup SQLite DB
 │   │   ├── page.tsx                  — Standalone TMDb search entry page
 │   │   └── [query]/page.tsx          — TMDb search results page
 │   └── api/
-│       ├── movies/route.ts           — GET/POST library (GET supports `?type=` and `?q=` FTS search)
+│       ├── movies/route.ts           — GET/POST library (GET supports `?type=`, `?q=` FTS search, `?max_runtime=` and `?language=`)
 │       ├── movies/[id]/route.ts      — GET/DELETE single movie
 │       ├── movies/[id]/full/route.ts — DELETE movie from disk and DB (use ?disk_only=1 to keep DB row)
 │       ├── movies/[id]/play/route.ts — Launch local player
@@ -161,6 +161,7 @@ pnpm backup              # Backup SQLite DB
 - **Rating UX:** In detail view, MY RATING (♥) is always shown left of GLOBAL (★); click the indigo badge to open an inline 1–10 picker; current score is highlighted; picker closes on selection
 - **Sorting:** My Rating, Global Rating, Year, Title, Date Added, Date Rated — asc/desc toggle
 - **Genre filter:** Dropdown with all genres from collection
+- **Runtime / language filters:** Library dropdowns for runtime (under 90, 90–120, over 120 min) and TMDb original language; a movie with no stored runtime matches no runtime bucket. `GET /api/movies?max_runtime=N` likewise excludes unknown runtimes. Both columns are filled by the sync TMDb refresh (the migration marks every TMDb movie due, so the first sync after upgrade backfills the library) and on first open of a movie's detail view. `rec_config.max_runtime` / `original_language` (Config → Recommendations → Filters) are sent to TMDb discover by the genre and mood engines; for mood, the shorter runtime cap wins and a configured language replaces the preset's
 - **Import:** Scan a directory for video files, parse filenames, fetch TMDb metadata
 - **Sync:** Re-scan saved library path, add new files, remove deleted ones
 - **Recommendations tab:** TMDb-based suggestions grouped by reason
@@ -180,7 +181,7 @@ pnpm backup              # Backup SQLite DB
 
 ### Database Schema
 
-**movies**: id, title, year, genre, director, writer, actors, rating, user_rating, poster_url, source, imdb_id, tmdb_id, type (`movie`|`tv`), file_path, extra_files (JSON), video_metadata (JSON), filmweb_id, filmweb_url, cda_url, pl_title, description, rated_at, created_at, wishlist (0|1)
+**movies**: id, title, year, genre, director, writer, actors, rating, user_rating, poster_url, source, imdb_id, tmdb_id, type (`movie`|`tv`), file_path, extra_files (JSON), video_metadata (JSON), filmweb_id, filmweb_url, cda_url, pl_title, description, rated_at, created_at, wishlist (0|1), runtime (minutes), original_language (ISO 639-1) — both from TMDb
 
 **Other tables**: scan_dirs (dir, mtime_ms, scanned_at_ms, listing JSON — remembered directory listings for incremental sync scans), settings (key/value), dismissed_recommendations (tmdb_id), recommendation_events (tmdb_id, engine, event, created_at), recommendation_impressions (tmdb_id, engine, shown_count, last_shown_at — populated by `app/api/recommendations/route.ts` only for rotation-aware engines, currently `hidden_gem`; consumed via `getImpressionCounts` to demote titles surfaced repeatedly within a recent window), recommendation_cache (engine, data, movie_count, created_at — `created_at` drives the TTL checked by `getCachedEngine(db, engine, maxAgeHours)`), recommended_movies (tmdb_id, engine, reason, title, year, genre, rating, poster_url, pl_title, cda_url, description), tv_episode_progress (id, movie_id, season_number, episode_number, watched_at, created_at, updated_at — UNIQUE(movie_id, season_number, episode_number), FK to movies ON DELETE CASCADE), _migrations (migration guard)
 

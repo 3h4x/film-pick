@@ -836,6 +836,8 @@ describe("getTmdbMovieDetails", () => {
       writer: null,
       actors: null,
       tmdb_collection_checked: true,
+      runtime: null,
+      original_language: null,
     });
   });
 

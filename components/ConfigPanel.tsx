@@ -7,8 +7,12 @@ import type { RecConfig } from "@/lib/types";
 import type { Movie } from "@/lib/db";
 import Button from "@/components/ui/Button";
 import { useSubtitleBulkDownload } from "@/lib/hooks/useSubtitleBulkDownload";
+import { languageName } from "@/lib/utils";
 
 export type { RecConfig };
+
+// Offered for the recommendation original-language filter (ISO 639-1).
+const REC_LANGUAGE_CODES = ["en", "pl", "fr", "de", "es", "it", "ja", "ko", "sv", "da"];
 
 const ALL_GENRES = [
   "Action",
@@ -1278,6 +1282,50 @@ export default function ConfigPanel({
                       ))}
                     </div>
                   </div>
+                </div>
+              </div>
+
+              {/* Max runtime + original language — sent to TMDb discover */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-6">
+                <div>
+                  <p className="text-xs text-gray-500 mb-2">Maximum runtime (genre &amp; mood rows)</p>
+                  <div className="flex gap-1 flex-wrap">
+                    {[90, 100, 120, 150].map((minutes) => (
+                      <PillButton
+                        key={minutes}
+                        active={draft.max_runtime === minutes}
+                        color="indigo"
+                        onClick={() =>
+                          update({ max_runtime: draft.max_runtime === minutes ? null : minutes })
+                        }
+                      >
+                        ≤ {minutes} min
+                      </PillButton>
+                    ))}
+                  </div>
+                </div>
+
+                <div>
+                  <p className="text-xs text-gray-500 mb-2">Original language (genre &amp; mood rows)</p>
+                  <select
+                    aria-label="Original language for recommendations"
+                    value={draft.original_language ?? ""}
+                    onChange={(e) => update({ original_language: e.target.value || null })}
+                    className="min-h-11 bg-gray-800/60 border border-gray-700/30 rounded-lg px-3 py-2 text-white text-sm focus:outline-none focus:border-indigo-500/50"
+                  >
+                    <option value="">Any language</option>
+                    {[
+                      ...REC_LANGUAGE_CODES,
+                      ...(draft.original_language &&
+                      !REC_LANGUAGE_CODES.includes(draft.original_language)
+                        ? [draft.original_language]
+                        : []),
+                    ].map((code) => (
+                      <option key={code} value={code}>
+                        {languageName(code)}
+                      </option>
+                    ))}
+                  </select>
                 </div>
               </div>
 

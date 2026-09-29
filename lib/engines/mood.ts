@@ -42,12 +42,20 @@ export async function moodEngine(
     return [{ reason: preset.reason, type: "mood", recommendations: picks }];
   }
 
+  // The configured limits narrow the preset: the shorter runtime cap wins, and a
+  // configured language replaces the preset's language list.
+  const configRuntime = ctx.config?.max_runtime ?? undefined;
+  const maxRuntime =
+    preset.maxRuntime && configRuntime
+      ? Math.min(preset.maxRuntime, configRuntime)
+      : (preset.maxRuntime ?? configRuntime);
+  const configLanguage = ctx.config?.original_language;
   const results = await discoverByMood({
     genreIds: preset.genreIds,
     minRating: preset.minRating,
     minVotes: preset.minVotes,
-    maxRuntime: preset.maxRuntime,
-    languages: preset.languages,
+    maxRuntime,
+    languages: configLanguage ? [configLanguage] : preset.languages,
     pages: 3,
   });
 

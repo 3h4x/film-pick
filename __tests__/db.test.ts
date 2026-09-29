@@ -949,8 +949,8 @@ describe("database migrations on existing schema", () => {
     expect(() => initDb(db)).not.toThrow();
 
     const migrationRows = db.prepare("SELECT COUNT(*) as c FROM _migrations").get() as { c: number };
-    // Exactly 10 named migrations, no duplicates
-    expect(migrationRows.c).toBe(10);
+    // Exactly 11 named migrations, no duplicates
+    expect(migrationRows.c).toBe(11);
   });
 
   it("migrates old id-based recommendation_cache to engine-based schema", () => {

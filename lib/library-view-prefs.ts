@@ -1,4 +1,4 @@
-import type { SortOption } from "@/lib/types";
+import type { RuntimeFilter, SortOption } from "@/lib/types";
 
 // The Library tab's last sort and filters, remembered per browser so the view is
 // the same the next time it is opened. Search text is deliberately not saved.
@@ -13,6 +13,8 @@ const SORT_OPTIONS: readonly SortOption[] = [
   "rated_at",
 ];
 
+const RUNTIME_FILTERS: readonly RuntimeFilter[] = ["", "short", "medium", "long"];
+
 export interface LibraryViewPrefs {
   sort: SortOption;
   sortDir: "asc" | "desc";
@@ -21,6 +23,8 @@ export interface LibraryViewPrefs {
   yearFilter: string;
   unratedOnly: boolean;
   hasFileOnly: boolean;
+  runtimeFilter: RuntimeFilter;
+  languageFilter: string;
 }
 
 export const DEFAULT_LIBRARY_VIEW: LibraryViewPrefs = {
@@ -31,6 +35,8 @@ export const DEFAULT_LIBRARY_VIEW: LibraryViewPrefs = {
   yearFilter: "",
   unratedOnly: false,
   hasFileOnly: false,
+  runtimeFilter: "",
+  languageFilter: "",
 };
 
 /** Keep only the fields that hold a valid value; anything else falls back to the default. */
@@ -47,7 +53,10 @@ export function parseLibraryViewPrefs(raw: string | null): Partial<LibraryViewPr
   const prefs: Partial<LibraryViewPrefs> = {};
   if (SORT_OPTIONS.includes(d.sort as SortOption)) prefs.sort = d.sort as SortOption;
   if (d.sortDir === "asc" || d.sortDir === "desc") prefs.sortDir = d.sortDir;
-  for (const key of ["genreFilter", "sourceFilter", "yearFilter"] as const) {
+  if (RUNTIME_FILTERS.includes(d.runtimeFilter as RuntimeFilter)) {
+    prefs.runtimeFilter = d.runtimeFilter as RuntimeFilter;
+  }
+  for (const key of ["genreFilter", "sourceFilter", "yearFilter", "languageFilter"] as const) {
     if (typeof d[key] === "string") prefs[key] = d[key];
   }
   for (const key of ["unratedOnly", "hasFileOnly"] as const) {

@@ -44,6 +44,9 @@ export interface RecConfig {
   actor_min_appearances?: number;
   director_min_films?: number;
   top_genre_count?: number;
+  // Passed to TMDb discover by the genre and mood engines; null/absent = no limit.
+  max_runtime?: number | null;
+  original_language?: string | null;
 }
 
 export interface EngineContext {

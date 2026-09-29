@@ -87,6 +87,8 @@ describe("library view prefs", () => {
       yearFilter: "",
       unratedOnly: false,
       hasFileOnly: false,
+      runtimeFilter: "",
+      languageFilter: "",
     });
   });
 });

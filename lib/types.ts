@@ -41,6 +41,8 @@ export interface Movie {
   tmdb_collection_name?: string | null;
   tmdb_collection_checked?: number | null;
   tmdb_refreshed_at?: number | null;
+  runtime?: number | null;
+  original_language?: string | null;
 }
 
 export type RecType =
@@ -89,7 +91,19 @@ export interface RecConfig {
   actor_min_appearances?: number;
   director_min_films?: number;
   top_genre_count?: number;
+  // Passed to TMDb discover by the genre and mood engines; null/absent = no limit.
+  max_runtime?: number | null;
+  original_language?: string | null;
 }
+
+/** Library runtime buckets: under 90 min, 90–120 min, over 120 min ("" = any). */
+export type RuntimeFilter = "" | "short" | "medium" | "long";
+
+export const RUNTIME_FILTER_LABELS: Record<Exclude<RuntimeFilter, "">, string> = {
+  short: "Under 90 min",
+  medium: "90–120 min",
+  long: "Over 120 min",
+};
 
 export const PAGE_SIZE = 36;
 

@@ -1,7 +1,7 @@
 "use client";
 // tamtam inspected 2026-05-21
 import { useState, useCallback, useMemo, useEffect, useRef } from "react";
-import type { Movie, SortOption } from "@/lib/types";
+import type { Movie, RuntimeFilter, SortOption } from "@/lib/types";
 import { PAGE_SIZE } from "@/lib/types";
 import { createLatestOnlyRunner } from "@/lib/latest-only-runner";
 import { readLibraryCache, writeLibraryCache } from "@/lib/library-cache";
@@ -12,6 +12,7 @@ import {
   extractGenres,
   extractSources,
   extractYears,
+  extractLanguages,
 } from "@/lib/utils";
 
 type WishlistAction = "liked" | "watched" | "disliked" | "remove";
@@ -113,17 +114,20 @@ export function useLibrary(
   const [yearFilter, setYearFilter] = useState("");
   const [unratedOnly, setUnratedOnly] = useState(false);
   const [hasFileOnly, setHasFileOnly] = useState(false);
+  const [runtimeFilter, setRuntimeFilter] = useState<RuntimeFilter>("");
+  const [languageFilter, setLanguageFilter] = useState("");
   const [searchQuery, setSearchQuery] = useState("");
   const [visibleCount, setVisibleCount] = useState(PAGE_SIZE);
   const searchRunnerRef = useRef(createLatestOnlyRunner<Movie[]>());
 
   useEffect(() => {
     setVisibleCount(PAGE_SIZE);
-  }, [sort, sortDir, genreFilter, sourceFilter, yearFilter, unratedOnly, hasFileOnly, searchQuery]);
+  }, [sort, sortDir, genreFilter, sourceFilter, yearFilter, unratedOnly, hasFileOnly, runtimeFilter, languageFilter, searchQuery]);
 
   const genres = useMemo(() => extractGenres(movies), [movies]);
   const sources = useMemo(() => extractSources(movies), [movies]);
   const years = useMemo(() => extractYears(movies), [movies]);
+  const languages = useMemo(() => extractLanguages(movies), [movies]);
 
   // Restore the last sort/filters once on mount (after hydration, so the server
   // render and the first client render agree), then save every change.
@@ -137,21 +141,34 @@ export function useLibrary(
     if (saved.yearFilter !== undefined) setYearFilter(saved.yearFilter);
     if (saved.unratedOnly !== undefined) setUnratedOnly(saved.unratedOnly);
     if (saved.hasFileOnly !== undefined) setHasFileOnly(saved.hasFileOnly);
+    if (saved.runtimeFilter !== undefined) setRuntimeFilter(saved.runtimeFilter);
+    if (saved.languageFilter !== undefined) setLanguageFilter(saved.languageFilter);
     setViewPrefsRestored(true);
   }, []);
   useEffect(() => {
     if (!viewPrefsRestored) return;
-    writeLibraryViewPrefs({ sort, sortDir, genreFilter, sourceFilter, yearFilter, unratedOnly, hasFileOnly });
-  }, [viewPrefsRestored, sort, sortDir, genreFilter, sourceFilter, yearFilter, unratedOnly, hasFileOnly]);
+    writeLibraryViewPrefs({
+      sort,
+      sortDir,
+      genreFilter,
+      sourceFilter,
+      yearFilter,
+      unratedOnly,
+      hasFileOnly,
+      runtimeFilter,
+      languageFilter,
+    });
+  }, [viewPrefsRestored, sort, sortDir, genreFilter, sourceFilter, yearFilter, unratedOnly, hasFileOnly, runtimeFilter, languageFilter]);
 
-  // A remembered genre/source/year that no longer exists in the library would
+  // A remembered genre/source/year/language that no longer exists in the library would
   // silently hide everything, so drop it once the library is loaded.
   useEffect(() => {
     if (initialLoad || !viewPrefsRestored) return;
     if (genreFilter && !genres.includes(genreFilter)) setGenreFilter("");
     if (sourceFilter && !sources.includes(sourceFilter)) setSourceFilter("");
     if (yearFilter && !years.includes(Number(yearFilter))) setYearFilter("");
-  }, [initialLoad, viewPrefsRestored, genres, sources, years, genreFilter, sourceFilter, yearFilter]);
+    if (languageFilter && !languages.includes(languageFilter)) setLanguageFilter("");
+  }, [initialLoad, viewPrefsRestored, genres, sources, years, languages, genreFilter, sourceFilter, yearFilter, languageFilter]);
 
   const sortedMovies = useMemo(() => {
     const filtered = filterMovies(searchMovies ?? movies, {
@@ -160,9 +177,11 @@ export function useLibrary(
       yearFilter,
       unratedOnly,
       hasFileOnly,
+      runtimeFilter,
+      languageFilter,
     });
     return sortMovies(filtered, sort, sortDir);
-  }, [movies, searchMovies, sort, sortDir, genreFilter, sourceFilter, yearFilter, unratedOnly, hasFileOnly]);
+  }, [movies, searchMovies, sort, sortDir, genreFilter, sourceFilter, yearFilter, unratedOnly, hasFileOnly, runtimeFilter, languageFilter]);
 
   const visibleMovies = useMemo(
     () => sortedMovies.slice(0, visibleCount),
@@ -414,6 +433,10 @@ export function useLibrary(
     setUnratedOnly,
     hasFileOnly,
     setHasFileOnly,
+    runtimeFilter,
+    setRuntimeFilter,
+    languageFilter,
+    setLanguageFilter,
     searchQuery,
     setSearchQuery,
     visibleCount,
@@ -423,6 +446,7 @@ export function useLibrary(
     genres,
     sources,
     years,
+    languages,
     wishlistMovies,
     handleDeleteMovie,
     handleMoveToWatchlist,

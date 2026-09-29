@@ -118,7 +118,7 @@ export function getErrorMessage(error: unknown): string {
   return error instanceof Error ? error.message : String(error);
 }
 
-import type { Movie, SortOption } from "@/lib/types";
+import type { Movie, RuntimeFilter, SortOption } from "@/lib/types";
 import type { RecommendationGroup } from "@/lib/types";
 import type { TmdbSearchResult } from "@/lib/tmdb";
 
@@ -129,6 +129,20 @@ export interface MovieFilters {
   yearFilter?: string;
   unratedOnly?: boolean;
   hasFileOnly?: boolean;
+  runtimeFilter?: RuntimeFilter;
+  languageFilter?: string;
+}
+
+/** A movie without a stored runtime matches no bucket. */
+export function matchesRuntimeFilter(
+  runtime: number | null | undefined,
+  filter: RuntimeFilter,
+): boolean {
+  if (!filter) return true;
+  if (!runtime) return false;
+  if (filter === "short") return runtime < 90;
+  if (filter === "medium") return runtime >= 90 && runtime <= 120;
+  return runtime > 120;
 }
 
 const GENRE_ALIASES: Record<string, string> = {
@@ -157,8 +171,16 @@ export function parseGenreLabels(genre: string): string[] {
 }
 
 export function filterMovies(movies: Movie[], filters: MovieFilters): Movie[] {
-  const { searchQuery, genreFilter, sourceFilter, yearFilter, unratedOnly, hasFileOnly } =
-    filters;
+  const {
+    searchQuery,
+    genreFilter,
+    sourceFilter,
+    yearFilter,
+    unratedOnly,
+    hasFileOnly,
+    runtimeFilter,
+    languageFilter,
+  } = filters;
   const q = searchQuery ? searchQuery.toLowerCase() : null;
   const result: Movie[] = [];
   for (const m of movies) {
@@ -179,6 +201,8 @@ export function filterMovies(movies: Movie[], filters: MovieFilters): Movie[] {
     if (yearFilter && m.year?.toString() !== yearFilter) continue;
     if (unratedOnly && m.user_rating && m.user_rating !== 0) continue;
     if (hasFileOnly && !m.file_path) continue;
+    if (runtimeFilter && !matchesRuntimeFilter(m.runtime, runtimeFilter)) continue;
+    if (languageFilter && m.original_language !== languageFilter) continue;
     result.push(m);
   }
   return result;
@@ -234,6 +258,28 @@ export function extractYears(movies: Movie[]): number[] {
     if (m.year) all.add(m.year);
   });
   return Array.from(all).sort((a, b) => b - a);
+}
+
+/** Distinct TMDb original languages in the library, most common first. */
+export function extractLanguages(movies: Movie[]): string[] {
+  const counts = new Map<string, number>();
+  for (const m of movies) {
+    if (m.original_language) {
+      counts.set(m.original_language, (counts.get(m.original_language) ?? 0) + 1);
+    }
+  }
+  return [...counts.entries()]
+    .sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))
+    .map(([code]) => code);
+}
+
+/** "en" -> "English"; falls back to the code when the runtime has no name for it. */
+export function languageName(code: string): string {
+  try {
+    return new Intl.DisplayNames(["en"], { type: "language" }).of(code) ?? code;
+  } catch {
+    return code;
+  }
 }
 
 export function getRatedMovieTmdbIds(

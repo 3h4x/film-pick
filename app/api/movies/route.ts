@@ -1,6 +1,13 @@
 import { createHash } from "node:crypto";
 import { NextRequest } from "next/server";
-import { getDb, getMovies, getDetachedMovies, insertMovie, type MovieInput } from "@/lib/db";
+import {
+  getDb,
+  getMovies,
+  getDetachedMovies,
+  insertMovie,
+  type MovieInput,
+  type MovieListFilters,
+} from "@/lib/db";
 import { rateLimit } from "@/lib/rate-limit";
 
 export async function GET(request: NextRequest) {
@@ -10,7 +17,35 @@ export async function GET(request: NextRequest) {
   }
   const type = request.nextUrl.searchParams.get("type") || undefined;
   const query = request.nextUrl.searchParams.get("q")?.trim() || undefined;
-  const movies = getMovies(db, type, query);
+
+  // ?max_runtime=90 keeps movies with a known runtime of at most 90 minutes;
+  // movies whose runtime is not stored yet are excluded, not included.
+  const filters: MovieListFilters = {};
+  const maxRuntimeParam = request.nextUrl.searchParams.get("max_runtime");
+  if (maxRuntimeParam !== null && maxRuntimeParam !== "") {
+    const maxRuntime = Number(maxRuntimeParam);
+    if (!Number.isInteger(maxRuntime) || maxRuntime < 1 || maxRuntime > 1000) {
+      return Response.json(
+        { error: "max_runtime must be an integer between 1 and 1000" },
+        { status: 400 },
+      );
+    }
+    filters.maxRuntime = maxRuntime;
+  }
+  // ?language=en matches TMDb's original_language (ISO 639-1).
+  const languageParam = request.nextUrl.searchParams.get("language");
+  if (languageParam !== null && languageParam !== "") {
+    const language = languageParam.toLowerCase();
+    if (!/^[a-z]{2,3}$/.test(language)) {
+      return Response.json(
+        { error: "language must be a 2-3 letter language code" },
+        { status: 400 },
+      );
+    }
+    filters.language = language;
+  }
+
+  const movies = getMovies(db, type, query, filters);
 
   // Conditional GET: the client always revalidates, but an unchanged library
   // costs a 304 instead of a ~2MB body.

@@ -42,10 +42,13 @@ export default function LibraryView({
     yearFilter,
     unratedOnly,
     hasFileOnly,
+    runtimeFilter,
+    languageFilter,
     searchQuery,
     genres,
     sources,
     years,
+    languages,
     sortedMovies,
     visibleMovies,
     visibleCount,
@@ -57,6 +60,8 @@ export default function LibraryView({
     setYearFilter,
     setUnratedOnly,
     setHasFileOnly,
+    setRuntimeFilter,
+    setLanguageFilter,
     handleDeleteMovie,
     handleMoveToWatchlist,
     handleQuickRate,
@@ -153,6 +158,9 @@ export default function LibraryView({
         sources={sources}
         year={yearFilter}
         years={years}
+        runtime={runtimeFilter}
+        language={languageFilter}
+        languages={languages}
         unratedOnly={unratedOnly}
         hasFileOnly={hasFileOnly}
         onSortChange={setSortOption}
@@ -160,6 +168,8 @@ export default function LibraryView({
         onGenreChange={setGenreFilter}
         onSourceChange={setSourceFilter}
         onYearChange={setYearFilter}
+        onRuntimeChange={setRuntimeFilter}
+        onLanguageChange={setLanguageFilter}
         onUnratedChange={setUnratedOnly}
         onHasFileChange={setHasFileOnly}
       />

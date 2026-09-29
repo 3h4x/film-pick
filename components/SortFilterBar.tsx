@@ -1,6 +1,8 @@
 "use client";
 
 import { useLayoutEffect, useRef } from "react";
+import { RUNTIME_FILTER_LABELS, type RuntimeFilter } from "@/lib/types";
+import { languageName } from "@/lib/utils";
 
 type SortOption =
   | "user_rating"
@@ -19,6 +21,9 @@ interface SortFilterBarProps {
   sources: string[];
   year: string;
   years: number[];
+  runtime: RuntimeFilter;
+  language: string;
+  languages: string[];
   unratedOnly: boolean;
   hasFileOnly: boolean;
   onSortChange: (sort: SortOption) => void;
@@ -26,6 +31,8 @@ interface SortFilterBarProps {
   onGenreChange: (genre: string) => void;
   onSourceChange: (source: string) => void;
   onYearChange: (year: string) => void;
+  onRuntimeChange: (runtime: RuntimeFilter) => void;
+  onLanguageChange: (language: string) => void;
   onUnratedChange: (unrated: boolean) => void;
   onHasFileChange: (hasFile: boolean) => void;
 }
@@ -121,6 +128,9 @@ export default function SortFilterBar({
   sources,
   year,
   years,
+  runtime,
+  language,
+  languages,
   unratedOnly,
   hasFileOnly,
   onSortChange,
@@ -128,6 +138,8 @@ export default function SortFilterBar({
   onGenreChange,
   onSourceChange,
   onYearChange,
+  onRuntimeChange,
+  onLanguageChange,
   onUnratedChange,
   onHasFileChange,
 }: SortFilterBarProps) {
@@ -233,6 +245,38 @@ export default function SortFilterBar({
               {years.map((y) => (
                 <option key={y} value={y.toString()}>
                   {y}
+                </option>
+              ))}
+            </select>
+          )}
+
+          {/* Runtime filter — movies whose runtime is not stored yet match no bucket */}
+          <select
+            aria-label="Filter by runtime"
+            value={runtime}
+            onChange={(e) => onRuntimeChange(e.target.value as RuntimeFilter)}
+            className="min-h-11 bg-gray-800/60 text-gray-300 text-xs px-3 py-2 rounded-xl border border-gray-700/50 focus:border-indigo-500/50 focus:outline-none appearance-none cursor-pointer"
+          >
+            <option value="">Any Length</option>
+            {(Object.keys(RUNTIME_FILTER_LABELS) as Exclude<RuntimeFilter, "">[]).map((key) => (
+              <option key={key} value={key}>
+                {RUNTIME_FILTER_LABELS[key]}
+              </option>
+            ))}
+          </select>
+
+          {/* Original language filter */}
+          {languages.length > 0 && (
+            <select
+              aria-label="Filter by original language"
+              value={language}
+              onChange={(e) => onLanguageChange(e.target.value)}
+              className="min-h-11 bg-gray-800/60 text-gray-300 text-xs px-3 py-2 rounded-xl border border-gray-700/50 focus:border-indigo-500/50 focus:outline-none appearance-none cursor-pointer"
+            >
+              <option value="">All Languages</option>
+              {languages.map((code) => (
+                <option key={code} value={code}>
+                  {languageName(code)}
                 </option>
               ))}
             </select>
