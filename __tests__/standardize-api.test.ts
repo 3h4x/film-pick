@@ -58,7 +58,11 @@ vi.mock("@/lib/db", async (importOriginal) => {
   return { ...actual, getDb: vi.fn() };
 });
 
-import { POST } from "@/app/api/movies/[id]/standardize/route";
+import { GET, POST } from "@/app/api/movies/[id]/standardize/route";
+import {
+  clearStandardizeJobs,
+  startStandardizeJob,
+} from "@/lib/standardize-jobs";
 import { getDb } from "@/lib/db";
 
 const TEST_DB = path.join(__dirname, "test-standardize-api.db");
@@ -93,8 +97,86 @@ describe("movies/[id]/standardize POST handler", () => {
   });
 
   afterEach(() => {
+    clearStandardizeJobs();
     db.close();
     try { fs.unlinkSync(TEST_DB); } catch {}
+  });
+
+  it("GET reports idle when no standardize ran", async () => {
+    const res = await GET(
+      new NextRequest("http://localhost/api/movies/5/standardize"),
+      makeParams(5),
+    );
+    expect(await res.json()).toEqual({ status: "idle" });
+  });
+
+  it("POST refuses with 409 while a standardize of the same movie runs", async () => {
+    startStandardizeJob(7);
+    const res = await POST(postReq(7), makeParams(7));
+    expect(res.status).toBe(409);
+    expect(mockRename).not.toHaveBeenCalled();
+  });
+
+  it("GET reports the finished move with its outcome and size", async () => {
+    movieId = insertMovie(db, {
+      title: "Sample Movie",
+      year: 1999,
+      genre: null,
+      director: null,
+      rating: null,
+      poster_url: null,
+      source: "manual",
+      imdb_id: null,
+      tmdb_id: null,
+      type: "movie",
+    });
+    const oldPath = "/library/sample_movie_1999/sample.mkv";
+    db.prepare("UPDATE movies SET file_path = ? WHERE id = ?").run(oldPath, movieId);
+    mockExistsSync.mockImplementation((p: string) => p === oldPath);
+    mockStat.mockResolvedValueOnce({ size: 1234 });
+
+    const post = await POST(postReq(movieId), makeParams(movieId));
+    expect(post.status).toBe(200);
+
+    const res = await GET(
+      new NextRequest(`http://localhost/api/movies/${movieId}/standardize`),
+      makeParams(movieId),
+    );
+    const job = await res.json();
+    expect(job.status).toBe("done");
+    expect(job.bytesTotal).toBe(1234);
+    expect(job.bytesDone).toBe(1234);
+    expect(job.result.newPath).toBe("/library/Sample Movie [1999]/Sample Movie.mkv");
+  });
+
+  it("GET reports a failed move as error, and a new POST may retry", async () => {
+    movieId = insertMovie(db, {
+      title: "Sample Movie",
+      year: 1999,
+      genre: null,
+      director: null,
+      rating: null,
+      poster_url: null,
+      source: "manual",
+      imdb_id: null,
+      tmdb_id: null,
+      type: "movie",
+    });
+    const oldPath = "/library/sample_movie_1999/sample.mkv";
+    db.prepare("UPDATE movies SET file_path = ? WHERE id = ?").run(oldPath, movieId);
+    mockExistsSync.mockImplementation((p: string) => p === oldPath);
+    mockRename.mockRejectedValueOnce(Object.assign(new Error("EACCES"), { code: "EACCES" }));
+
+    const post = await POST(postReq(movieId), makeParams(movieId));
+    expect(post.status).toBe(500);
+    const res = await GET(
+      new NextRequest(`http://localhost/api/movies/${movieId}/standardize`),
+      makeParams(movieId),
+    );
+    const job = await res.json();
+    expect(job.status).toBe("error");
+    expect(job.result.error).toMatch(/EACCES/);
+    expect(startStandardizeJob(movieId)).not.toBeNull();
   });
 
   it("returns 404 when movie is not found", async () => {
@@ -942,7 +1024,9 @@ describe("movies/[id]/standardize POST handler", () => {
     mockReaddir.mockResolvedValueOnce([
       { name: "extras.mkv", isDirectory: () => false },
     ]);
-    // stat returns 11 MB for that file
+    // first stat: the movie file's size, for standardize progress
+    mockStat.mockResolvedValueOnce({ size: 700 * 1024 * 1024 });
+    // then 11 MB for the leftover file
     mockStat.mockResolvedValueOnce({ size: 11 * 1024 * 1024 });
 
     const res = await POST(postReq(movieId), makeParams(movieId));

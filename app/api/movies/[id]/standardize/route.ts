@@ -8,6 +8,12 @@ import {
 } from "@/lib/subtitles";
 import fs from "fs/promises";
 import { moveFile } from "@/lib/fs-move";
+import {
+  finishStandardizeJob,
+  getStandardizeJob,
+  startStandardizeJob,
+} from "@/lib/standardize-jobs";
+import type { StandardizeJob } from "@/lib/types";
 import { getLibraryRoots } from "@/lib/library-folders";
 import fsSync from "fs";
 import path from "path";
@@ -26,10 +32,20 @@ const VIDEO_EXTENSIONS = new Set([
 const UNSAFE_FILENAME_CHARS = /[\\/:*?"<>|]/g;
 
 
-// Movies with a standardize in progress. Moving across shares copies the whole
-// file and can outlast the browser's patience; a second click must not start a
-// second move of the same file while the first is still copying.
-const inFlight = new Set<number>();
+/**
+ * Progress of this movie's standardize, polled by the movie detail. Moving across
+ * shares copies the whole file and can take minutes; the detail can be closed
+ * and reopened meanwhile and must still show the move running (and not offer a
+ * second one), then how it ended.
+ */
+export async function GET(
+  _request: NextRequest,
+  { params }: { params: Promise<{ id: string }> },
+) {
+  const { id } = await params;
+  const job = getStandardizeJob(parseInt(id, 10));
+  return Response.json(job ?? { status: "idle" });
+}
 
 export async function POST(
   request: NextRequest,
@@ -39,7 +55,10 @@ export async function POST(
   if (limited) return limited;
   const { id } = await params;
   const movieId = parseInt(id, 10);
-  if (inFlight.has(movieId)) {
+  // A second click must not start a second move of the same file while the
+  // first is still copying.
+  const job = startStandardizeJob(movieId);
+  if (!job) {
     return Response.json(
       {
         error:
@@ -48,15 +67,26 @@ export async function POST(
       { status: 409 },
     );
   }
-  inFlight.add(movieId);
+  let response: Response | null = null;
   try {
-    return await standardize(request, movieId);
+    response = await standardize(request, movieId, job);
+    return response;
   } finally {
-    inFlight.delete(movieId);
+    let result: Record<string, unknown> | null = null;
+    try {
+      result = response ? await response.clone().json() : null;
+    } catch {
+      result = null;
+    }
+    finishStandardizeJob(movieId, response?.ok ?? false, result);
   }
 }
 
-async function standardize(request: NextRequest, movieId: number) {
+async function standardize(
+  request: NextRequest,
+  movieId: number,
+  job: StandardizeJob,
+) {
   const db = getDb();
 
   const movie = db
@@ -353,7 +383,11 @@ async function standardize(request: NextRequest, movieId: number) {
     // 3. Move movie file
     if (normOld !== normNew) {
       console.log(`- Moving file: ${oldPath} -> ${newPath}`);
-      await moveFile(oldPath, newPath);
+      job.bytesTotal = (await fs.stat(oldPath)).size;
+      await moveFile(oldPath, newPath, (bytes) => {
+        job.bytesDone = bytes;
+      });
+      job.bytesDone = job.bytesTotal;
     }
 
     // 4. Group multi-part files (CD2, etc.) if current is CD1 or vice versa
@@ -375,7 +409,13 @@ async function standardize(request: NextRequest, movieId: number) {
         console.log(
           `- Moving sibling part: ${siblingFile} -> ${newSiblingPath}`,
         );
-        await moveFile(path.join(oldDir, siblingFile), newSiblingPath);
+        const siblingSrc = path.join(oldDir, siblingFile);
+        const movedBefore = job.bytesTotal;
+        job.bytesTotal += (await fs.stat(siblingSrc)).size;
+        await moveFile(siblingSrc, newSiblingPath, (bytes) => {
+          job.bytesDone = movedBefore + bytes;
+        });
+        job.bytesDone = job.bytesTotal;
 
         // Update extra_files JSON
         const extra = movie.extra_files ? JSON.parse(movie.extra_files) : [];

@@ -2,7 +2,7 @@ import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import fs from "fs/promises";
 import os from "os";
 import path from "path";
-import { moveFile, PARTIAL_SUFFIX } from "@/lib/fs-move";
+import { moveFile, PARTIAL_SUFFIX, PROGRESS_INTERVAL_MS } from "@/lib/fs-move";
 
 describe("moveFile", () => {
   let dir: string;
@@ -47,6 +47,25 @@ describe("moveFile", () => {
       moveFile(src, path.join(dir, "missing-dir", "b.mkv")),
     ).rejects.toThrow();
     expect(await fs.readFile(src, "utf8")).toBe("video");
+  });
+
+  it("reports copy progress from the partial file's size", async () => {
+    const src = path.join(dir, "a.mkv");
+    const dest = path.join(dir, "b.mkv");
+    await fs.writeFile(src, "video");
+    vi.spyOn(fs, "rename").mockRejectedValueOnce(
+      Object.assign(new Error("cross-device"), { code: "EXDEV" }),
+    );
+    // A slow copy: half the bytes land, then it takes longer than one progress tick.
+    vi.spyOn(fs, "copyFile").mockImplementationOnce(async (_from, to) => {
+      await fs.writeFile(to as string, "vid");
+      await new Promise((resolve) => setTimeout(resolve, PROGRESS_INTERVAL_MS + 300));
+      await fs.writeFile(to as string, "video");
+    });
+    const seen: number[] = [];
+    await moveFile(src, dest, (bytes) => seen.push(bytes));
+    expect(seen).toContain(3);
+    expect(await fs.readFile(dest, "utf8")).toBe("video");
   });
 
   it("rethrows other rename errors without copying", async () => {

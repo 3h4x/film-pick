@@ -1,6 +1,8 @@
 "use client";
 
 import type { StandardizeMessage } from "@/components/movie-detail/types";
+import { describeStandardizeProgress } from "@/lib/standardize-progress";
+import type { StandardizeJob } from "@/lib/types";
 
 interface StorageSectionProps {
   filePath: string;
@@ -8,6 +10,7 @@ interface StorageSectionProps {
   isStandard: boolean;
   isStandardNoYear: boolean;
   isStandardizing: boolean;
+  standardizeProgress: StandardizeJob | null;
   standardizeMsg: StandardizeMessage | null;
   onStandardize: () => void;
 }
@@ -18,9 +21,14 @@ export default function StorageSection({
   isStandard,
   isStandardNoYear,
   isStandardizing,
+  standardizeProgress,
   standardizeMsg,
   onStandardize,
 }: StorageSectionProps) {
+  const progress = standardizeProgress
+    ? describeStandardizeProgress(standardizeProgress)
+    : null;
+
   return (
     <div className="space-y-3">
       <p className="text-[10px] text-gray-500 font-black uppercase tracking-widest">
@@ -84,11 +92,38 @@ export default function StorageSection({
         </div>
 
         {isStandardizing && (
-          <p className="px-4 py-3 rounded-xl border bg-indigo-500/5 border-indigo-500/20 text-indigo-300 text-xs font-medium leading-relaxed">
-            Moving the file into your library. Between two shares this copies the
-            whole file, which can take several minutes for a large movie. You can
-            leave this open.
-          </p>
+          <div className="px-4 py-3 rounded-xl border bg-indigo-500/5 border-indigo-500/20 text-indigo-300 space-y-2">
+            <div className="flex items-baseline justify-between gap-3 text-[10px] font-black uppercase tracking-widest">
+              <span>Moving into your library</span>
+              {progress?.percent != null && <span>{progress.percent}%</span>}
+            </div>
+            <div
+              role="progressbar"
+              aria-label="Standardize progress"
+              aria-valuemin={0}
+              aria-valuemax={100}
+              aria-valuenow={progress?.percent ?? undefined}
+              className="h-1.5 rounded-full bg-gray-900/60 overflow-hidden"
+            >
+              {progress?.percent != null ? (
+                <div
+                  className="h-full rounded-full bg-indigo-400 transition-[width] duration-700"
+                  style={{ width: `${progress.percent}%` }}
+                />
+              ) : (
+                <div className="h-full w-1/3 rounded-full bg-indigo-400/60 animate-pulse" />
+              )}
+            </div>
+            <p className="text-xs font-medium leading-relaxed text-indigo-300/80">
+              {[progress?.sizeLabel, progress?.elapsedLabel, progress?.remainingLabel]
+                .filter(Boolean)
+                .join(" · ") || "Starting…"}
+            </p>
+            <p className="text-[11px] leading-relaxed text-indigo-300/60">
+              It keeps going on the server if you close this; reopen the movie to
+              check on it.
+            </p>
+          </div>
         )}
 
         {standardizeMsg && (

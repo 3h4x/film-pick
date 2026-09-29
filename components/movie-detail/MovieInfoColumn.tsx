@@ -17,6 +17,7 @@ import type {
   SubtitleNotice,
   SubtitleTrack,
 } from "@/components/movie-detail/types";
+import type { StandardizeJob } from "@/lib/types";
 import { parseGenreLabels } from "@/lib/utils";
 
 interface MovieInfoColumnProps {
@@ -46,6 +47,7 @@ interface MovieInfoColumnProps {
   isStandard: boolean;
   isStandardNoYear: boolean;
   isStandardizing: boolean;
+  standardizeProgress: StandardizeJob | null;
   standardizeMsg: StandardizeMessage | null;
   onToggleRatingPicker: () => void;
   onRate: (rating: number) => void;
@@ -147,6 +149,7 @@ export default function MovieInfoColumn({
   isStandard,
   isStandardNoYear,
   isStandardizing,
+  standardizeProgress,
   standardizeMsg,
   onToggleRatingPicker,
   onRate,
@@ -264,6 +267,7 @@ export default function MovieInfoColumn({
           isStandard={isStandard}
           isStandardNoYear={isStandardNoYear}
           isStandardizing={isStandardizing}
+          standardizeProgress={standardizeProgress}
           standardizeMsg={standardizeMsg}
           onStandardize={onStandardize}
         />

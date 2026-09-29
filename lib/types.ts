@@ -107,3 +107,15 @@ export const REC_CATEGORIES: { value: string; label: string }[] = [
   { value: "watchlist", label: "From Watchlist" },
   { value: "cda", label: "On CDA" },
 ];
+
+/** State of a movie's standardize (move into the library), as GET /api/movies/[id]/standardize reports it. */
+export interface StandardizeJob {
+  status: "running" | "done" | "error";
+  startedAt: number;
+  finishedAt: number | null;
+  /** Bytes of video moved so far; a same-filesystem rename jumps straight to bytesTotal. */
+  bytesDone: number;
+  bytesTotal: number;
+  /** Response body of the finished POST, so a reopened movie can show the outcome. */
+  result: Record<string, unknown> | null;
+}
