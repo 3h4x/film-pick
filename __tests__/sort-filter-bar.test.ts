@@ -1,5 +1,5 @@
 // tamtam inspected 2026-05-21
-import { createElement } from "react";
+import { createElement, type ComponentProps } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it, vi } from "vitest";
 import SortFilterBar, {
@@ -57,7 +57,10 @@ function createContainer({
   };
 }
 
-function renderSortFilterBar(sortDir: "asc" | "desc") {
+function renderSortFilterBar(
+  sortDir: "asc" | "desc",
+  overrides: Partial<ComponentProps<typeof SortFilterBar>> = {},
+) {
   return renderToStaticMarkup(
     createElement(SortFilterBar, {
       sort: "created_at",
@@ -68,6 +71,9 @@ function renderSortFilterBar(sortDir: "asc" | "desc") {
       sources: [],
       year: "",
       years: [],
+      runtime: "",
+      language: "",
+      languages: [],
       unratedOnly: false,
       hasFileOnly: false,
       onSortChange: vi.fn(),
@@ -75,11 +81,37 @@ function renderSortFilterBar(sortDir: "asc" | "desc") {
       onGenreChange: vi.fn(),
       onSourceChange: vi.fn(),
       onYearChange: vi.fn(),
+      onRuntimeChange: vi.fn(),
+      onLanguageChange: vi.fn(),
       onUnratedChange: vi.fn(),
       onHasFileChange: vi.fn(),
+      ...overrides,
     }),
   );
 }
+
+describe("SortFilterBar runtime and language filters", () => {
+  it("always offers the runtime buckets", () => {
+    const html = renderSortFilterBar("desc");
+
+    expect(html).toContain('aria-label="Filter by runtime"');
+    expect(html).toContain("Under 90 min");
+    expect(html).toContain("90–120 min");
+    expect(html).toContain("Over 120 min");
+  });
+
+  it("hides the language filter until a movie has a language", () => {
+    expect(renderSortFilterBar("desc")).not.toContain("Filter by original language");
+  });
+
+  it("lists library languages by name", () => {
+    const html = renderSortFilterBar("desc", { languages: ["en", "pl"], language: "pl" });
+
+    expect(html).toContain('aria-label="Filter by original language"');
+    expect(html).toContain('<option value="en">English</option>');
+    expect(html).toMatch(/<option value="pl" selected="">Polish<\/option>/);
+  });
+});
 
 describe("SortFilterBar accessibility", () => {
   it("labels the descending state toggle with the ascending action", () => {

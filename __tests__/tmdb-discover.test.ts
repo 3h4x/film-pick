@@ -43,6 +43,27 @@ describe("discoverByGenre", () => {
     process.env.TMDB_API_KEY = "test-key";
   });
 
+  it("adds runtime and original-language filters to the discover URL", async () => {
+    mockFetch.mockResolvedValue(okPage([]));
+
+    await discoverByGenre(18, 1, { maxRuntime: 100, originalLanguage: "pl" });
+
+    const url = String(mockFetch.mock.calls[0][0]);
+    expect(url).toContain("with_genres=18");
+    expect(url).toContain("with_runtime.lte=100");
+    expect(url).toContain("with_original_language=pl");
+  });
+
+  it("leaves the filters out when none are given", async () => {
+    mockFetch.mockResolvedValue(okPage([]));
+
+    await discoverByGenre(18, 1);
+
+    const url = String(mockFetch.mock.calls[0][0]);
+    expect(url).not.toContain("with_runtime");
+    expect(url).not.toContain("with_original_language");
+  });
+
   it("fetches 3 pages and aggregates results", async () => {
     mockFetch
       .mockResolvedValueOnce(okPage([rawMovie(1, "Movie A")]))
@@ -338,6 +359,30 @@ describe("getTmdbMovieDetails", () => {
   beforeEach(() => {
     vi.resetAllMocks();
     process.env.TMDB_API_KEY = "test-key";
+  });
+
+  it("returns runtime and original language", async () => {
+    mockFetch.mockResolvedValueOnce({
+      ok: true,
+      json: async () => ({ runtime: 118, original_language: "fr", credits: { crew: [], cast: [] } }),
+    });
+
+    const details = await getTmdbMovieDetails(990001);
+
+    expect(details.runtime).toBe(118);
+    expect(details.original_language).toBe("fr");
+  });
+
+  it("treats TMDb's runtime 0 as unknown", async () => {
+    mockFetch.mockResolvedValueOnce({
+      ok: true,
+      json: async () => ({ runtime: 0, credits: { crew: [], cast: [] } }),
+    });
+
+    const details = await getTmdbMovieDetails(990002);
+
+    expect(details.runtime).toBeNull();
+    expect(details.original_language).toBeNull();
   });
 
   it("extracts director, writer, and top 5 actors from credits", async () => {

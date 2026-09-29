@@ -61,7 +61,10 @@ export async function genreEngine(
     topGenres.map(async ([genreName]) => {
       const genreId = genreNameToId(genreName);
       if (!genreId) return null;
-      const results = await discoverByGenre(genreId);
+      const results = await discoverByGenre(genreId, 3, {
+        maxRuntime: ctx.config?.max_runtime,
+        originalLanguage: ctx.config?.original_language,
+      });
       return { genreName, genreId, results };
     }),
   );

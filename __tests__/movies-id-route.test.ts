@@ -487,9 +487,9 @@ describe("movies/[id] GET handler", () => {
     expect(row.actors).toBe("Matthew McConaughey, Anne Hathaway");
   });
 
-  it("skips TMDb detail enrichment when credits and collection metadata are all set", async () => {
+  it("skips TMDb detail enrichment when credits, collection and language are all set", async () => {
     db.prepare(
-      "UPDATE movies SET director = ?, writer = ?, actors = ?, tmdb_collection_id = ?, tmdb_collection_name = ?, tmdb_collection_checked = ? WHERE id = ?",
+      "UPDATE movies SET director = ?, writer = ?, actors = ?, tmdb_collection_id = ?, tmdb_collection_name = ?, tmdb_collection_checked = ?, original_language = ? WHERE id = ?",
     ).run(
       "Christopher Nolan",
       "Christopher Nolan",
@@ -497,6 +497,7 @@ describe("movies/[id] GET handler", () => {
       119,
       "Interstellar Collection",
       1,
+      "en",
       movieId,
     );
 
@@ -514,6 +515,7 @@ describe("movies/[id] GET handler", () => {
       writer: null,
       actors: null,
       tmdb_collection_checked: true,
+      original_language: "en",
     });
 
     const first = await GET(getReq(movieId), makeParams(movieId));
@@ -532,6 +534,51 @@ describe("movies/[id] GET handler", () => {
     const second = await GET(getReq(movieId), makeParams(movieId));
     expect(second.status).toBe(200);
     expect(vi.mocked(getTmdbMovieDetails)).toHaveBeenCalledTimes(1);
+  });
+
+  it("backfills runtime and original language on first open, then stops asking", async () => {
+    db.prepare(
+      "UPDATE movies SET director = ?, writer = ?, actors = ?, tmdb_collection_checked = 1 WHERE id = ?",
+    ).run("Christopher Nolan", "Christopher Nolan", "Matthew McConaughey", movieId);
+    vi.mocked(getTmdbMovieDetails).mockResolvedValueOnce({
+      director: "Christopher Nolan",
+      writer: "Christopher Nolan",
+      actors: "Matthew McConaughey",
+      tmdb_collection_checked: true,
+      runtime: 169,
+      original_language: "en",
+    });
+
+    const first = await GET(getReq(movieId), makeParams(movieId));
+    expect(first.status).toBe(200);
+    expect((await first.json()).movie).toMatchObject({ runtime: 169, original_language: "en" });
+    const row = db
+      .prepare("SELECT runtime, original_language FROM movies WHERE id = ?")
+      .get(movieId);
+    expect(row).toEqual({ runtime: 169, original_language: "en" });
+
+    await GET(getReq(movieId), makeParams(movieId));
+    expect(vi.mocked(getTmdbMovieDetails)).toHaveBeenCalledTimes(1);
+  });
+
+  it("does not overwrite a stored runtime or language on read", async () => {
+    db.prepare(
+      "UPDATE movies SET director = ?, runtime = 150, original_language = NULL WHERE id = ?",
+    ).run("Christopher Nolan", movieId);
+    vi.mocked(getTmdbMovieDetails).mockResolvedValueOnce({
+      director: "Christopher Nolan",
+      writer: null,
+      actors: null,
+      tmdb_collection_checked: true,
+      runtime: 169,
+      original_language: "en",
+    });
+
+    await GET(getReq(movieId), makeParams(movieId));
+    const row = db
+      .prepare("SELECT runtime, original_language FROM movies WHERE id = ?")
+      .get(movieId);
+    expect(row).toEqual({ runtime: 150, original_language: "en" });
   });
 
   it("auto-links TMDb when tmdb_id is null and searchTmdb finds a match", async () => {

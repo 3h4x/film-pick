@@ -205,6 +205,47 @@ describe("moodEngine (TMDb-backed)", () => {
     );
   });
 
+  it("keeps the shorter runtime cap when config and preset both set one", async () => {
+    const ctx = buildContext([makeMovie({ id: 1, title: "Film A" })], new Set(), {
+      excluded_genres: [],
+      min_year: null,
+      min_rating: null,
+      max_per_group: 10,
+      max_runtime: 90,
+    });
+    await moodEngine(ctx, "short");
+    expect(mockDiscoverByMood).toHaveBeenLastCalledWith(expect.objectContaining({ maxRuntime: 90 }));
+
+    await moodEngine({ ...ctx, config: { ...ctx.config!, max_runtime: 150 } }, "short");
+    expect(mockDiscoverByMood).toHaveBeenLastCalledWith(
+      expect.objectContaining({ maxRuntime: MOOD_PRESETS.short.maxRuntime }),
+    );
+  });
+
+  it("applies the configured runtime cap to presets without one", async () => {
+    const ctx = buildContext([makeMovie({ id: 1, title: "Film A" })], new Set(), {
+      excluded_genres: [],
+      min_year: null,
+      min_rating: null,
+      max_per_group: 10,
+      max_runtime: 110,
+    });
+    await moodEngine(ctx, "light_funny");
+    expect(mockDiscoverByMood).toHaveBeenCalledWith(expect.objectContaining({ maxRuntime: 110 }));
+  });
+
+  it("replaces the preset languages with the configured original language", async () => {
+    const ctx = buildContext([makeMovie({ id: 1, title: "Film A" })], new Set(), {
+      excluded_genres: [],
+      min_year: null,
+      min_rating: null,
+      max_per_group: 10,
+      original_language: "pl",
+    });
+    await moodEngine(ctx, "foreign");
+    expect(mockDiscoverByMood).toHaveBeenCalledWith(expect.objectContaining({ languages: ["pl"] }));
+  });
+
   it("filters out excluded genres from config", async () => {
     const library = [makeMovie({ id: 1, title: "Film A" })];
     const ctx = buildContext(library, new Set(), {

@@ -33,6 +33,8 @@ export interface Movie {
   tmdb_collection_name?: string | null;
   tmdb_collection_checked?: number | null;
   tmdb_refreshed_at?: number | null;
+  runtime?: number | null; // minutes, from TMDb
+  original_language?: string | null; // ISO 639-1, from TMDb
 }
 
 export interface TvEpisodeProgress {
@@ -409,6 +411,26 @@ export function initDb(db: Database.Database): void {
     ).run();
   }
 
+  const hasRuntimeLanguage = db
+    .prepare("SELECT 1 FROM _migrations WHERE name = 'add_runtime_original_language'")
+    .get();
+  if (!hasRuntimeLanguage) {
+    const cols = (db.pragma("table_info(movies)") as { name: string }[]).map((c) => c.name);
+    if (!cols.includes("runtime")) {
+      db.exec("ALTER TABLE movies ADD COLUMN runtime INTEGER");
+    }
+    if (!cols.includes("original_language")) {
+      db.exec("ALTER TABLE movies ADD COLUMN original_language TEXT");
+    }
+    // Mark every TMDb movie as due for a refresh so the next sync fills the two
+    // new columns for the whole library instead of trickling in over 30 days.
+    // Sync refreshes fill-only, so nothing already stored is overwritten.
+    db.exec("UPDATE movies SET tmdb_refreshed_at = NULL WHERE tmdb_id IS NOT NULL AND type = 'movie'");
+    db.prepare(
+      "INSERT OR IGNORE INTO _migrations (name) VALUES ('add_runtime_original_language')",
+    ).run();
+  }
+
   // Indexes for common query patterns (idempotent — IF NOT EXISTS)
   db.exec(`
     CREATE INDEX IF NOT EXISTS idx_movies_tmdb_id ON movies (tmdb_id);
@@ -674,30 +696,55 @@ function buildFtsQuery(query: string): string | null {
   return tokens.map((token) => `"${token.replace(/"/g, "\"\"")}"*`).join(" ");
 }
 
-export function getMovies(db: Database.Database, type?: string, query?: string): Movie[] {
+export interface MovieListFilters {
+  /** Keep movies whose runtime is at most this many minutes. Unknown runtime is excluded. */
+  maxRuntime?: number;
+  /** Keep movies with this TMDb original language (ISO 639-1, e.g. "en"). */
+  language?: string;
+}
+
+export function getMovies(
+  db: Database.Database,
+  type?: string,
+  query?: string,
+  filters: MovieListFilters = {},
+): Movie[] {
+  const where: string[] = [];
+  const params: (string | number)[] = [];
+  if (type) {
+    where.push("movies.type = ?");
+    params.push(type);
+  }
+  if (filters.maxRuntime !== undefined) {
+    // A movie with no runtime yet cannot be claimed short enough, so it is left out.
+    where.push("movies.runtime IS NOT NULL AND movies.runtime <= ?");
+    params.push(filters.maxRuntime);
+  }
+  if (filters.language) {
+    where.push("movies.original_language = ?");
+    params.push(filters.language);
+  }
+
   const normalizedQuery = query?.trim();
   if (normalizedQuery) {
     const ftsQuery = buildFtsQuery(normalizedQuery);
     if (!ftsQuery) return [];
 
-    const whereType = type ? "AND movies.type = ?" : "";
-    const params = type ? [ftsQuery, type] : [ftsQuery];
+    const extra = where.length ? `AND ${where.join(" AND ")}` : "";
     return db
       .prepare(
         `SELECT movies.*
          FROM movies
          JOIN movies_fts ON movies_fts.rowid = movies.id
-         WHERE movies_fts MATCH ? ${whereType}
+         WHERE movies_fts MATCH ? ${extra}
          ORDER BY bm25(movies_fts), movies.created_at DESC`,
       )
-      .all(...params) as Movie[];
+      .all(ftsQuery, ...params) as Movie[];
   }
-  if (type) {
-    return db
-      .prepare(`SELECT * FROM movies WHERE type = ? ${ORDER_BY_USER_RATING}`)
-      .all(type) as Movie[];
-  }
-  return db.prepare(`SELECT * FROM movies ${ORDER_BY_USER_RATING}`).all() as Movie[];
+  const whereSql = where.length ? `WHERE ${where.join(" AND ")}` : "";
+  return db
+    .prepare(`SELECT * FROM movies ${whereSql} ${ORDER_BY_USER_RATING}`)
+    .all(...params) as Movie[];
 }
 
 export function getDetachedMovies(db: Database.Database): Movie[] {
@@ -728,6 +775,8 @@ export interface TmdbMetadataUpdate {
   // Present only when the movie belongs to a collection; never overwrites with null.
   tmdb_collection_id?: number | null;
   tmdb_collection_name?: string | null;
+  runtime?: number | null;
+  original_language?: string | null;
 }
 
 export function updateMovieTmdbMetadata(
@@ -742,6 +791,9 @@ export function updateMovieTmdbMetadata(
   // always refreshed.
   const col = (name: string) =>
     fillOnly ? `COALESCE(NULLIF(${name}, ''), ?)` : "?";
+  // A TMDb answer without the value never erases a stored one.
+  const keep = (name: string) =>
+    fillOnly ? `COALESCE(${name}, ?)` : `COALESCE(?, ${name})`;
   const result = db.prepare(`
     UPDATE movies SET
       title = ${col("title")},
@@ -755,6 +807,8 @@ export function updateMovieTmdbMetadata(
       imdb_id = ${col("imdb_id")},
       pl_title = ${col("pl_title")},
       description = ${col("description")},
+      runtime = ${keep("runtime")},
+      original_language = ${keep("original_language")},
       tmdb_collection_id = COALESCE(?, tmdb_collection_id),
       tmdb_collection_name = COALESCE(?, tmdb_collection_name),
       tmdb_collection_checked = 1,
@@ -774,6 +828,8 @@ export function updateMovieTmdbMetadata(
     metadata.imdb_id,
     metadata.pl_title ?? null,
     metadata.description ?? null,
+    metadata.runtime ?? null,
+    metadata.original_language ?? null,
     metadata.tmdb_collection_id ?? null,
     metadata.tmdb_collection_name ?? null,
     refreshedAt,
