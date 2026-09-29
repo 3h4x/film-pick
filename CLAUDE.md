@@ -139,7 +139,8 @@ pnpm backup              # Backup SQLite DB
 │   ├── fetch-cda.ts                  — Fetch CDA Premium movies into recommended_movies
 │   ├── fetch-subtitles.ts            — Download Polish subtitles for every video under a directory (no DB; titles from filenames)
 │   ├── dedupe-movies.ts              — Merge rows sharing a tmdb_id into a canonical row (uses lib/dedup.ts)
-│   └── ensure-native-abi.mjs         — Pre-test native ABI check (run by pnpm pretest)
+│   ├── ensure-native-abi.mjs         — Pre-test native ABI check (run by pnpm pretest)
+│   └── docker-smoke-test.sh          — Boot a built image on an empty data dir and check `/` + `/api/settings`; CI runs it before pushing to GHCR
 ├── __tests__/                        — Vitest tests
 └── data/
     ├── movies.db                     — SQLite DB (gitignored)
@@ -263,6 +264,8 @@ docker compose down
 ```
 
 The `docker-compose.yml` uses `ghcr.io/3h4x/film-pick:latest` (built by GHA on push to master). Data is persisted in `./data/`.
+
+The release job builds the image, boots it with `scripts/docker-smoke-test.sh` against an empty data directory, and pushes to GHCR only if that passes, so Watchtower never pulls an image that cannot start. Reproduce locally with `docker build -t filmpick-smoke . && bash scripts/docker-smoke-test.sh filmpick-smoke`.
 
 Watchtower is included in `docker-compose.yml` and polls GHCR every 5 minutes. When GHA pushes a new `:latest`, Watchtower pulls it and restarts the `filmpick` container automatically. No credentials needed — the image is public. Watchtower is scoped to the `filmpick` label only and will not touch other containers on the host.
 

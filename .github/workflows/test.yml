@@ -79,13 +79,6 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v7
 
-      - name: Log in to GHCR
-        uses: docker/login-action@v4
-        with:
-          registry: ${{ env.REGISTRY }}
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
-
       - name: Extract metadata
         id: meta
         uses: docker/metadata-action@v6
@@ -97,12 +90,36 @@ jobs:
             type=raw,value=v${{ needs.release.outputs.new_release_version }}
             type=sha,prefix=
 
-      - name: Build and push
+      # Build into the local daemon first so the exact image that gets pushed
+      # is the one the smoke test booted.
+      - name: Build image
         uses: docker/build-push-action@v7
         with:
           context: .
-          push: true
-          tags: ${{ steps.meta.outputs.tags }}
+          load: true
+          tags: |
+            filmpick-smoke:latest
+            ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
           build-args: |
             APP_VERSION=v${{ needs.release.outputs.new_release_version }}
+
+      # Reproduce locally: docker build -t filmpick-smoke . && bash scripts/docker-smoke-test.sh filmpick-smoke
+      - name: Smoke test image
+        run: bash scripts/docker-smoke-test.sh filmpick-smoke:latest
+
+      - name: Log in to GHCR
+        uses: docker/login-action@v4
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Push image
+        env:
+          TAGS: ${{ steps.meta.outputs.tags }}
+        run: |
+          set -euo pipefail
+          while IFS= read -r tag; do
+            if [ -n "$tag" ]; then docker push "$tag"; fi
+          done <<< "$TAGS"
