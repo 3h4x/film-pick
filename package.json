@@ -20,7 +20,7 @@
   },
   "dependencies": {
     "better-sqlite3": "^12.9.0",
-    "next": "16.2.4",
+    "next": "16.3.6",
     "qrcode": "^1.5.4",
     "react": "19.2.8",
     "react-dom": "19.2.8"
@@ -40,7 +40,7 @@
     "@types/react-dom": "^19",
     "@vitejs/plugin-react": "^6.1.0",
     "eslint": "^9",
-    "eslint-config-next": "16.2.4",
+    "eslint-config-next": "16.3.6",
     "husky": "^9.1.7",
     "lint-staged": "^17.3.0",
     "tailwindcss": "^4",
