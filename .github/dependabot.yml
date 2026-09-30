@@ -1,43 +1,49 @@
 # tamtam inspected 2026-05-21
+#
+# Everything is grouped (3h4x, 2026-09-30): one PR per advisory and one per
+# major was more PRs than anyone reviews. Per ecosystem: security fixes -> one
+# PR, minor/patch -> one PR, majors -> one PR.
+#
+# cooldown 7 days = pnpm-workspace.yaml's `minimumReleaseAge: 10080` (minutes).
+# Dependabot's default cooldown is 3 days; with pnpm's strict release-age mode
+# a version update that picks a release younger than 7 days fails the
+# Dependabot job itself with ERR_PNPM_STRICT_MIN_RELEASE_AGE_REQUIRES_SAVE
+# (the grouped npm run failed on it 2026-09-13, -20 and -27). `schedule`, `cooldown` and
+# `open-pull-requests-limit` apply to version updates only; security updates
+# are never delayed.
 version: 2
 updates:
   - package-ecosystem: npm
     directory: "/"
     schedule:
       interval: weekly
+    cooldown:
+      default-days: 7
     open-pull-requests-limit: 10
     groups:
-      nextjs:
-        patterns:
-          - "next"
-          - "@next/*"
-          - "react"
-          - "react-dom"
-          - "@types/react"
-          - "@types/react-dom"
-      tailwind:
-        patterns:
-          - "tailwindcss"
-          - "@tailwindcss/*"
-      testing:
-        patterns:
-          - "vitest"
-          - "@vitest/*"
-      typescript:
-        patterns:
-          - "typescript"
-          - "@types/*"
-      minor-patch:
-        update-types:
-          - "minor"
-          - "patch"
+      npm-security:
+        applies-to: security-updates
+        patterns: ["*"]
+      npm-minor-patch:
+        applies-to: version-updates
+        patterns: ["*"]
+        update-types: [minor, patch]
+      npm-major:
+        applies-to: version-updates
+        patterns: ["*"]
+        update-types: [major]
 
   - package-ecosystem: github-actions
     directory: "/"
     schedule:
       interval: weekly
+    cooldown:
+      default-days: 7
     open-pull-requests-limit: 5
     groups:
-      github-actions:
-        patterns:
-          - "*"
+      actions-security:
+        applies-to: security-updates
+        patterns: ["*"]
+      actions:
+        applies-to: version-updates
+        patterns: ["*"]
