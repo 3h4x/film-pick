@@ -1,13 +1,50 @@
-# tamtam inspected 2026-05-21
+# The builder stage copies the lockfile install from the deps stage and THEN runs `COPY . .`,
+# so anything not listed here lands on top of it and in the build.
+#
+# .dockerignore is NOT .gitignore: Docker matches the whole context-relative path, so a bare
+# `node_modules` excludes ./node_modules and nothing else. Anything meant to match at depth
+# needs `**/`.
+
+# --- dependencies: always installed inside the image from the lockfile ---
+# A host node_modules (a pnpm symlink tree, possibly built for another platform) copied over
+# the image's own install makes the result depend on whatever the build machine had.
 node_modules
+**/node_modules
+.pnpm-store
+
+# --- build output the image regenerates ---
 .next
+tsconfig.tsbuildinfo
+
+# --- secrets and local data ---
+# Keys belong in the runtime environment, never in an image layer.
+.env
+.env.*
+**/.env
+**/.env.*
+.envrc
 data
+**/*.db
+**/*.db-journal
+**/*.db-wal
+**/*.db-shm
+
+# --- not part of the image ---
 tmp
 .git
 .github
 __tests__
 *.md
 .husky
+.claude
+.superpowers
+.tamtam
+.playwright-mcp
+test-results
+playwright-report
+coverage
+/*.mkv
+/*.mp4
 .dockerignore
 Dockerfile
 docker-compose.yml
