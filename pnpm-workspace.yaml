@@ -13,3 +13,25 @@ allowBuilds:
 # FAILS rather than silently falling back when no version is old enough. Add the
 # offending package to minimumReleaseAgeExclude if you ever need to override that.
 minimumReleaseAge: 10080
+
+# Transitive dependencies lifted to their patched releases. Each selector only
+# matches the vulnerable range, and every target is still inside the range the
+# parent declares, so an entry stops matching anything once the parents move
+# past it on their own; delete it then.
+overrides:
+  # next -> baseline-browser-mapping, and via browserslist
+  "baseline-browser-mapping@>=2.0.0 <2.11.0": 2.11.0
+  # next -> styled-jsx, eslint-plugin-react-hooks -> @babel/core -> browserslist
+  "@babel/core@<7.29.6": 7.29.6
+  "browserslist@<4.28.7": 4.28.7
+  # vitest, @vitejs/plugin-react -> vite
+  "vite@>=8.0.0 <8.0.16": 8.0.16
+  # eslint, @typescript-eslint -> minimatch -> brace-expansion
+  "brace-expansion@<1.1.21": 1.1.21
+  "brace-expansion@>=5.0.0 <5.0.12": 5.0.12
+  # @eslint/eslintrc, @commitlint (cosmiconfig) -> js-yaml
+  "js-yaml@>=4.0.0 <4.3.2": 4.3.2
+  # @commitlint -> ajv -> fast-uri
+  "fast-uri@>=3.0.0 <3.1.8": 3.1.8
+  # eslint -> @humanfs/node
+  "@humanfs/node@<0.16.8": 0.16.8
