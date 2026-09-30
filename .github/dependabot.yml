@@ -1,9 +1,5 @@
 # tamtam inspected 2026-05-21
 #
-# Everything is grouped (3h4x, 2026-09-30): one PR per advisory and one per
-# major was more PRs than anyone reviews. Per ecosystem: security fixes -> one
-# PR, minor/patch -> one PR, majors -> one PR.
-#
 # cooldown 7 days = pnpm-workspace.yaml's `minimumReleaseAge: 10080` (minutes).
 # Dependabot's default cooldown is 3 days; with pnpm's strict release-age mode
 # a version update that picks a release younger than 7 days fails the
@@ -11,39 +7,47 @@
 # (the grouped npm run failed on it 2026-09-13, -20 and -27). `schedule`, `cooldown` and
 # `open-pull-requests-limit` apply to version updates only; security updates
 # are never delayed.
+#
+# One Dependabot version-update PR at a time: the version updates of every
+# ecosystem below join the single `dependencies` multi-ecosystem group (one
+# weekly PR; open-pull-requests-limit: 1 on each entry), and semver-major
+# version updates are ignored so one breaking major cannot block that PR;
+# majors are bumped by hand. Security updates cannot join a multi-ecosystem
+# group, so they stay grouped per ecosystem (`applies-to: security-updates`);
+# open-pull-requests-limit and the major ignore do not apply to them.
 version: 2
+multi-ecosystem-groups:
+  dependencies:
+    schedule: {interval: weekly, day: monday, time: "06:00", timezone: Europe/Warsaw}
 updates:
   - package-ecosystem: npm
     directory: "/"
-    schedule:
-      interval: weekly
     cooldown:
       default-days: 7
-    open-pull-requests-limit: 10
+    open-pull-requests-limit: 1
+    multi-ecosystem-group: dependencies
+    patterns: ["*"]
+    ignore:
+      # Majors are done by hand: one breaking major would hold up the single grouped PR.
+      - dependency-name: "*"
+        update-types: ["version-update:semver-major"]
     groups:
       npm-security:
         applies-to: security-updates
         patterns: ["*"]
-      npm-minor-patch:
-        applies-to: version-updates
-        patterns: ["*"]
-        update-types: [minor, patch]
-      npm-major:
-        applies-to: version-updates
-        patterns: ["*"]
-        update-types: [major]
 
   - package-ecosystem: github-actions
     directory: "/"
-    schedule:
-      interval: weekly
     cooldown:
       default-days: 7
-    open-pull-requests-limit: 5
+    open-pull-requests-limit: 1
+    multi-ecosystem-group: dependencies
+    patterns: ["*"]
+    ignore:
+      # Majors are done by hand: one breaking major would hold up the single grouped PR.
+      - dependency-name: "*"
+        update-types: ["version-update:semver-major"]
     groups:
       actions-security:
         applies-to: security-updates
-        patterns: ["*"]
-      actions:
-        applies-to: version-updates
         patterns: ["*"]
