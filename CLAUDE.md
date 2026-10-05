@@ -106,7 +106,8 @@ pnpm backup              # Backup SQLite DB
 │   ├── tmdb-rematch.ts               — Retry TMDb matching for `source=local` films without a tmdb_id (`tmdb_matched_at`)
 │   ├── library-folders.ts            — Library folders: primary (`library_path` setting) + extras (`library_extra_paths` JSON); standardize moves into the primary
 │   ├── fs-move.ts                    — moveFile: rename with copy+unlink fallback across filesystems (EXDEV); the copy lands as `<dest>.filmpick-partial` and is renamed into place only when complete
-│   ├── tmdb-refresh.ts               — Refresh a movie from TMDb (`tmdb_refreshed_at` records when); sync/import run it for never/stale-refreshed movies so search finds them by Polish title, director, cast
+│   ├── tmdb-refresh.ts               — Refresh a movie from TMDb (`tmdb_refreshed_at` records when); sync/import run it for the movies they just added so search finds them by Polish title, director, cast
+│   ├── tmdb-refresh-scheduler.ts     — Hourly background batch (`tmdb_refresh_interval_hours`, default 1, 0 = off): rematch up to 20 local films, then refresh up to 100 never/stale-refreshed movies (30 days), so a backlog works itself off gradually instead of inside a sync
 │   ├── subtitles.ts                  — Subtitle format sniffing (SubRip/MicroDVD/MPL2/TMP/VTT/ASS), encoding detection, conversion to SubRip, injected-ad cue detection (`isSubtitleAdCue`)
 │   ├── ffprobe.ts                    — probeFps: video frame rate via ffprobe, used to time frame-based subtitles
 │   ├── napiprojekt.ts                — NapiProjekt client: MD5-of-first-10-MiB hash + subtitle fetch (base64 in XML)
@@ -161,9 +162,9 @@ pnpm backup              # Backup SQLite DB
 - **Rating UX:** In detail view, MY RATING (♥) is always shown left of GLOBAL (★); click the indigo badge to open an inline 1–10 picker; current score is highlighted; picker closes on selection
 - **Sorting:** My Rating, Global Rating, Year, Title, Date Added, Date Rated — asc/desc toggle
 - **Genre filter:** Dropdown with all genres from collection
-- **Runtime / language filters:** Library dropdowns for runtime (under 90, 90–120, over 120 min) and TMDb original language; a movie with no stored runtime matches no runtime bucket. `GET /api/movies?max_runtime=N` likewise excludes unknown runtimes. Both columns are filled by the sync TMDb refresh (the migration marks every TMDb movie due, so the first sync after upgrade backfills the library) and on first open of a movie's detail view. `rec_config.max_runtime` / `original_language` (Config → Recommendations → Filters) are sent to TMDb discover by the genre and mood engines; for mood, the shorter runtime cap wins and a configured language replaces the preset's
+- **Runtime / language filters:** Library dropdowns for runtime (under 90, 90–120, over 120 min) and TMDb original language; a movie with no stored runtime matches no runtime bucket. `GET /api/movies?max_runtime=N` likewise excludes unknown runtimes. Both columns are filled by the TMDb refresh (the migration marked every TMDb movie due; the hourly background batches work that backlog off) and on first open of a movie's detail view. `rec_config.max_runtime` / `original_language` (Config → Recommendations → Filters) are sent to TMDb discover by the genre and mood engines; for mood, the shorter runtime cap wins and a configured language replaces the preset's
 - **Import:** Scan a directory for video files, parse filenames, fetch TMDb metadata
-- **Sync:** Re-scan saved library path, add new files, remove deleted ones
+- **Sync:** Re-scan saved library path, add new files, remove deleted ones; fetches TMDb details only for the movies it added. Refreshing the rest of the library and rematching films without a TMDb id is the hourly background job's work (`lib/tmdb-refresh-scheduler.ts`), never a sync's
 - **Recommendations tab:** TMDb-based suggestions grouped by reason
 - **Search:** TMDb search to manually add movies
 - **Library search (FTS):** `GET /api/movies?q=` runs an SQLite FTS5 prefix search over title, pl_title, director, writer, and actors (backed by the `movies_fts` virtual table); the Library search box debounces and queries this endpoint
@@ -335,7 +336,7 @@ TMDB_API_KEY=<your_key> docker run -p 4000:4000 -v $(pwd)/data:/app/data -e TMDB
 4. New recommendation engines go under `lib/engines/` and must be registered in `lib/engines/index.ts`.
 5. Database schema changes require a migration block inside `initDb()` in `lib/db.ts` (additive `ALTER TABLE` or new table — never destructive).
 6. New tab-level views belong in `components/views/` as `<Name>View.tsx`. Smaller reusable UI pieces belong directly in `components/`.
-7. Scheduler modules (`cda-scheduler.ts`, `epg-scheduler.ts`) follow the same pattern: export `init*Scheduler(db)`, `reschedule*Job(db)`, and `run*Now(db)`; manage a single `activeTimer`; read interval from settings; initialize from `instrumentation.ts`, not from routes or React components.
+7. Scheduler modules (`cda-scheduler.ts`, `epg-scheduler.ts`, `tmdb-refresh-scheduler.ts`) follow the same pattern: export `init*Scheduler(db)`, `reschedule*Job(db)`, and `run*Now(db)`; manage a single `activeTimer`; read interval from settings; initialize from `instrumentation.ts`, not from routes or React components.
 8. **Client-side server state stays in hooks, not global stores.** Reuse `lib/hooks/` for fetch/caching/state orchestration before adding new top-level component state or a state library.
 9. **Route handlers own persistence and orchestration.** UI components should call existing API routes/hooks rather than reading the filesystem, hitting SQLite, or calling third-party APIs directly.
 10. **Caching belongs in the existing cache layers.** TMDb TTL logic stays in `lib/tmdb.ts`, recommendation cache logic stays in `lib/db.ts`/`recommendation_cache`, and EPG/CDA refresh behavior stays in their scheduler/fetch modules.

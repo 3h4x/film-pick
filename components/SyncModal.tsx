@@ -257,7 +257,7 @@ export default function SyncModal({
                   />
                 </div>
                 <p className="text-gray-600 text-xs">
-                  Only movies not refreshed in the last 30 days are fetched.
+                  Only movies added by this sync. The rest of the library is refreshed in the background.
                 </p>
               </>
             )}

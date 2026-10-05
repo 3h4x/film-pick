@@ -4,6 +4,8 @@ import { selectTmdbSearchCandidates } from "@/lib/tmdb-match";
 
 export interface RematchOptions {
   maxAgeDays: number;
+  /** At most this many films per run. */
+  limit?: number;
   concurrency?: number;
   delayMs?: number;
   onProgress?: (current: number, total: number) => void;
@@ -44,9 +46,10 @@ export async function rematchLocalMovies(
          AND (tmdb_matched_at IS NULL OR tmdb_matched_at < ?)
          -- rows added by this very sync were just searched; give TMDb a day
          AND (created_at IS NULL OR created_at < datetime('now', '-1 day'))
-       ORDER BY (file_path IS NOT NULL AND file_path != '') DESC, id DESC`,
+       ORDER BY (file_path IS NOT NULL AND file_path != '') DESC, id DESC
+       LIMIT ?`,
     )
-    .all(cutoff) as LocalRow[];
+    .all(cutoff, options.limit ?? -1) as LocalRow[];
 
   const findByTmdbId = db.prepare("SELECT id FROM movies WHERE tmdb_id = ?");
   const applyMatch = db.prepare(

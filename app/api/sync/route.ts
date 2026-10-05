@@ -8,8 +8,7 @@ import {
 } from "@/lib/db";
 import { getLibraryFolders, isWithinFolder } from "@/lib/library-folders";
 import { refreshStaleTmdbMetadata } from "@/lib/tmdb-refresh";
-import { rematchLocalMovies } from "@/lib/tmdb-rematch";
-import { SYNC_ENRICH_OPTIONS, SYNC_REMATCH_OPTIONS } from "@/lib/tmdb-enrich-options";
+import { SYNC_ENRICH_OPTIONS } from "@/lib/tmdb-enrich-options";
 import { linkToExistingPathlessRow } from "@/lib/pathless-row-link";
 import { scanLibraryGenerator } from "@/lib/scanner";
 import type { ScanStats } from "@/lib/scanner";
@@ -82,6 +81,10 @@ export async function POST(request?: NextRequest) {
           clientGone = true;
         }
       }
+
+      // Rows above this id are the ones this sync inserts.
+      const lastIdBefore =
+        (db.prepare("SELECT MAX(id) AS id FROM movies").get() as { id: number | null }).id ?? 0;
 
       // Phase 1: Scan — discover all files quickly (no network calls)
       const allFiles: ScannedFile[] = [];
@@ -317,26 +320,30 @@ export async function POST(request?: NextRequest) {
         detached++;
       }
 
-      // Phase 4: TMDb details (Polish title, description, director, writer, actors,
-      // collection), so films found by this sync are searchable by name, director
-      // and cast without opening them first. Movies refreshed recently are skipped.
+      // Phase 4: TMDb details (Polish title, description, credits, collection,
+      // runtime) for the films this sync added, so they are searchable by name,
+      // director and cast right away. The rest of the library, and films still
+      // without a TMDb match, are refreshed by the hourly background batches
+      // (lib/tmdb-refresh-scheduler.ts), never by a sync.
       let enriched = 0;
-      let rematched = 0;
       try {
-        // Films added earlier without a TMDb id get another chance first, so a
-        // match found now is enriched in this same pass.
-        const rematch = await rematchLocalMovies(db, {
-          ...SYNC_REMATCH_OPTIONS,
-          onProgress: (current, total) =>
-            sendUpdate({ type: "matching", current, total }),
-        });
-        rematched = rematch.matched;
-        const result = await refreshStaleTmdbMetadata(db, {
-          ...SYNC_ENRICH_OPTIONS,
-          onProgress: (current, total) =>
-            sendUpdate({ type: "enriching", current, total }),
-        });
-        enriched = result.updated;
+        const newIds = (
+          db
+            .prepare(
+              `SELECT id FROM movies
+               WHERE id > ? AND tmdb_id IS NOT NULL AND tmdb_refreshed_at IS NULL`,
+            )
+            .all(lastIdBefore) as { id: number }[]
+        ).map((row) => row.id);
+        if (newIds.length > 0) {
+          const result = await refreshStaleTmdbMetadata(db, {
+            ...SYNC_ENRICH_OPTIONS,
+            onlyIds: newIds,
+            onProgress: (current, total) =>
+              sendUpdate({ type: "enriching", current, total }),
+          });
+          enriched = result.updated;
+        }
       } catch (error) {
         console.error("[Sync] enrich step failed:", error);
       }
@@ -344,7 +351,6 @@ export async function POST(request?: NextRequest) {
       sendUpdate({
         type: "complete",
         enriched,
-        rematched,
         added,
         linked,
         detached,
