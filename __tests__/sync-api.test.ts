@@ -17,12 +17,13 @@ vi.mock("@/lib/scanner", () => ({
 
 vi.mock("@/lib/tmdb", () => ({
   searchTmdb: vi.fn(),
+  getTmdbMovieSnapshot: vi.fn(),
 }));
 
 import { POST } from "@/app/api/sync/route";
 import { getDb, setSetting } from "@/lib/db";
 import { scanLibraryGenerator } from "@/lib/scanner";
-import { searchTmdb } from "@/lib/tmdb";
+import { getTmdbMovieSnapshot, searchTmdb } from "@/lib/tmdb";
 
 // The route iterates with `for await`, which accepts the plain generators these
 // tests hand back, but the mocked function is typed as returning an AsyncGenerator.
@@ -235,6 +236,61 @@ describe("sync API route", () => {
     const movies = db.prepare("SELECT * FROM movies").all() as { title: string }[];
     expect(movies).toHaveLength(1);
     expect(movies[0].title).toBe("Inception");
+  });
+
+  it("fetches TMDb details only for movies this sync added, not the rest of the library", async () => {
+    setSetting(db as unknown as ReturnType<typeof getDb>, "library_path", "/movies");
+    // Already in the library, never refreshed: left to the background batches.
+    const existingId = db
+      .prepare(
+        "INSERT INTO movies (title, year, type, source, tmdb_id, file_path) VALUES ('Sample Movie', 1999, 'movie', 'tmdb', 111, '/movies/Sample.Movie.1999.mkv')",
+      )
+      .run().lastInsertRowid;
+    scanMock.mockReturnValue(
+      (function* () {
+        yield {
+          filename: "Sample.Movie.1999.mkv",
+          filePath: "/movies/Sample.Movie.1999.mkv",
+          parsedTitle: "Sample Movie",
+          parsedYear: 1999,
+        };
+        yield {
+          filename: "Another.Sample.2004.mkv",
+          filePath: "/movies/Another.Sample.2004.mkv",
+          parsedTitle: "Another Sample",
+          parsedYear: 2004,
+        };
+      })(),
+    );
+    vi.mocked(searchTmdb).mockResolvedValue([
+      { title: "Another Sample", year: 2004, genre: "Drama", rating: 7, poster_url: null, imdb_id: null, tmdb_id: 222 },
+    ]);
+    vi.mocked(getTmdbMovieSnapshot).mockResolvedValue({
+      title: "Another Sample",
+      year: 2004,
+      genre: "Drama",
+      rating: 7.2,
+      poster_url: null,
+      tmdb_id: 222,
+      imdb_id: null,
+      pl_title: "Inna Próbka",
+      description: null,
+      director: null,
+      writer: null,
+      actors: null,
+      runtime: 101,
+      original_language: "en",
+    });
+
+    const events = await readNDJSON(await POST());
+
+    expect(events.find((e) => e.type === "complete")).toMatchObject({ added: 1, enriched: 1 });
+    expect(vi.mocked(getTmdbMovieSnapshot).mock.calls.map((c) => c[0])).toEqual([222]);
+    const refreshed = (id: number | bigint) =>
+      (db.prepare("SELECT tmdb_refreshed_at AS t FROM movies WHERE id = ?").get(id) as { t: number | null }).t;
+    expect(refreshed(existingId)).toBeNull();
+    const added = db.prepare("SELECT runtime, pl_title FROM movies WHERE tmdb_id = 222").get();
+    expect(added).toEqual({ runtime: 101, pl_title: "Inna Próbka" });
   });
 
   it("links file to existing movie with matching title+year and no file_path", async () => {

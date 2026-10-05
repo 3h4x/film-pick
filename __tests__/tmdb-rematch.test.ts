@@ -85,6 +85,18 @@ describe("rematchLocalMovies", () => {
     expect(row(dupe).tmdb_id).toBeNull();
   });
 
+  it("searches at most `limit` films per run, files first", async () => {
+    addLocal("first", 2026);
+    addLocal("second", 2026);
+    addLocal("third", 2026);
+    vi.mocked(searchTmdb).mockResolvedValue([]);
+
+    const result = await rematchLocalMovies(db, { ...opts, limit: 2 });
+
+    expect(result.unmatched).toBe(2);
+    expect(vi.mocked(searchTmdb)).toHaveBeenCalledTimes(2);
+  });
+
   it("does not ask again within the window, but does once it is stale", async () => {
     const now = Math.floor(Date.now() / 1000);
     addLocal("Recent try", 2001, { matchedAt: now - 2 * 86400 });
