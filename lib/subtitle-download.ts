@@ -10,6 +10,7 @@ import { probeFps } from "@/lib/ffprobe";
 import { fetchNapiprojektSubtitle, napiprojektHash } from "@/lib/napiprojekt";
 import {
   fetchOpenSubtitlesSubtitle,
+  isOpenSubtitlesConfigured,
   opensubtitlesHash,
 } from "@/lib/opensubtitles";
 import { getErrorMessage } from "@/lib/utils";
@@ -158,6 +159,75 @@ export async function downloadSubtitle(
   }
 }
 
+/** What the last subtitle lookup for a movie found, as stored on its row. */
+export type SubtitleCheckStatus = "downloaded" | "exists" | "not_found" | "no_file" | "error";
+
+/** The providers a lookup asks: OpenSubtitles only when its API key is set. */
+export function subtitleProvidersInUse(): SubtitleProvider[] {
+  return isOpenSubtitlesConfigured() ? ["napiprojekt", "opensubtitles"] : ["napiprojekt"];
+}
+
+/**
+ * Remember when subtitles were last looked up for a movie and what came of it,
+ * so the detail can say "checked on <date>, none exist yet" and the background
+ * job knows when to ask again. `detail`: provider(s) for downloaded/not_found,
+ * the message for an error.
+ */
+export function recordSubtitleCheck(
+  db: Database.Database,
+  movieId: number,
+  result: SubtitleDownloadResult,
+  checkedAt = Math.floor(Date.now() / 1000),
+): void {
+  const detail =
+    result.status === "downloaded"
+      ? `${result.provider}${result.hashMatch ? "" : ":title"}`
+      : result.status === "not_found"
+        ? subtitleProvidersInUse().join(",")
+        : result.status === "error"
+          ? result.error.slice(0, 300)
+          : null;
+  db.prepare(
+    `UPDATE movies SET subtitles_checked_at = ?, subtitles_check_status = ?,
+       subtitles_check_detail = ? WHERE id = ?`,
+  ).run(checkedAt, result.status, detail, movieId);
+}
+
+interface SubtitleMovieRow {
+  id: number;
+  title: string;
+  year: number | null;
+  imdb_id: string | null;
+  tmdb_id: number | null;
+  file_path: string | null;
+}
+
+/** Look up subtitles for one library movie and record the outcome on its row. */
+export async function fetchMovieSubtitles(
+  db: Database.Database,
+  movieId: number,
+  { replace = false }: { replace?: boolean } = {},
+): Promise<SubtitleDownloadResult | null> {
+  const movie = db
+    .prepare("SELECT id, title, year, imdb_id, tmdb_id, file_path FROM movies WHERE id = ?")
+    .get(movieId) as SubtitleMovieRow | undefined;
+  if (!movie) return null;
+  const result: SubtitleDownloadResult = movie.file_path
+    ? await downloadSubtitle(
+        {
+          filePath: movie.file_path,
+          imdbId: movie.imdb_id,
+          tmdbId: movie.tmdb_id,
+          title: movie.title,
+          year: movie.year,
+        },
+        { replace },
+      )
+    : { status: "no_file" };
+  recordSubtitleCheck(db, movieId, result);
+  return result;
+}
+
 export type BulkSubtitleEvent =
   | { type: "start"; total: number }
   | {
@@ -205,13 +275,7 @@ export async function downloadMissingSubtitles(
   onEvent({ type: "start", total: movies.length });
 
   for (const [index, movie] of movies.entries()) {
-    const result = await downloadSubtitle({
-      filePath: movie.file_path,
-      imdbId: movie.imdb_id,
-      tmdbId: movie.tmdb_id,
-      title: movie.title,
-      year: movie.year,
-    });
+    const result = (await fetchMovieSubtitles(db, movie.id)) ?? ({ status: "no_file" } as const);
     if (result.status === "downloaded") totals.downloaded++;
     else if (result.status === "not_found") totals.notFound++;
     else if (result.status === "error") totals.errors++;

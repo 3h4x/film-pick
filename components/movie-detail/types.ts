@@ -41,6 +41,9 @@ export interface MovieDetailMovie {
   extra_files?: string | null;
   video_metadata?: string | null;
   wishlist?: number;
+  subtitles_checked_at?: number | null;
+  subtitles_check_status?: string | null;
+  subtitles_check_detail?: string | null;
 }
 
 export interface PersonRating {

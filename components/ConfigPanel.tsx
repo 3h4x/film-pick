@@ -615,13 +615,15 @@ export default function ConfigPanel({
             <Hint>
               What sync does with each file it adds. A file changed in the last 10 minutes
               (still downloading) waits for the next sync; the films already in the library
-              are left alone.
+              are not moved. With subtitles on, films without any are also looked up again
+              every hour in small batches (a film with none found is retried weekly); the
+              movie detail shows when it was last checked.
             </Hint>
             <div className="flex flex-wrap items-center gap-3">
               {(
                 [
                   ["sync_auto_standardize", "Standardize name & folder"],
-                  ["sync_auto_subtitles", "Download Polish subtitles"],
+                  ["sync_auto_subtitles", "Auto-download Polish subtitles"],
                 ] as const
               ).map(([key, label]) => (
                 <button

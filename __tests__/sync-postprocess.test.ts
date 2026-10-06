@@ -6,9 +6,9 @@ import path from "path";
 import { initDb, setSetting } from "@/lib/db";
 import { clearStandardizeJobs } from "@/lib/standardize-jobs";
 
-vi.mock("@/lib/subtitle-download", () => ({ downloadSubtitle: vi.fn() }));
+vi.mock("@/lib/subtitle-download", () => ({ fetchMovieSubtitles: vi.fn() }));
 
-import { downloadSubtitle } from "@/lib/subtitle-download";
+import { fetchMovieSubtitles } from "@/lib/subtitle-download";
 import { markFilesForPostprocess, postprocessNewFiles } from "@/lib/sync-postprocess";
 
 const TEST_DB = path.join(__dirname, "test-sync-postprocess.db");
@@ -46,14 +46,14 @@ describe("sync post-processing (standardize + subtitles for new files)", () => {
     db = new Database(TEST_DB);
     initDb(db);
     setSetting(db, "library_path", library);
-    vi.mocked(downloadSubtitle).mockResolvedValue({ status: "not_found" });
+    vi.mocked(fetchMovieSubtitles).mockResolvedValue({ status: "not_found" });
     vi.spyOn(console, "log").mockImplementation(() => {});
     vi.spyOn(console, "warn").mockImplementation(() => {});
   });
 
   afterEach(() => {
     vi.restoreAllMocks();
-    vi.mocked(downloadSubtitle).mockReset();
+    vi.mocked(fetchMovieSubtitles).mockReset();
     clearStandardizeJobs();
     db.close();
     if (fs.existsSync(TEST_DB)) fs.unlinkSync(TEST_DB);
@@ -74,7 +74,7 @@ describe("sync post-processing (standardize + subtitles for new files)", () => {
   it("moves a new file into the standard layout, fetches subtitles for the new path, and marks it done", async () => {
     const original = addFile("Downloads/Sample.Movie.1999.1080p.WEBRip/Sample.Movie.1999.1080p.WEBRip.mkv");
     const id = addMovie("Sample Movie", 1999, original);
-    vi.mocked(downloadSubtitle).mockResolvedValue({
+    vi.mocked(fetchMovieSubtitles).mockResolvedValue({
       status: "downloaded", provider: "napiprojekt", hashMatch: true, fileName: "Sample Movie.srt",
       path: "x", format: "srt", converted: false, cueCount: 10, adCuesRemoved: 0,
     });
@@ -86,7 +86,8 @@ describe("sync post-processing (standardize + subtitles for new files)", () => {
     expect(row(id).file_path).toBe(expected);
     expect(fs.existsSync(expected)).toBe(true);
     expect(fs.existsSync(original)).toBe(false);
-    expect(vi.mocked(downloadSubtitle).mock.calls[0][0]).toMatchObject({ filePath: expected, title: "Sample Movie" });
+    // looked up for the row after the move, so the subtitle lands next to the new path
+    expect(vi.mocked(fetchMovieSubtitles).mock.calls[0][1]).toBe(id);
     expect(row(id).sync_processed_at).not.toBeNull();
   });
 
@@ -97,7 +98,7 @@ describe("sync post-processing (standardize + subtitles for new files)", () => {
 
     expect(result).toMatchObject({ processed: 0, waiting: 1 });
     expect(row(id).sync_processed_at).toBeNull();
-    expect(downloadSubtitle).not.toHaveBeenCalled();
+    expect(fetchMovieSubtitles).not.toHaveBeenCalled();
   });
 
   it("respects the Config switches but still marks the file done", async () => {
@@ -110,7 +111,7 @@ describe("sync post-processing (standardize + subtitles for new files)", () => {
 
     expect(result).toMatchObject({ processed: 1, standardized: 0, subtitles: 0 });
     expect(row(id).file_path).toBe(original);
-    expect(downloadSubtitle).not.toHaveBeenCalled();
+    expect(fetchMovieSubtitles).not.toHaveBeenCalled();
     expect(row(id).sync_processed_at).not.toBeNull();
   });
 
@@ -127,11 +128,11 @@ describe("sync post-processing (standardize + subtitles for new files)", () => {
     expect(result.processed).toBe(1);
     // already standard: nothing moved, subtitles still looked up
     expect(row(id).file_path).toBe(stamped);
-    expect(downloadSubtitle).toHaveBeenCalledTimes(1);
+    expect(fetchMovieSubtitles).toHaveBeenCalledTimes(1);
   });
 
   it("counts a failed step but does not retry the file on every sync", async () => {
-    vi.mocked(downloadSubtitle).mockResolvedValue({ status: "error", error: "provider down" });
+    vi.mocked(fetchMovieSubtitles).mockResolvedValue({ status: "error", error: "provider down" });
     const id = addMovie("Sample Movie", 1999, addFile("Downloads/Sample.Movie.1999.mkv"));
 
     const result = await postprocessNewFiles(db, { delayMs: 0 });

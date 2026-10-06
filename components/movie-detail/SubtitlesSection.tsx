@@ -5,6 +5,7 @@ import type {
   SubtitleNotice,
   SubtitleTrack,
 } from "@/components/movie-detail/types";
+import { describeSubtitleCheck, type SubtitleCheck } from "@/lib/subtitle-check";
 
 interface SubtitlesSectionProps {
   movieTitle: string;
@@ -16,6 +17,8 @@ interface SubtitlesSectionProps {
   subtitleError: string | null;
   isSubtitleDownloading: boolean;
   subtitleNotice: SubtitleNotice | null;
+  /** The last recorded lookup: when it ran and what it found. */
+  lastCheck?: SubtitleCheck | null;
   onDragOver: (event: DragEvent<HTMLLabelElement>) => void;
   onDragLeave: (event: DragEvent<HTMLLabelElement>) => void;
   onDrop: (event: DragEvent<HTMLLabelElement>) => void;
@@ -33,6 +36,7 @@ export default function SubtitlesSection({
   subtitleError,
   isSubtitleDownloading,
   subtitleNotice,
+  lastCheck = null,
   onDragOver,
   onDragLeave,
   onDrop,
@@ -105,6 +109,17 @@ export default function SubtitlesSection({
                     : "Download Polish subtitles"}
               </span>
             </button>
+
+            <p
+              className={`text-[11px] leading-snug ${
+                lastCheck?.status === "error" || lastCheck?.status === "no_file"
+                  ? "text-amber-400/80"
+                  : "text-gray-500"
+              }`}
+              data-testid="subtitle-last-check"
+            >
+              {describeSubtitleCheck(lastCheck)}
+            </p>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-2">
               <a

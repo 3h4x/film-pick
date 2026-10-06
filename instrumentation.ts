@@ -8,6 +8,7 @@ export async function register() {
   const { initCdaScheduler } = await import("@/lib/cda-scheduler");
   const { initEpgScheduler } = await import("@/lib/epg-scheduler");
   const { initTmdbRefreshScheduler } = await import("@/lib/tmdb-refresh-scheduler");
+  const { initSubtitleScheduler } = await import("@/lib/subtitle-scheduler");
 
   const INTERVAL_MS = 15 * 60 * 1000; // every 15 minutes
 
@@ -45,4 +46,5 @@ export async function register() {
   initCdaScheduler(getDb());
   initEpgScheduler(getDb());
   initTmdbRefreshScheduler(getDb());
+  initSubtitleScheduler(getDb());
 }

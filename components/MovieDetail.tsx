@@ -9,6 +9,7 @@ import MovieSidebar from "@/components/movie-detail/MovieSidebar";
 import { useMovieFileActions } from "@/components/movie-detail/useMovieFileActions";
 import { useMovieDetailMetadata } from "@/components/movie-detail/useMovieDetailMetadata";
 import { useMoviePlayback } from "@/components/movie-detail/useMoviePlayback";
+import { subtitleCheckFromRow } from "@/lib/subtitle-check";
 import { useMovieWatchlist } from "@/components/movie-detail/useMovieWatchlist";
 import { useMovieRating } from "@/components/movie-detail/useMovieRating";
 import { useMovieSubtitles } from "@/components/movie-detail/useMovieSubtitles";
@@ -113,6 +114,7 @@ export default function MovieDetail({
     onUpdate,
   });
   const {
+    lastCheck: subtitleCheck,
     hasSubtitles,
     subtitlesList,
     isSubtitleUploading,
@@ -129,6 +131,7 @@ export default function MovieDetail({
     movieId: movie.id,
     filePath,
     isPersistedMovie,
+    initialCheck: subtitleCheckFromRow(movie),
   });
 
   const extraFiles = useMemo<string[]>(
@@ -389,6 +392,7 @@ export default function MovieDetail({
               subtitleError={subtitleError}
               isSubtitleDownloading={isSubtitleDownloading}
               subtitleNotice={subtitleNotice}
+              subtitleCheck={subtitleCheck}
               isStandard={isStandard}
               isStandardNoYear={isStandardNoYear}
               isStandardizing={isStandardizing}

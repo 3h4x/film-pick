@@ -2,7 +2,7 @@ import type Database from "better-sqlite3";
 import fs from "fs/promises";
 import { getSetting } from "@/lib/db";
 import { runStandardizeJob } from "@/lib/standardize";
-import { downloadSubtitle, type SubtitleDownloadResult } from "@/lib/subtitle-download";
+import { fetchMovieSubtitles, type SubtitleDownloadResult } from "@/lib/subtitle-download";
 import { getErrorMessage } from "@/lib/utils";
 
 /** A file changed this recently may still be downloading; leave it for the next sync. */
@@ -112,13 +112,7 @@ export async function postprocessNewFiles(
     if (subtitlesOn && after?.file_path) {
       let sub: SubtitleDownloadResult;
       try {
-        sub = await downloadSubtitle({
-          filePath: after.file_path,
-          imdbId: after.imdb_id,
-          tmdbId: after.tmdb_id,
-          title: after.title,
-          year: after.year,
-        });
+        sub = (await fetchMovieSubtitles(db, row.id)) ?? { status: "no_file" };
       } catch (error) {
         sub = { status: "error", error: getErrorMessage(error) };
       }

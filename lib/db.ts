@@ -36,6 +36,9 @@ export interface Movie {
   runtime?: number | null; // minutes, from TMDb
   original_language?: string | null; // ISO 639-1, from TMDb
   sync_processed_at?: number | null;
+  subtitles_checked_at?: number | null;
+  subtitles_check_status?: string | null;
+  subtitles_check_detail?: string | null;
 }
 
 export interface TvEpisodeProgress {
@@ -450,6 +453,26 @@ export function initDb(db: Database.Database): void {
     ).run();
   }
 
+  // The last subtitle lookup per movie (lib/subtitle-download.ts recordSubtitleCheck):
+  // when, and whether it downloaded, found existing ones, or found nothing. NULL =
+  // never looked; the background job (lib/subtitle-scheduler.ts) checks those first.
+  const hasSubtitleCheck = db
+    .prepare("SELECT 1 FROM _migrations WHERE name = 'add_subtitle_check'")
+    .get();
+  if (!hasSubtitleCheck) {
+    const cols = (db.pragma("table_info(movies)") as { name: string }[]).map((c) => c.name);
+    for (const [col, type] of [
+      ["subtitles_checked_at", "INTEGER"],
+      ["subtitles_check_status", "TEXT"],
+      ["subtitles_check_detail", "TEXT"],
+    ] as const) {
+      if (!cols.includes(col)) db.exec(`ALTER TABLE movies ADD COLUMN ${col} ${type}`);
+    }
+    db.prepare(
+      "INSERT OR IGNORE INTO _migrations (name) VALUES ('add_subtitle_check')",
+    ).run();
+  }
+
   // Indexes for common query patterns (idempotent — IF NOT EXISTS)
   db.exec(`
     CREATE INDEX IF NOT EXISTS idx_movies_tmdb_id ON movies (tmdb_id);
@@ -459,6 +482,7 @@ export function initDb(db: Database.Database): void {
     CREATE INDEX IF NOT EXISTS idx_movies_user_rating ON movies (user_rating);
     CREATE INDEX IF NOT EXISTS idx_movies_title_year ON movies (title, year);
     CREATE INDEX IF NOT EXISTS idx_movies_type ON movies (type);
+    CREATE INDEX IF NOT EXISTS idx_movies_subtitles_checked_at ON movies (subtitles_checked_at);
     CREATE INDEX IF NOT EXISTS idx_movies_source ON movies (source);
     CREATE INDEX IF NOT EXISTS idx_recommended_movies_tmdb_id ON recommended_movies (tmdb_id);
     CREATE INDEX IF NOT EXISTS idx_recommended_movies_cda_checked ON recommended_movies (engine, cda_last_checked_at);
