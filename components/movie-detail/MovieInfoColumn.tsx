@@ -165,6 +165,8 @@ export default function MovieInfoColumn({
   onSubtitleDownload,
   onStandardize,
 }: MovieInfoColumnProps) {
+  // A TMDb film opened from search or a link has a negative placeholder id.
+  const inLibrary = movie.id > 0;
   return (
     <div className="order-1 lg:order-2 lg:col-span-8 space-y-4 sm:space-y-5">
       <MovieTitleBlock movieTitle={movieTitle} plTitle={plTitle} />
@@ -243,22 +245,28 @@ export default function MovieInfoColumn({
         />
       )}
 
-      <SubtitlesSection
-        movieTitle={movie.title}
-        filePath={filePath}
-        hasSubtitles={hasSubtitles}
-        subtitlesList={subtitlesList}
-        isSubtitleUploading={isSubtitleUploading}
-        isDraggingSub={isDraggingSub}
-        subtitleError={subtitleError}
-        isSubtitleDownloading={isSubtitleDownloading}
-        subtitleNotice={subtitleNotice}
-        onDragOver={onDragOverSub}
-        onDragLeave={onDragLeaveSub}
-        onDrop={onDropSub}
-        onSubtitleUpload={onSubtitleUpload}
-        onSubtitleDownload={onSubtitleDownload}
-      />
+      {inLibrary ? (
+        <SubtitlesSection
+          movieTitle={movie.title}
+          filePath={filePath}
+          hasSubtitles={hasSubtitles}
+          subtitlesList={subtitlesList}
+          isSubtitleUploading={isSubtitleUploading}
+          isDraggingSub={isDraggingSub}
+          subtitleError={subtitleError}
+          isSubtitleDownloading={isSubtitleDownloading}
+          subtitleNotice={subtitleNotice}
+          onDragOver={onDragOverSub}
+          onDragLeave={onDragLeaveSub}
+          onDrop={onDropSub}
+          onSubtitleUpload={onSubtitleUpload}
+          onSubtitleDownload={onSubtitleDownload}
+        />
+      ) : (
+        <p className="text-sm text-gray-500">
+          Not in your library. Rate it to add it, or use + / 🔖 on the search result.
+        </p>
+      )}
 
       {filePath && (
         <StorageSection
@@ -273,7 +281,7 @@ export default function MovieInfoColumn({
         />
       )}
 
-      <MovieTimestamps createdAt={movie.created_at} ratedAt={movie.rated_at} />
+      {inLibrary && <MovieTimestamps createdAt={movie.created_at} ratedAt={movie.rated_at} />}
     </div>
   );
 }

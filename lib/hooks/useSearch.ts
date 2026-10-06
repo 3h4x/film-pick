@@ -165,10 +165,11 @@ export function useSearch({
     }
   }
 
+  /** Resolves to the saved movie when a new row was created. */
   async function handleAddMovie(
     searchResult: TmdbSearchResult,
     isWishlist: boolean,
-  ) {
+  ): Promise<Movie | undefined> {
     if (searchTargetId) {
       await updateExistingMovie(searchTargetId, searchResult, {
         setWishlist: isWishlist,
@@ -267,6 +268,7 @@ export function useSearch({
         ? `Added "${searchResult.title}" to watchlist`
         : `Added "${searchResult.title}" to library`,
     );
+    return persistedMovie;
   }
 
   async function handleNavSearch(

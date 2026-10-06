@@ -526,8 +526,11 @@ export async function searchTmdb(
   return results;
 }
 
-export async function searchTmdbForUi(query: string): Promise<TmdbSearchResult[]> {
-  const movieResults = await searchTmdb(query);
+export async function searchTmdbForUi(
+  query: string,
+  year?: number | null,
+): Promise<TmdbSearchResult[]> {
+  const movieResults = await searchTmdb(query, year);
   if (movieResults.length > 0) return movieResults;
 
   const apiKey = getApiKey();

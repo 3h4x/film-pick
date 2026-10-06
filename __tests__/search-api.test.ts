@@ -67,14 +67,22 @@ describe("GET /api/search", () => {
     expect(body).toHaveLength(1);
     expect(body[0].title).toBe("Inception");
     expect(body[0].tmdb_id).toBe(27205);
-    expect(mockSearchTmdbForUi).toHaveBeenCalledWith("inception");
+    expect(mockSearchTmdbForUi).toHaveBeenCalledWith("inception", null);
   });
 
   it("passes the exact query string to searchTmdbForUi", async () => {
     mockSearchTmdbForUi.mockResolvedValueOnce([]);
 
     await GET(makeRequest("The Dark Knight"));
-    expect(mockSearchTmdbForUi).toHaveBeenCalledWith("The Dark Knight");
+    expect(mockSearchTmdbForUi).toHaveBeenCalledWith("The Dark Knight", null);
+  });
+
+  it("searches a release-style name as its title and year", async () => {
+    mockSearchTmdbForUi.mockResolvedValue([]);
+
+    await GET(makeRequest("Sample.Movie.2019.1080p.WEB-DL.x264"));
+
+    expect(mockSearchTmdbForUi).toHaveBeenCalledWith("Sample Movie", 2019);
   });
 
   it("returns empty array when TMDb finds no results", async () => {

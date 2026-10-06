@@ -23,7 +23,15 @@ export function parseFilename(filename: string): {
   year: number | null;
 } {
   // Remove extension
-  let name = filename.replace(/\.[^.]+$/, "");
+  return parseReleaseName(filename.replace(/\.[^.]+$/, ""));
+}
+
+/** Title and year from a release-style name without extension ("Some.Movie.2019.1080p.WEB-DL"). */
+export function parseReleaseName(releaseName: string): {
+  title: string;
+  year: number | null;
+} {
+  let name = releaseName;
 
   // Try to extract year in parentheses at beginning: "(2013) Movie Name"
   let year: number | null = null;

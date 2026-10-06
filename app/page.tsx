@@ -21,7 +21,7 @@ import { getCanonicalMovieForTmdbId } from "@/lib/search";
 import { useSettings } from "@/lib/hooks/useSettings";
 import type { AppTab, ToastItem, Movie, RecConfig } from "@/lib/types";
 import { MOOD_PRESETS, type MoodKey } from "@/lib/mood-presets";
-import type { TmdbMovieSnapshot } from "@/lib/tmdb";
+import type { TmdbMovieSnapshot, TmdbSearchResult } from "@/lib/tmdb";
 
 const DEFAULT_REC_CONFIG: RecConfig = {
   excluded_genres: [],
@@ -237,6 +237,14 @@ export default function Home() {
 
   const search = useSearch({ movies, setMovies, selectedMovie, setSelectedMovie, addToast, setSearchOpen });
 
+  // Clicking a TMDb search result that is not in the library adds it (like +)
+  // and opens its details; opening it fills in cast, plot and Polish title.
+  async function openTmdbResult(result: TmdbSearchResult) {
+    const movie = await search.handleAddMovie(result, false);
+    search.setTmdbAdded((prev) => new Set(prev).add(result.tmdb_id));
+    if (movie) setSelectedMovie(movie);
+  }
+
   function restoreSearchFromHash(query: string) {
     setSearchQuery(query);
     setActiveTab("search");
@@ -416,6 +424,7 @@ export default function Home() {
             tmdbAdded={search.tmdbAdded} tmdbError={search.tmdbError}
             tmdbSearched={search.tmdbSearched}
             onMovieClick={setSelectedMovie}
+            onTmdbResultClick={openTmdbResult}
             onClear={() => { setSearchQuery(""); setActiveTab("library"); }}
             onGoToConfig={() => { setSearchQuery(""); setActiveTab("config"); }}
             onSearchTmdb={() => search.handleNavSearch(searchQuery, { forceTmdb: true })}
