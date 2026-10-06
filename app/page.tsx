@@ -16,7 +16,7 @@ import WishlistView from "@/components/views/WishlistView";
 import ConfigView from "@/components/views/ConfigView";
 import { useLibrary } from "@/lib/hooks/useLibrary";
 import { useRecommendations } from "@/lib/hooks/useRecommendations";
-import { fetchTmdbMovieSnapshot, useSearch } from "@/lib/hooks/useSearch";
+import { useSearch } from "@/lib/hooks/useSearch";
 import { getCanonicalMovieForTmdbId } from "@/lib/search";
 import { useSettings } from "@/lib/hooks/useSettings";
 import type { AppTab, ToastItem, Movie, RecConfig } from "@/lib/types";
@@ -225,24 +225,6 @@ export default function Home() {
   }
 
   const library = useLibrary(addToast);
-
-  // A TMDb search result that is not in the library: open its details straight
-  // away with what the result already has, then fill in cast, plot and Polish
-  // title. Rating it from there adds it to the library.
-  async function openTmdbResult(result: TmdbSearchResult) {
-    const placeholderId = -result.tmdb_id;
-    setSelectedMovie(
-      movieFromTmdbSnapshot({ ...result, director: null, writer: null, actors: null, description: null }),
-    );
-    try {
-      const snapshot = await fetchTmdbMovieSnapshot(result.tmdb_id);
-      setSelectedMovie((current) =>
-        current?.id === placeholderId ? movieFromTmdbSnapshot(snapshot) : current,
-      );
-    } catch {
-      addToast("Could not load the details from TMDb");
-    }
-  }
   const { movies, setMovies, fetchMovies, initialLoad, searchQuery, setSearchQuery, wishlistMovies } = library;
 
   const recs = useRecommendations({ movies, disabledEngines, activeTab, addToast, setMovies, setSelectedMovie });
@@ -254,6 +236,14 @@ export default function Home() {
   });
 
   const search = useSearch({ movies, setMovies, selectedMovie, setSelectedMovie, addToast, setSearchOpen });
+
+  // Clicking a TMDb search result that is not in the library adds it (like +)
+  // and opens its details; opening it fills in cast, plot and Polish title.
+  async function openTmdbResult(result: TmdbSearchResult) {
+    const movie = await search.handleAddMovie(result, false);
+    search.setTmdbAdded((prev) => new Set(prev).add(result.tmdb_id));
+    if (movie) setSelectedMovie(movie);
+  }
 
   function restoreSearchFromHash(query: string) {
     setSearchQuery(query);
