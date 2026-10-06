@@ -178,3 +178,15 @@ export function shouldAutoSearchTmdb(movies: Movie[], rawQuery: string) {
   const { libraryMatches, wishlistMatches } = getSearchMatches(movies, rawQuery);
   return libraryMatches.length === 0 && wishlistMatches.length === 0;
 }
+
+/**
+ * TMDb results minus the films already shown above them in the library/watchlist
+ * sections, so a film clicked (and so added) does not appear twice.
+ */
+export function excludeShownTmdbResults<T extends { tmdb_id: number }>(
+  results: T[],
+  shown: Movie[],
+): T[] {
+  const shownIds = new Set(shown.map((m) => m.tmdb_id).filter((id): id is number => id != null));
+  return results.filter((r) => !shownIds.has(r.tmdb_id));
+}

@@ -7,6 +7,7 @@ import Spinner from "@/components/ui/Spinner";
 import {
   buildTmdbMovieIndex,
   getSearchMatches,
+  excludeShownTmdbResults,
   getTmdbSearchMovieState,
   normalizeSearchQuery,
 } from "@/lib/search";
@@ -55,6 +56,10 @@ export default function SearchView({
     searchQuery,
   );
   const movieIndex = buildTmdbMovieIndex(movies);
+  const otherTmdbResults = excludeShownTmdbResults(tmdbResults, [
+    ...libraryMatches,
+    ...wishlistMatches,
+  ]);
   // Same normalisation the /api/search route applies to a release-style name.
   const searchedAs = normalizeSearchQuery(searchQuery);
   const rewritten = searchedAs.title !== searchQuery.trim();
@@ -176,13 +181,13 @@ export default function SearchView({
                 </Button>
               </div>
             </div>
-          ) : tmdbResults.length > 0 ? (
+          ) : otherTmdbResults.length > 0 ? (
             <div>
               <p className="text-xs font-semibold uppercase tracking-widest text-gray-500 mb-3">
                 From TMDb
               </p>
               <div className={RESULTS_GRID_CLASS}>
-                {tmdbResults.map((r) => {
+                {otherTmdbResults.map((r) => {
                   const { existingMovie, existingLabel } = getTmdbSearchMovieState(
                     movieIndex,
                     r.tmdb_id,
@@ -231,7 +236,7 @@ export default function SearchView({
                 })}
               </div>
             </div>
-          ) : (
+          ) : tmdbResults.length > 0 ? null /* every TMDb hit is already shown above */ : (
             <div>
               <p className="text-xs font-semibold uppercase tracking-widest text-gray-500 mb-3">
                 From TMDb
