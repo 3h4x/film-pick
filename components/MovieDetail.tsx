@@ -9,6 +9,7 @@ import MovieSidebar from "@/components/movie-detail/MovieSidebar";
 import { useMovieFileActions } from "@/components/movie-detail/useMovieFileActions";
 import { useMovieDetailMetadata } from "@/components/movie-detail/useMovieDetailMetadata";
 import { useMoviePlayback } from "@/components/movie-detail/useMoviePlayback";
+import { useMovieWatchlist } from "@/components/movie-detail/useMovieWatchlist";
 import { useMovieRating } from "@/components/movie-detail/useMovieRating";
 import { useMovieSubtitles } from "@/components/movie-detail/useMovieSubtitles";
 import { usePersonRatings } from "@/components/movie-detail/usePersonRatings";
@@ -96,6 +97,14 @@ export default function MovieDetail({
     userRating,
     handleRate,
   } = useMovieRating({
+    movie,
+    movieTitle,
+    director,
+    posterUrl,
+    isPersistedMovie,
+    onUpdate,
+  });
+  const { onWatchlist, isSavingWatchlist, toggleWatchlist } = useMovieWatchlist({
     movie,
     movieTitle,
     director,
@@ -364,6 +373,9 @@ export default function MovieDetail({
               userRating={userRating}
               isRating={isRating}
               showRatingPicker={showRatingPicker}
+              onWatchlist={onWatchlist}
+              isSavingWatchlist={isSavingWatchlist}
+              onToggleWatchlist={toggleWatchlist}
               isMergeMode={isMergeMode}
               mergeQuery={mergeQuery}
               potentialMerges={potentialMerges}
