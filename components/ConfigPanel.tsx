@@ -157,6 +157,7 @@ export default function ConfigPanel({
   const [backupFile, setBackupFile] = useState<string | null>(null);
   const [backupStats, setBackupStats] = useState<{ lastBackup: string | null; count: number } | null>(null);
   const [backupEnabled, setBackupEnabled] = useState(true);
+  const [syncAuto, setSyncAuto] = useState({ sync_auto_standardize: true, sync_auto_subtitles: true });
   const [cdaInterval, setCdaInterval] = useState<0 | 6 | 12 | 24>(0);
   const [cdaStatus, setCdaStatus] = useState<"idle" | "running" | "error">("idle");
   const [cdaLastRefresh, setCdaLastRefresh] = useState<string | null>(null);
@@ -220,6 +221,10 @@ export default function ConfigPanel({
       .then((r) => r.json())
       .then((s) => {
         setBackupEnabled(s.backup_enabled ?? true);
+        setSyncAuto({
+          sync_auto_standardize: s.sync_auto_standardize ?? true,
+          sync_auto_subtitles: s.sync_auto_subtitles ?? true,
+        });
         setCdaInterval(s.cda_refresh_interval_hours ?? 0);
         setCdaStatus(s.cda_refresh_status ?? "idle");
         setCdaLastRefresh(s.cda_last_refresh ?? null);
@@ -603,6 +608,47 @@ export default function ConfigPanel({
                 )}
               </div>
             )}
+          </section>
+
+          <section>
+            <SubHeader>After Sync</SubHeader>
+            <Hint>
+              What sync does with each file it adds. A file changed in the last 10 minutes
+              (still downloading) waits for the next sync; the films already in the library
+              are not moved. With subtitles on, films without any are also looked up again
+              every hour in small batches (a film with none found is retried weekly); the
+              movie detail shows when it was last checked.
+            </Hint>
+            <div className="flex flex-wrap items-center gap-3">
+              {(
+                [
+                  ["sync_auto_standardize", "Standardize name & folder"],
+                  ["sync_auto_subtitles", "Auto-download Polish subtitles"],
+                ] as const
+              ).map(([key, label]) => (
+                <button
+                  key={key}
+                  aria-pressed={syncAuto[key]}
+                  onClick={async () => {
+                    const next = !syncAuto[key];
+                    setSyncAuto((prev) => ({ ...prev, [key]: next }));
+                    const res = await fetch("/api/settings", {
+                      method: "PATCH",
+                      headers: { "Content-Type": "application/json" },
+                      body: JSON.stringify({ [key]: next }),
+                    });
+                    if (!res.ok) setSyncAuto((prev) => ({ ...prev, [key]: !next }));
+                  }}
+                  className={`min-h-11 rounded-lg px-4 py-2 text-sm transition-colors ${
+                    syncAuto[key]
+                      ? "bg-green-500/20 text-green-300 border border-green-500/30 hover:bg-green-500/30"
+                      : "bg-red-500/20 text-red-300 border border-red-500/30 hover:bg-red-500/30"
+                  }`}
+                >
+                  {label}: {syncAuto[key] ? "On" : "Off"}
+                </button>
+              ))}
+            </div>
           </section>
 
           <section>

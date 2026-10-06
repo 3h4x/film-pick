@@ -372,6 +372,20 @@ describe("settings API", () => {
       expect(getSetting(db, "backup_enabled")).toBe("false");
     });
 
+    it("persists the sync post-processing switches", async () => {
+      const res = await PATCH(makeRequest({ sync_auto_standardize: false, sync_auto_subtitles: true }));
+      expect(res.status).toBe(200);
+      expect(getSetting(db, "sync_auto_standardize")).toBe("false");
+      expect(getSetting(db, "sync_auto_subtitles")).toBe("true");
+      const data = await (await GET()).json();
+      expect(data).toMatchObject({ sync_auto_standardize: false, sync_auto_subtitles: true });
+    });
+
+    it("has the sync post-processing switches on by default", async () => {
+      const data = await (await GET()).json();
+      expect(data).toMatchObject({ sync_auto_standardize: true, sync_auto_subtitles: true });
+    });
+
     it("persists tv_hide_unrated=true", async () => {
       const res = await PATCH(makeRequest({ tv_hide_unrated: true }));
       expect(res.status).toBe(200);

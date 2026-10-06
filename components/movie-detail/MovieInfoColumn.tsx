@@ -9,6 +9,7 @@ import MovieTimestamps from "@/components/movie-detail/MovieTimestamps";
 import QuickLinks from "@/components/movie-detail/QuickLinks";
 import RatingControls from "@/components/movie-detail/RatingControls";
 import StorageSection from "@/components/movie-detail/StorageSection";
+import type { SubtitleCheck } from "@/lib/subtitle-check";
 import WatchlistButton from "@/components/movie-detail/WatchlistButton";
 import SubtitlesSection from "@/components/movie-detail/SubtitlesSection";
 import TvEpisodeProgressSection from "@/components/movie-detail/TvEpisodeProgressSection";
@@ -48,6 +49,7 @@ interface MovieInfoColumnProps {
   subtitleError: string | null;
   isSubtitleDownloading: boolean;
   subtitleNotice: SubtitleNotice | null;
+  subtitleCheck: SubtitleCheck | null;
   isStandard: boolean;
   isStandardNoYear: boolean;
   isStandardizing: boolean;
@@ -153,6 +155,7 @@ export default function MovieInfoColumn({
   subtitleError,
   isSubtitleDownloading,
   subtitleNotice,
+  subtitleCheck,
   isStandard,
   isStandardNoYear,
   isStandardizing,
@@ -271,6 +274,7 @@ export default function MovieInfoColumn({
           subtitleError={subtitleError}
           isSubtitleDownloading={isSubtitleDownloading}
           subtitleNotice={subtitleNotice}
+          lastCheck={subtitleCheck}
           onDragOver={onDragOverSub}
           onDragLeave={onDragLeaveSub}
           onDrop={onDropSub}

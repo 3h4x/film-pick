@@ -9,6 +9,7 @@ import {
 import { getLibraryFolders, isWithinFolder } from "@/lib/library-folders";
 import { refreshStaleTmdbMetadata } from "@/lib/tmdb-refresh";
 import { SYNC_ENRICH_OPTIONS } from "@/lib/tmdb-enrich-options";
+import { markFilesForPostprocess, postprocessNewFiles } from "@/lib/sync-postprocess";
 import { linkToExistingPathlessRow } from "@/lib/pathless-row-link";
 import { scanLibraryGenerator } from "@/lib/scanner";
 import type { ScanStats } from "@/lib/scanner";
@@ -270,6 +271,9 @@ export async function POST(request?: NextRequest) {
         }
       }
 
+      // Every file this sync added or linked gets the post-processing pass (Phase 5).
+      markFilesForPostprocess(db, newFiles.map((file) => file.filePath));
+
       // Phase 3: Cleanup — detach files that no longer exist from their movie rows.
       // Query DB fresh (after Phase 2 updates) so we don't detach movies whose
       // file_path was just updated in Phase 2 from an old/wrong path.
@@ -348,9 +352,25 @@ export async function POST(request?: NextRequest) {
         console.error("[Sync] enrich step failed:", error);
       }
 
+      // Phase 5: new files get the standard name/folder and Polish subtitles
+      // (each switchable in Config). Runs after Phase 4 so the TMDb title and year
+      // name the folder. A file still being written waits for the next sync.
+      let postprocess = { processed: 0, standardized: 0, subtitles: 0, waiting: 0, failed: 0 };
+      try {
+        postprocess = await postprocessNewFiles(db, {
+          onProgress: (current, total, title) =>
+            sendUpdate({ type: "postprocessing", current, total, filename: title }),
+        });
+      } catch (error) {
+        console.error("[Sync] post-processing step failed:", error);
+      }
+
       sendUpdate({
         type: "complete",
         enriched,
+        standardized: postprocess.standardized,
+        subtitles: postprocess.subtitles,
+        waiting: postprocess.waiting,
         added,
         linked,
         detached,

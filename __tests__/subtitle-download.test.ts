@@ -13,6 +13,7 @@ import {
 import {
   downloadSubtitle,
   downloadMissingSubtitles,
+  fetchMovieSubtitles,
   type BulkSubtitleEvent,
 } from "@/lib/subtitle-download";
 
@@ -307,5 +308,45 @@ describe("downloadMissingSubtitles", () => {
       skipped: 1,
       errors: 0,
     });
+  });
+
+  const check = (id: number) =>
+    db
+      .prepare(
+        "SELECT subtitles_checked_at AS at, subtitles_check_status AS status, subtitles_check_detail AS detail FROM movies WHERE id = ?",
+      )
+      .get(id) as { at: number | null; status: string | null; detail: string | null };
+
+  it("records every lookup on the movie: when, and what it found", async () => {
+    const found = addMovie("A Movie", videoPath);
+    const missing = addMovie("B Missing", path.join(tmpDir, "gone.mkv"));
+    global.fetch = vi.fn().mockResolvedValue(textResponse(napiXml(MICRODVD)));
+
+    await downloadMissingSubtitles(db, () => {}, { delayMs: 0 });
+
+    expect(check(found)).toMatchObject({ status: "downloaded", detail: "napiprojekt" });
+    expect(check(found).at).toBeGreaterThan(0);
+    expect(check(missing)).toMatchObject({ status: "no_file", detail: null });
+  });
+
+  it("records a miss with the providers that were asked", async () => {
+    const id = addMovie("A Movie", videoPath);
+    global.fetch = vi.fn().mockResolvedValue(textResponse(napiXml(null)));
+
+    expect((await fetchMovieSubtitles(db, id))?.status).toBe("not_found");
+    expect(check(id)).toMatchObject({ status: "not_found", detail: "napiprojekt" });
+
+    process.env.OPENSUBTITLES_API_KEY = "test-key";
+    global.fetch = vi.fn(async (url: string | URL | Request) =>
+      String(url).includes("opensubtitles")
+        ? new Response(JSON.stringify({ data: [] }), { status: 200 })
+        : textResponse(napiXml(null)),
+    ) as typeof fetch;
+    await fetchMovieSubtitles(db, id);
+    expect(check(id)).toMatchObject({ status: "not_found", detail: "napiprojekt,opensubtitles" });
+  });
+
+  it("returns null for an unknown movie", async () => {
+    expect(await fetchMovieSubtitles(db, 999)).toBeNull();
   });
 });

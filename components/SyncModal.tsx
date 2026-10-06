@@ -13,6 +13,9 @@ interface SyncResult {
   failed: number;
   total: number;
   enriched?: number;
+  standardized?: number;
+  subtitles?: number;
+  waiting?: number;
 }
 
 interface ScanCompleteUpdate {
@@ -40,7 +43,7 @@ type StreamUpdate =
   | { type: "scanning"; count: number }
   | { type: "skipped_roots"; roots: string[] }
   | { type: "enriching"; current: number; total: number }
-  | { type: "matching"; current: number; total: number }
+  | { type: "postprocessing"; current: number; total: number; filename: string }
   | ScanCompleteUpdate
   | ProgressUpdate
   | CompleteUpdate;
@@ -134,9 +137,9 @@ export default function SyncModal({
               setScanCount(update.count);
             } else if (update.type === "skipped_roots") {
               setSkippedRoots(update.roots);
-            } else if (update.type === "matching") {
+            } else if (update.type === "postprocessing") {
               setPhase("enriching");
-              setEnrichLabel("Matching films to TMDb");
+              setEnrichLabel("Standardizing & fetching subtitles");
               setEnrichProgress({ current: update.current, total: update.total });
             } else if (update.type === "enriching") {
               setPhase("enriching");
@@ -257,7 +260,9 @@ export default function SyncModal({
                   />
                 </div>
                 <p className="text-gray-600 text-xs">
-                  Only movies added by this sync. The rest of the library is refreshed in the background.
+                  {enrichLabel === "Fetching titles & credits"
+                    ? "Only movies added by this sync. The rest of the library is refreshed in the background."
+                    : "New files get the standard folder and name, then Polish subtitles. Turn either off in Config → Library."}
                 </p>
               </>
             )}
@@ -352,6 +357,19 @@ export default function SyncModal({
               <p className="text-gray-500 text-xs mt-1">
                 Fetched titles &amp; credits for {result.enriched} movie
                 {result.enriched === 1 ? "" : "s"}
+              </p>
+            )}
+            {((result.standardized ?? 0) > 0 || (result.subtitles ?? 0) > 0) && (
+              <p className="text-gray-500 text-xs mt-1">
+                Standardized {result.standardized ?? 0}, subtitles for{" "}
+                {result.subtitles ?? 0}
+              </p>
+            )}
+            {(result.waiting ?? 0) > 0 && (
+              <p className="text-gray-500 text-xs mt-1">
+                {result.waiting} file{result.waiting === 1 ? " is" : "s are"} still
+                being written; the next sync will finish{" "}
+                {result.waiting === 1 ? "it" : "them"}
               </p>
             )}
             {result.failed > 0 && (

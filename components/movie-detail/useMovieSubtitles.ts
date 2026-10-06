@@ -6,6 +6,7 @@ import type {
   SubtitleTrack,
 } from "@/components/movie-detail/types";
 import { getErrorMessage } from "@/lib/utils";
+import type { SubtitleCheck } from "@/lib/subtitle-check";
 
 interface SubtitlesResponse {
   hasSubtitles: boolean;
@@ -26,6 +27,7 @@ interface SubtitleDownloadResponse {
   provider?: "napiprojekt" | "opensubtitles";
   hashMatch?: boolean;
   error?: string;
+  check?: SubtitleCheck | null;
 }
 
 const PROVIDER_LABELS = {
@@ -83,11 +85,15 @@ export function useMovieSubtitles({
   movieId,
   filePath,
   isPersistedMovie,
+  initialCheck = null,
 }: {
   movieId: number;
   filePath: string | null;
   isPersistedMovie: boolean;
+  /** The last recorded lookup (from the movie row), shown as "last checked". */
+  initialCheck?: SubtitleCheck | null;
 }) {
+  const [lastCheck, setLastCheck] = useState<SubtitleCheck | null>(initialCheck);
   const [hasSubtitles, setHasSubtitles] = useState<boolean>(false);
   const [subtitlesList, setSubtitlesList] = useState<SubtitleTrack[]>([]);
   const [isSubtitleUploading, setIsSubtitleUploading] = useState(false);
@@ -107,6 +113,12 @@ export function useMovieSubtitles({
     setSubtitleError(null);
     setSubtitleNotice(null);
   }, [subtitleContextKey]);
+
+  const initialCheckAt = initialCheck?.at ?? null;
+  useEffect(() => {
+    setLastCheck(initialCheck);
+    // Keyed on the timestamp: a new object with the same check must not reset it.
+  }, [subtitleContextKey, initialCheckAt]);
 
   useEffect(() => {
     if (!isPersistedMovie || !filePath) {
@@ -195,6 +207,7 @@ export function useMovieSubtitles({
         { method: "POST" },
       );
       const data = (await response.json()) as SubtitleDownloadResponse;
+      if (data.check) setLastCheck(data.check);
       if (data.ok && data.fileName && data.path) {
         const track = { name: data.fileName, path: data.path };
         setHasSubtitles(true);
@@ -238,6 +251,7 @@ export function useMovieSubtitles({
   };
 
   return {
+    lastCheck,
     hasSubtitles,
     subtitlesList,
     isSubtitleUploading,
