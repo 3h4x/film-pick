@@ -40,6 +40,7 @@ export interface MovieDetailMovie {
   file_path?: string | null;
   extra_files?: string | null;
   video_metadata?: string | null;
+  wishlist?: number;
 }
 
 export interface PersonRating {

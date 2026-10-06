@@ -9,6 +9,7 @@ import MovieTimestamps from "@/components/movie-detail/MovieTimestamps";
 import QuickLinks from "@/components/movie-detail/QuickLinks";
 import RatingControls from "@/components/movie-detail/RatingControls";
 import StorageSection from "@/components/movie-detail/StorageSection";
+import WatchlistButton from "@/components/movie-detail/WatchlistButton";
 import SubtitlesSection from "@/components/movie-detail/SubtitlesSection";
 import TvEpisodeProgressSection from "@/components/movie-detail/TvEpisodeProgressSection";
 import type {
@@ -31,6 +32,9 @@ interface MovieInfoColumnProps {
   userRating: number | null;
   isRating: boolean;
   showRatingPicker: boolean;
+  onWatchlist: boolean;
+  isSavingWatchlist: boolean;
+  onToggleWatchlist: () => void;
   isMergeMode: boolean;
   mergeQuery: string;
   potentialMerges: MovieDetailMovie[];
@@ -133,6 +137,9 @@ export default function MovieInfoColumn({
   userRating,
   isRating,
   showRatingPicker,
+  onWatchlist,
+  isSavingWatchlist,
+  onToggleWatchlist,
   isMergeMode,
   mergeQuery,
   potentialMerges,
@@ -185,6 +192,14 @@ export default function MovieInfoColumn({
           onTogglePicker={onToggleRatingPicker}
           onRate={onRate}
         />
+        {/* Rating a film takes it off the watchlist, so only offer it while unrated. */}
+        {!(userRating != null && userRating > 0) && (
+          <WatchlistButton
+            onWatchlist={onWatchlist}
+            isSaving={isSavingWatchlist}
+            onToggle={onToggleWatchlist}
+          />
+        )}
       </div>
 
       <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
