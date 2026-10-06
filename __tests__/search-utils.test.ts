@@ -2,6 +2,7 @@
 import { describe, expect, it } from "vitest";
 import {
   buildTmdbMovieIndex,
+  excludeShownTmdbResults,
   getCanonicalMatchingMovie,
   getCanonicalMovie,
   getCanonicalMovieForTmdbId,
@@ -250,5 +251,18 @@ describe("getSearchMatches with a release-style query", () => {
     const movie = makeMovie({ id: 7, title: "Sample Movie", year: 2019, user_rating: 8 });
     const { libraryMatches } = getSearchMatches([movie], "Sample.Movie.2019.1080p");
     expect(libraryMatches.map((m) => m.id)).toEqual([7]);
+  });
+});
+
+describe("excludeShownTmdbResults", () => {
+  it("drops TMDb results already shown in the library or watchlist sections", () => {
+    const shown = [makeMovie({ id: 1, tmdb_id: 500 }), makeMovie({ id: 2, tmdb_id: null })];
+    const results = [{ tmdb_id: 500, title: "Sample Movie" }, { tmdb_id: 600, title: "Another Sample" }];
+    expect(excludeShownTmdbResults(results, shown).map((r) => r.tmdb_id)).toEqual([600]);
+  });
+
+  it("keeps everything when nothing is shown above", () => {
+    const results = [{ tmdb_id: 500 }, { tmdb_id: 600 }];
+    expect(excludeShownTmdbResults(results, [])).toEqual(results);
   });
 });
