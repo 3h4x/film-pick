@@ -35,6 +35,7 @@ export interface Movie {
   tmdb_refreshed_at?: number | null;
   runtime?: number | null; // minutes, from TMDb
   original_language?: string | null; // ISO 639-1, from TMDb
+  sync_processed_at?: number | null;
 }
 
 export interface TvEpisodeProgress {
@@ -428,6 +429,24 @@ export function initDb(db: Database.Database): void {
     db.exec("UPDATE movies SET tmdb_refreshed_at = NULL WHERE tmdb_id IS NOT NULL AND type = 'movie'");
     db.prepare(
       "INSERT OR IGNORE INTO _migrations (name) VALUES ('add_runtime_original_language')",
+    ).run();
+  }
+
+  // sync_processed_at: when sync standardized the file and fetched subtitles for it
+  // (lib/sync-postprocess.ts). NULL = still to do. The migration stamps every
+  // existing row, so the first sync after upgrading never touches the library that
+  // is already there, only files added or linked from then on.
+  const hasSyncProcessedAt = db
+    .prepare("SELECT 1 FROM _migrations WHERE name = 'add_sync_processed_at'")
+    .get();
+  if (!hasSyncProcessedAt) {
+    const cols = (db.pragma("table_info(movies)") as { name: string }[]).map((c) => c.name);
+    if (!cols.includes("sync_processed_at")) {
+      db.exec("ALTER TABLE movies ADD COLUMN sync_processed_at INTEGER");
+    }
+    db.prepare("UPDATE movies SET sync_processed_at = ?").run(Math.floor(Date.now() / 1000));
+    db.prepare(
+      "INSERT OR IGNORE INTO _migrations (name) VALUES ('add_sync_processed_at')",
     ).run();
   }
 

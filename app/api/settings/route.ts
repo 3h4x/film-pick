@@ -28,6 +28,8 @@ export async function GET() {
     tmdb_api_key_source: envKey ? "env" : dbKey ? "db" : null,
     disabled_engines: disabledEngines ? JSON.parse(disabledEngines) : [],
     backup_enabled: backupEnabled !== "false",
+    sync_auto_standardize: getSetting(db, "sync_auto_standardize") !== "false",
+    sync_auto_subtitles: getSetting(db, "sync_auto_subtitles") !== "false",
     cda_refresh_interval_hours: cdaIntervalStr ? parseInt(cdaIntervalStr, 10) : 0,
     cda_last_refresh: getSetting(db, "cda_last_refresh"),
     cda_movie_count: cdaMovieCountStr ? parseInt(cdaMovieCountStr, 10) : null,
@@ -89,6 +91,9 @@ export async function PATCH(request: NextRequest) {
           : current.primary,
       extras: body.library_extra_paths ?? current.extras,
     });
+  }
+  for (const key of ["sync_auto_standardize", "sync_auto_subtitles"] as const) {
+    if (typeof body[key] === "boolean") setSetting(db, key, body[key] ? "true" : "false");
   }
   if (typeof body.backup_enabled === "boolean") {
     setSetting(db, "backup_enabled", body.backup_enabled ? "true" : "false");
