@@ -4,7 +4,12 @@ import EmptyState from "@/components/ui/EmptyState";
 import Button from "@/components/ui/Button";
 import MovieCard from "@/components/MovieCard";
 import Spinner from "@/components/ui/Spinner";
-import { buildTmdbMovieIndex, getSearchMatches, getTmdbSearchMovieState } from "@/lib/search";
+import {
+  buildTmdbMovieIndex,
+  getSearchMatches,
+  getTmdbSearchMovieState,
+  normalizeSearchQuery,
+} from "@/lib/search";
 import type { Movie } from "@/lib/types";
 import type { TmdbSearchResult } from "@/lib/tmdb";
 
@@ -20,6 +25,8 @@ interface SearchViewProps {
   tmdbError: string | null;
   tmdbSearched: boolean;
   onMovieClick: (movie: Movie) => void;
+  /** Open the TMDb details of a result that is not in the library. */
+  onTmdbResultClick: (result: TmdbSearchResult) => void;
   onClear: () => void;
   onGoToConfig: () => void;
   onSearchTmdb: () => Promise<void>;
@@ -36,6 +43,7 @@ export default function SearchView({
   tmdbError,
   tmdbSearched,
   onMovieClick,
+  onTmdbResultClick,
   onClear,
   onGoToConfig,
   onSearchTmdb,
@@ -47,6 +55,9 @@ export default function SearchView({
     searchQuery,
   );
   const movieIndex = buildTmdbMovieIndex(movies);
+  // Same normalisation the /api/search route applies to a release-style name.
+  const searchedAs = normalizeSearchQuery(searchQuery);
+  const rewritten = searchedAs.title !== searchQuery.trim();
 
   return (
     <div>
@@ -54,6 +65,12 @@ export default function SearchView({
         <p className="text-gray-500 text-sm">
           TMDb results for{" "}
           <span className="text-white">&ldquo;{searchQuery}&rdquo;</span>
+          {rewritten && (
+            <span className="text-gray-600">
+              {" "}· searched as &ldquo;{searchedAs.title}&rdquo;
+              {searchedAs.year ? ` (${searchedAs.year})` : ""}
+            </span>
+          )}
         </p>
         <button
           onClick={onClear}
@@ -181,7 +198,9 @@ export default function SearchView({
                         userRating={null}
                         posterUrl={r.poster_url}
                         source="tmdb"
-                        onClick={existingMovie ? () => onMovieClick(existingMovie) : undefined}
+                        onClick={() =>
+                          existingMovie ? onMovieClick(existingMovie) : onTmdbResultClick(r)
+                        }
                       />
                       {justAdded || existingLabel ? (
                         <div className="absolute top-1.5 left-1.5 bg-green-600/90 text-white text-xs px-1.5 py-0.5 rounded font-medium">

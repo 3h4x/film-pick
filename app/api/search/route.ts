@@ -1,6 +1,7 @@
 import { NextRequest } from "next/server";
 import { searchTmdbForUi } from "@/lib/tmdb";
 import { rateLimit } from "@/lib/rate-limit";
+import { normalizeSearchQuery } from "@/lib/search";
 
 export async function GET(request: NextRequest) {
   const limited = rateLimit(request, "tmdb");
@@ -12,7 +13,9 @@ export async function GET(request: NextRequest) {
   }
 
   try {
-    const results = await searchTmdbForUi(query);
+    // Release-style names ("Some.Movie.2019.1080p") are searched as title + year.
+    const { title, year } = normalizeSearchQuery(query);
+    const results = await searchTmdbForUi(title, year);
     return Response.json(results);
   } catch (err) {
     const message = err instanceof Error ? err.message : "Search failed";

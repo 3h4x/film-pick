@@ -166,7 +166,7 @@ pnpm backup              # Backup SQLite DB
 - **Import:** Scan a directory for video files, parse filenames, fetch TMDb metadata
 - **Sync:** Re-scan saved library path, add new files, remove deleted ones; fetches TMDb details only for the movies it added. Refreshing the rest of the library and rematching films without a TMDb id is the hourly background job's work (`lib/tmdb-refresh-scheduler.ts`), never a sync's
 - **Recommendations tab:** TMDb-based suggestions grouped by reason
-- **Search:** TMDb search to manually add movies
+- **Search:** TMDb search to manually add movies. A query without spaces that looks like a file/release name (`Some.Movie.2019.1080p`, `Some_Movie`, `Some-Movie-2019`) is searched as title + year (`normalizeSearchQuery` in `lib/search.ts`, applied by `/api/search` and the library matching); ordinary titles (`Mr. Bean`, `Spider-Man`) are searched as typed. Clicking a TMDb result that is not in the library opens its detail view (cast, plot, ratings via `/api/movies/tmdb/[tmdbId]`) without adding it; rating it there adds it
 - **Library search (FTS):** `GET /api/movies?q=` runs an SQLite FTS5 prefix search over title, pl_title, director, writer, and actors (backed by the `movies_fts` virtual table); the Library search box debounces and queries this endpoint
 - **TV episode progress:** TV/series detail view tracks watched episodes per season/episode via `app/api/movies/[id]/episodes` (`TvEpisodeProgressSection`); progress is stored in `tv_episode_progress` and removed on movie delete via `ON DELETE CASCADE`
 - **Subtitle download:** the movie detail's "Download Polish subtitles" button and Config → Library → "Download missing subtitles" try NapiProjekt first (hash of the first 10 MiB, so it only ever matches that exact release), then OpenSubtitles when `OPENSUBTITLES_API_KEY` is set (hash match preferred, then IMDb/TMDb/title). A title match is flagged in the UI because the timing may not fit a home DVD/VHS rip. Downloads go through `normalizeSubtitle` like uploads, with `dropCue: isSubtitleAdCue` stripping the ad cues OpenSubtitles' free API tier injects, and land at `<video basename>.srt`; movies that already have any subtitle are skipped unless the user asks to replace. The Docker container needs write access to the video folders for this
@@ -377,3 +377,13 @@ TMDB_API_KEY=<your_key> docker run -p 4000:4000 -v $(pwd)/data:/app/data -e TMDB
     - the contents of the owner's library: real movie titles, release names or tags (`[YTS]`, `WEBRip-GROUP`), file sizes, or lines copied from real subtitle files.
 
     Use obvious placeholders instead: `Sample Movie (1999)`, `/mnt/library/...`, `/mnt/archive/...`, invented dialogue. Describe bugs generically ("a file in an extra library folder on another share"), not with the owner's actual paths. For UI screenshots, seed a placeholder movie and rewrite any local path in API responses before capturing (e.g. a Playwright `page.route` that replaces the path prefix), then check the image before committing. If something private does get pushed, scrub the PR text, replace the file, and rewrite the unmerged branch so the old blob is not in its history; tell the owner that GitHub keeps PR edit history and old commit SHAs until they are purged.
+
+<!-- BEGIN:nextjs-agent-rules -->
+
+# This is NOT the Next.js you know
+
+This version has breaking changes — APIs, conventions, and file structure may all differ from your training data. Read the relevant guide in `node_modules/next/dist/docs/` (resolved from this file's directory; in monorepos the `next` package may not be visible from the repo root) before writing any code. Heed deprecation notices.
+
+This block is written and re-added by `next dev` — verify at `node_modules/next/dist/server/lib/generate-agent-files.js`. Removing it from a diff only re-creates the uncommitted change; committing it with your work keeps the tree clean.
+
+<!-- END:nextjs-agent-rules -->

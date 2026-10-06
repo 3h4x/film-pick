@@ -1,5 +1,33 @@
 // tamtam inspected 2026-05-21
 import type { Movie } from "@/lib/types";
+import { parseReleaseName } from "@/lib/utils";
+
+export interface NormalizedSearchQuery {
+  title: string;
+  year: number | null;
+}
+
+const VIDEO_EXTENSION = /\.(mkv|mp4|avi|m4v|mov|wmv|webm|ts|mpe?g)$/i;
+
+/**
+ * A query pasted from a file or release name ("Some.Movie.2019.1080p.WEB-DL.mkv",
+ * "Some_Movie", "Some-Movie-2019") becomes a plain title plus year. Only a query
+ * without spaces is treated that way, so ordinary titles with punctuation
+ * ("Mr. Bean", "Spider-Man", "Blade Runner 2049") are searched as typed.
+ */
+export function normalizeSearchQuery(raw: string): NormalizedSearchQuery {
+  const query = raw.trim();
+  const releaseLike =
+    query.length > 0 &&
+    !/\s/.test(query) &&
+    (/[._]/.test(query) || (query.match(/-/g) ?? []).length >= 2);
+  if (!releaseLike) return { title: query, year: null };
+
+  const parsed = parseReleaseName(query.replace(VIDEO_EXTENSION, ""));
+  // A name that parses down to nothing (just a year or tags) is searched as typed.
+  if (!parsed.title) return { title: query.replace(/[._-]+/g, " ").trim(), year: null };
+  return parsed;
+}
 
 export interface SearchMatches {
   libraryMatches: Movie[];
@@ -123,9 +151,13 @@ export function getSearchMatches(
     return { libraryMatches: [], wishlistMatches: [] };
   }
 
+  // "Some.Movie.2019" should find the library copy of "Some Movie" too.
+  const normalized = normalizeSearchQuery(rawQuery).title.toLowerCase();
+  const matchesText = (text: string) =>
+    text.includes(query) || (normalized !== query && normalized !== "" && text.includes(normalized));
   const matchesQuery = (movie: Movie) =>
-    movie.title.toLowerCase().includes(query) ||
-    movie.pl_title?.toLowerCase().includes(query);
+    matchesText(movie.title.toLowerCase()) ||
+    (movie.pl_title ? matchesText(movie.pl_title.toLowerCase()) : false);
 
   const libraryMatches = movies.filter(
     (movie) =>

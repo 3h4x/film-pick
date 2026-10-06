@@ -7,7 +7,7 @@ import {
   upsertCanonicalTmdbMovie,
 } from "@/lib/search";
 import type { Movie } from "@/lib/types";
-import type { TmdbSearchResult } from "@/lib/tmdb";
+import type { TmdbMovieSnapshot, TmdbSearchResult } from "@/lib/tmdb";
 import { cleanTitle } from "@/lib/utils";
 
 interface UseSearchParams {
@@ -17,6 +17,14 @@ interface UseSearchParams {
   setSelectedMovie: (movie: Movie | null) => void;
   addToast: (message: string, variant?: "default" | "success") => void;
   setSearchOpen: (open: boolean) => void;
+}
+
+/** Full TMDb details (cast, plot, Polish title...) for a film that is not in the library. */
+export async function fetchTmdbMovieSnapshot(tmdbId: number): Promise<TmdbMovieSnapshot> {
+  const res = await fetch(`/api/movies/tmdb/${tmdbId}`);
+  if (!res.ok) throw new Error(`TMDb details failed (${res.status})`);
+  const { movie } = (await res.json()) as { movie: TmdbMovieSnapshot };
+  return movie;
 }
 
 export function useSearch({

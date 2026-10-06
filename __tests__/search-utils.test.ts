@@ -7,6 +7,7 @@ import {
   getCanonicalMovieForTmdbId,
   getSearchMatches,
   getTmdbSearchMovieState,
+  normalizeSearchQuery,
   shouldAutoSearchTmdb,
   upsertCanonicalTmdbMovie,
 } from "@/lib/search";
@@ -215,5 +216,39 @@ describe("search utils", () => {
     expect(next.find((movie) => movie.id === 10)?.user_rating).toBe(8);
     expect(next.find((movie) => movie.id === 9)?.user_rating).toBeNull();
     expect(next.find((movie) => movie.id === 9)?.wishlist).toBe(1);
+  });
+});
+
+describe("normalizeSearchQuery", () => {
+  it.each([
+    ["Sample.Movie", "Sample Movie", null],
+    ["Sample.Movie.2019", "Sample Movie", 2019],
+    ["Sample.Movie.2019.1080p.WEB-DL.x264", "Sample Movie", 2019],
+    ["Sample_Movie_2019", "Sample Movie", 2019],
+    ["Sample-Movie-Returns", "Sample Movie Returns", null],
+    ["Sample.Movie.2019.mkv", "Sample Movie", 2019],
+    ["[Group] Sample.Movie.(2019)", "[Group] Sample.Movie.(2019)", null],
+  ])("%s -> %s (%s)", (query, title, year) => {
+    expect(normalizeSearchQuery(query)).toEqual({ title, year });
+  });
+
+  it.each(["Mr. Bean", "Spider-Man", "Blade Runner 2049", "Sample Movie", "  Sample Movie  "])(
+    "leaves an ordinary title alone: %s",
+    (query) => {
+      expect(normalizeSearchQuery(query)).toEqual({ title: query.trim(), year: null });
+    },
+  );
+
+  it("keeps something to search for when the name is only a year", () => {
+    expect(normalizeSearchQuery("1917.2019")).toEqual({ title: "1917", year: 2019 });
+    expect(normalizeSearchQuery("2019.1080p").title).not.toBe("");
+  });
+});
+
+describe("getSearchMatches with a release-style query", () => {
+  it("finds the library copy of a film searched by its dotted release name", () => {
+    const movie = makeMovie({ id: 7, title: "Sample Movie", year: 2019, user_rating: 8 });
+    const { libraryMatches } = getSearchMatches([movie], "Sample.Movie.2019.1080p");
+    expect(libraryMatches.map((m) => m.id)).toEqual([7]);
   });
 });

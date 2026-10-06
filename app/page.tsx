@@ -16,12 +16,12 @@ import WishlistView from "@/components/views/WishlistView";
 import ConfigView from "@/components/views/ConfigView";
 import { useLibrary } from "@/lib/hooks/useLibrary";
 import { useRecommendations } from "@/lib/hooks/useRecommendations";
-import { useSearch } from "@/lib/hooks/useSearch";
+import { fetchTmdbMovieSnapshot, useSearch } from "@/lib/hooks/useSearch";
 import { getCanonicalMovieForTmdbId } from "@/lib/search";
 import { useSettings } from "@/lib/hooks/useSettings";
 import type { AppTab, ToastItem, Movie, RecConfig } from "@/lib/types";
 import { MOOD_PRESETS, type MoodKey } from "@/lib/mood-presets";
-import type { TmdbMovieSnapshot } from "@/lib/tmdb";
+import type { TmdbMovieSnapshot, TmdbSearchResult } from "@/lib/tmdb";
 
 const DEFAULT_REC_CONFIG: RecConfig = {
   excluded_genres: [],
@@ -225,6 +225,24 @@ export default function Home() {
   }
 
   const library = useLibrary(addToast);
+
+  // A TMDb search result that is not in the library: open its details straight
+  // away with what the result already has, then fill in cast, plot and Polish
+  // title. Rating it from there adds it to the library.
+  async function openTmdbResult(result: TmdbSearchResult) {
+    const placeholderId = -result.tmdb_id;
+    setSelectedMovie(
+      movieFromTmdbSnapshot({ ...result, director: null, writer: null, actors: null, description: null }),
+    );
+    try {
+      const snapshot = await fetchTmdbMovieSnapshot(result.tmdb_id);
+      setSelectedMovie((current) =>
+        current?.id === placeholderId ? movieFromTmdbSnapshot(snapshot) : current,
+      );
+    } catch {
+      addToast("Could not load the details from TMDb");
+    }
+  }
   const { movies, setMovies, fetchMovies, initialLoad, searchQuery, setSearchQuery, wishlistMovies } = library;
 
   const recs = useRecommendations({ movies, disabledEngines, activeTab, addToast, setMovies, setSelectedMovie });
@@ -416,6 +434,7 @@ export default function Home() {
             tmdbAdded={search.tmdbAdded} tmdbError={search.tmdbError}
             tmdbSearched={search.tmdbSearched}
             onMovieClick={setSelectedMovie}
+            onTmdbResultClick={openTmdbResult}
             onClear={() => { setSearchQuery(""); setActiveTab("library"); }}
             onGoToConfig={() => { setSearchQuery(""); setActiveTab("config"); }}
             onSearchTmdb={() => search.handleNavSearch(searchQuery, { forceTmdb: true })}
