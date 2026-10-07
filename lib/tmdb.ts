@@ -24,6 +24,15 @@ const TMDB_GENRE_MAP: Record<number, string> = {
   53: "Thriller",
   10752: "War",
   37: "Western",
+  // TV-only genre ids (/search/tv)
+  10759: "Action, Adventure",
+  10762: "Kids",
+  10763: "News",
+  10764: "Reality",
+  10765: "Sci-Fi, Fantasy",
+  10766: "Soap",
+  10767: "Talk",
+  10768: "War, Politics",
 };
 
 // Raw TMDb API response shapes
@@ -293,6 +302,8 @@ function sortPersonFallbackMovieResults(results: TmdbRawResult[]): TmdbRawResult
 }
 
 export interface TmdbSearchResult {
+  /** "tv" for a series from /search/tv; absent or "movie" for a film. TMDb numbers the two separately. */
+  media_type?: "movie" | "tv";
   title: string;
   year: number | null;
   genre: string;
@@ -526,12 +537,71 @@ export async function searchTmdb(
   return results;
 }
 
+interface TmdbRawTvResult {
+  id: number;
+  name: string;
+  original_name?: string | null;
+  first_air_date?: string | null;
+  genre_ids?: number[];
+  vote_average: number;
+  poster_path: string | null;
+  popularity?: number;
+}
+
+function mapTvResult(r: TmdbRawTvResult): TmdbSearchResult {
+  return {
+    media_type: "tv",
+    title: r.name,
+    year: r.first_air_date ? parseInt(r.first_air_date.substring(0, 4), 10) : null,
+    genre: genreIdsToString(r.genre_ids || []),
+    rating: Math.round((r.vote_average || 0) * 10) / 10,
+    poster_url: r.poster_path ? `https://image.tmdb.org/t/p/w300${r.poster_path}` : null,
+    tmdb_id: r.id,
+    imdb_id: null,
+  };
+}
+
+/** TV series matching a query (TMDb /search/tv), best first; a year narrows to first-aired year. */
+export async function searchTmdbTv(query: string, year?: number | null): Promise<TmdbSearchResult[]> {
+  const apiKey = getApiKey();
+  async function search(y: number | null | undefined) {
+    let url = `${TMDB_BASE}/search/tv?query=${encodeURIComponent(query)}&language=en-US&page=1`;
+    if (y) url += `&first_air_date_year=${y}`;
+    const res = await fetchWithRetry(url, apiKey, 3, "searchTmdbTv");
+    if (!res.ok) {
+      const body = await res.text().catch(() => "");
+      console.error(`[TMDb] searchTmdbTv failed: ${res.status} ${res.statusText}`, body);
+      throw new Error(`tmdb_api_error:${res.status}`);
+    }
+    const data = (await res.json()) as { results?: TmdbRawTvResult[] };
+    return (data.results || []).slice(0, 10).map(mapTvResult);
+  }
+  const results = await search(year);
+  return results.length === 0 && year ? search(null) : results;
+}
+
 export async function searchTmdbForUi(
   query: string,
   year?: number | null,
 ): Promise<TmdbSearchResult[]> {
-  const movieResults = await searchTmdb(query, year);
-  if (movieResults.length > 0) return movieResults;
+  // Films and series together (separate TMDb searches). A series whose title is exactly the
+  // query goes first, so "Widow's Bay" finds the show even when films share a word with it.
+  const [movieResults, tvResults] = await Promise.all([
+    searchTmdb(query, year),
+    searchTmdbTv(query, year).catch((error) => {
+      console.warn("[TMDb] TV search failed, showing films only", error);
+      return [] as TmdbSearchResult[];
+    }),
+  ]);
+  if (movieResults.length > 0 || tvResults.length > 0) {
+    const wanted = normalizeSearchText(query);
+    const exactTv = tvResults.filter((r) => normalizeSearchText(r.title) === wanted);
+    const exactMovie = movieResults.filter((r) => normalizeSearchText(r.title) === wanted);
+    const rest = [...movieResults, ...tvResults].filter(
+      (r) => !exactTv.includes(r) && !exactMovie.includes(r),
+    );
+    return [...exactMovie, ...exactTv, ...rest];
+  }
 
   const apiKey = getApiKey();
   const peopleRes = await fetchWithRetry(
@@ -612,6 +682,54 @@ export async function getMovieLocalized(
   const result: LocalizedResult = { pl_title: plData.title || null, description };
   localizedCache.set(tmdbId, { data: result, expiry: Date.now() + CACHE_TTL_MS });
   return result;
+}
+
+/** Polish name and overview of a TV series (English overview as fallback). */
+export async function getTvLocalized(
+  tmdbId: number,
+): Promise<{ pl_title: string | null; description: string | null }> {
+  const apiKey = getApiKey();
+  const plRes = await fetchWithRetry(`${TMDB_BASE}/tv/${tmdbId}?language=pl-PL`, apiKey, 3, "getTvLocalized");
+  if (!plRes.ok) return { pl_title: null, description: null };
+  const plData = (await plRes.json()) as { name?: string; overview?: string };
+  let description = plData.overview || null;
+  if (!description) {
+    const enRes = await fetchWithRetry(`${TMDB_BASE}/tv/${tmdbId}?language=en-US`, apiKey, 3, "getTvLocalized");
+    if (enRes.ok) description = ((await enRes.json()) as { overview?: string }).overview || null;
+  }
+  return { pl_title: plData.name || null, description };
+}
+
+/**
+ * Credits for a TV series, in the shape getTmdbMovieDetails returns: creators stand in
+ * for the director, the top-billed cast for actors. Never call getTmdbMovieDetails with
+ * a TV id -- TMDb numbers films and series separately, so it would describe another film.
+ */
+export async function getTmdbTvDetails(tmdbId: number): Promise<DetailsResult> {
+  const apiKey = getApiKey();
+  const res = await fetchWithRetry(
+    `${TMDB_BASE}/tv/${tmdbId}?append_to_response=aggregate_credits`,
+    apiKey,
+    3,
+    "getTmdbTvDetails",
+  );
+  if (!res.ok) return { director: null, writer: null, actors: null };
+  const data = (await res.json()) as {
+    created_by?: { name: string }[];
+    aggregate_credits?: { cast?: { name: string }[] };
+    episode_run_time?: number[];
+    original_language?: string | null;
+  };
+  const creators = (data.created_by ?? []).map((c) => c.name).filter(Boolean);
+  const runtime = data.episode_run_time?.find((m) => m > 0) ?? null;
+  return {
+    director: creators.length ? creators.join(", ") : null,
+    writer: null,
+    actors: (data.aggregate_credits?.cast ?? []).slice(0, 5).map((c) => c.name).join(", ") || null,
+    tmdb_collection_checked: true,
+    runtime,
+    original_language: data.original_language || null,
+  };
 }
 
 // Keep backward compat

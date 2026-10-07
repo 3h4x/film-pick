@@ -1239,6 +1239,11 @@ describe("searchTmdbForUi — person fallback", () => {
         ok: true,
         json: async () => ({ results: [] }),
       })
+      // /search/tv runs alongside /search/movie and finds nothing either
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ results: [] }),
+      })
       .mockResolvedValueOnce({
         ok: true,
         json: async () => ({
@@ -1279,12 +1284,12 @@ describe("searchTmdbForUi — person fallback", () => {
     expect(results[0].title).toBe("Pearl");
     expect(results[1].title).toBe("X");
     expect(mockFetch).toHaveBeenNthCalledWith(
-      2,
+      3,
       expect.stringContaining("/search/person?query=mia%20goth"),
       expect.any(Object),
     );
     expect(mockFetch).toHaveBeenNthCalledWith(
-      3,
+      4,
       expect.stringContaining("/person/1/movie_credits"),
       expect.any(Object),
     );
@@ -1292,6 +1297,11 @@ describe("searchTmdbForUi — person fallback", () => {
 
   it("deduplicates person fallback filmography results by tmdb_id", async () => {
     mockFetch
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ results: [] }),
+      })
+      // /search/tv runs alongside /search/movie and finds nothing either
       .mockResolvedValueOnce({
         ok: true,
         json: async () => ({ results: [] }),

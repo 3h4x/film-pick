@@ -191,6 +191,7 @@ export default function SearchView({
                   const { existingMovie, existingLabel } = getTmdbSearchMovieState(
                     movieIndex,
                     r.tmdb_id,
+                    r.media_type,
                   );
                   const justAdded = tmdbAdded.has(r.tmdb_id);
                   return (
@@ -202,7 +203,7 @@ export default function SearchView({
                         rating={r.rating}
                         userRating={null}
                         posterUrl={r.poster_url}
-                        source="tmdb"
+                        source={r.media_type === "tv" ? "tv series" : "tmdb"}
                         onClick={() =>
                           existingMovie ? onMovieClick(existingMovie) : onTmdbResultClick(r)
                         }

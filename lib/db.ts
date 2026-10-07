@@ -649,6 +649,10 @@ export function movieNeedsTmdbEnrichment(
   );
 }
 
+function isTvType(type: string | null | undefined): boolean {
+  return type === "tv" || type === "series";
+}
+
 export function getExistingMovieInsertTargetId(
   db: Database.Database,
   movie: MovieInput,
@@ -660,17 +664,19 @@ export function getExistingMovieInsertTargetId(
     if (byFilePath) return byFilePath.id;
   }
 
+  // TMDb numbers films and series separately, so a match must also be the same kind.
+  const isTv = isTvType(movie.type) ? 1 : 0;
   if (movie.tmdb_id) {
     const byTmdbId = db
-      .prepare("SELECT id FROM movies WHERE tmdb_id = ?")
-      .get(movie.tmdb_id) as { id: number } | undefined;
+      .prepare("SELECT id FROM movies WHERE tmdb_id = ? AND (COALESCE(type, 'movie') IN ('tv', 'series')) = ?")
+      .get(movie.tmdb_id, isTv) as { id: number } | undefined;
     if (byTmdbId) return byTmdbId.id;
   }
 
   if (movie.title) {
     const byTitleYear = db
-      .prepare("SELECT id FROM movies WHERE LOWER(title) = LOWER(?) AND year IS ?")
-      .get(movie.title, movie.year ?? null) as { id: number } | undefined;
+      .prepare("SELECT id FROM movies WHERE LOWER(title) = LOWER(?) AND year IS ? AND (COALESCE(type, 'movie') IN ('tv', 'series')) = ?")
+      .get(movie.title, movie.year ?? null, isTv) as { id: number } | undefined;
     if (byTitleYear) return byTitleYear.id;
   }
 
@@ -688,8 +694,8 @@ export function insertMovie(db: Database.Database, movie: MovieInput): number {
   // If a movie with the same tmdb_id already exists, link the file to it
   if (movie.tmdb_id) {
     const byTmdbId = db
-      .prepare("SELECT id, year, file_path, extra_files, genre, rating, poster_url, imdb_id, user_rating, pl_title, filmweb_id, filmweb_url, rated_at, wishlist, description, cda_url, video_metadata, tmdb_collection_id, tmdb_collection_name, tmdb_collection_checked FROM movies WHERE tmdb_id = ?")
-      .get(movie.tmdb_id) as { id: number; year: number | null; file_path: string | null; extra_files: string | null; genre: string | null; rating: number | null; poster_url: string | null; imdb_id: string | null; user_rating: number | null; pl_title: string | null; filmweb_id: number | null; filmweb_url: string | null; rated_at: string | null; wishlist: number | null; description: string | null; cda_url: string | null; video_metadata: string | null; tmdb_collection_id: number | null; tmdb_collection_name: string | null; tmdb_collection_checked: number | null } | undefined;
+      .prepare("SELECT id, year, file_path, extra_files, genre, rating, poster_url, imdb_id, user_rating, pl_title, filmweb_id, filmweb_url, rated_at, wishlist, description, cda_url, video_metadata, tmdb_collection_id, tmdb_collection_name, tmdb_collection_checked FROM movies WHERE tmdb_id = ? AND (COALESCE(type, 'movie') IN ('tv', 'series')) = ?")
+      .get(movie.tmdb_id, isTvType(movie.type) ? 1 : 0) as { id: number; year: number | null; file_path: string | null; extra_files: string | null; genre: string | null; rating: number | null; poster_url: string | null; imdb_id: string | null; user_rating: number | null; pl_title: string | null; filmweb_id: number | null; filmweb_url: string | null; rated_at: string | null; wishlist: number | null; description: string | null; cda_url: string | null; video_metadata: string | null; tmdb_collection_id: number | null; tmdb_collection_name: string | null; tmdb_collection_checked: number | null } | undefined;
     if (byTmdbId) {
       if (movie.file_path) {
         if (!byTmdbId.file_path) {
@@ -715,9 +721,9 @@ export function insertMovie(db: Database.Database, movie: MovieInput): number {
   if (movie.title) {
     const byTitleYear = db
       .prepare(
-        "SELECT id, year, file_path, extra_files, genre, rating, poster_url, imdb_id, tmdb_id, user_rating, pl_title, filmweb_id, filmweb_url, rated_at, wishlist, description, cda_url, video_metadata, tmdb_collection_id, tmdb_collection_name, tmdb_collection_checked FROM movies WHERE LOWER(title) = LOWER(?) AND year IS ?",
+        "SELECT id, year, file_path, extra_files, genre, rating, poster_url, imdb_id, tmdb_id, user_rating, pl_title, filmweb_id, filmweb_url, rated_at, wishlist, description, cda_url, video_metadata, tmdb_collection_id, tmdb_collection_name, tmdb_collection_checked FROM movies WHERE LOWER(title) = LOWER(?) AND year IS ? AND (COALESCE(type, 'movie') IN ('tv', 'series')) = ?",
       )
-      .get(movie.title, movie.year ?? null) as { id: number; year: number | null; file_path: string | null; extra_files: string | null; genre: string | null; rating: number | null; poster_url: string | null; imdb_id: string | null; tmdb_id: number | null; user_rating: number | null; pl_title: string | null; filmweb_id: number | null; filmweb_url: string | null; rated_at: string | null; wishlist: number | null; description: string | null; cda_url: string | null; video_metadata: string | null; tmdb_collection_id: number | null; tmdb_collection_name: string | null; tmdb_collection_checked: number | null } | undefined;
+      .get(movie.title, movie.year ?? null, isTvType(movie.type) ? 1 : 0) as { id: number; year: number | null; file_path: string | null; extra_files: string | null; genre: string | null; rating: number | null; poster_url: string | null; imdb_id: string | null; tmdb_id: number | null; user_rating: number | null; pl_title: string | null; filmweb_id: number | null; filmweb_url: string | null; rated_at: string | null; wishlist: number | null; description: string | null; cda_url: string | null; video_metadata: string | null; tmdb_collection_id: number | null; tmdb_collection_name: string | null; tmdb_collection_checked: number | null } | undefined;
     if (byTitleYear) {
       if (movie.file_path) {
         if (!byTitleYear.file_path) {

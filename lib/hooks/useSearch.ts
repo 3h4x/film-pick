@@ -3,6 +3,7 @@
 import { useState } from "react";
 import {
   getCanonicalMatchingMovie,
+  sameTmdbKind,
   shouldAutoSearchTmdb,
   upsertCanonicalTmdbMovie,
 } from "@/lib/search";
@@ -44,7 +45,9 @@ export function useSearch({
       movies,
       (movie) =>
         movie.id !== options?.excludeId &&
-        ((movie.tmdb_id != null && movie.tmdb_id === searchResult.tmdb_id) ||
+        ((movie.tmdb_id != null &&
+          movie.tmdb_id === searchResult.tmdb_id &&
+          sameTmdbKind(movie, searchResult)) ||
           (cleanTitle(movie.title).toLowerCase() === cleanSearchTitle &&
             movie.year === searchResult.year)),
     );
@@ -218,7 +221,7 @@ export function useSearch({
         source: "tmdb",
         imdb_id: searchResult.imdb_id,
         tmdb_id: searchResult.tmdb_id,
-        type: "movie",
+        type: searchResult.media_type === "tv" ? "tv" : "movie",
         wishlist: isWishlist ? 1 : 0,
       }),
     });
@@ -237,7 +240,7 @@ export function useSearch({
       user_rating: null,
       poster_url: searchResult.poster_url,
       source: "tmdb",
-      type: "movie",
+      type: searchResult.media_type === "tv" ? "tv" : "movie",
       tmdb_id: searchResult.tmdb_id,
       rated_at: null,
       created_at: new Date().toISOString(),

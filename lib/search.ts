@@ -108,11 +108,23 @@ export function getCanonicalMovieForTmdbId(
   return getTmdbSearchMovieState(buildTmdbMovieIndex(movies), tmdbId).existingMovie;
 }
 
+/** TMDb numbers films and series separately: a tmdb_id only identifies a title together with its kind. */
+export function isTvMovie(movie: Pick<Movie, "type">): boolean {
+  return movie.type === "tv" || movie.type === "series";
+}
+
+export function sameTmdbKind(movie: Pick<Movie, "type">, result: { media_type?: "movie" | "tv" }): boolean {
+  return isTvMovie(movie) === (result.media_type === "tv");
+}
+
 export function getTmdbSearchMovieState(
   movieIndex: Map<number, Movie[]>,
   tmdbId: number,
+  mediaType?: "movie" | "tv",
 ): TmdbSearchMovieState {
-  const matches = movieIndex.get(tmdbId) ?? [];
+  const matches = (movieIndex.get(tmdbId) ?? []).filter((movie) =>
+    sameTmdbKind(movie, { media_type: mediaType }),
+  );
   if (matches.length === 0) {
     return { existingMovie: undefined, existingLabel: null };
   }
@@ -131,7 +143,10 @@ export function upsertCanonicalTmdbMovie(
   insertedMovie: Movie,
   updatedMovie: Partial<Movie>,
 ): Movie[] {
-  const existingMovie = getCanonicalMovieForTmdbId(movies, tmdbId);
+  const sameKind = movies.filter(
+    (movie) => movie.tmdb_id === tmdbId && isTvMovie(movie) === isTvMovie(insertedMovie),
+  );
+  const existingMovie = sameKind.length > 0 ? getCanonicalMovie(sameKind) : undefined;
   if (!existingMovie) {
     return [insertedMovie, ...movies];
   }
@@ -183,10 +198,11 @@ export function shouldAutoSearchTmdb(movies: Movie[], rawQuery: string) {
  * TMDb results minus the films already shown above them in the library/watchlist
  * sections, so a film clicked (and so added) does not appear twice.
  */
-export function excludeShownTmdbResults<T extends { tmdb_id: number }>(
+export function excludeShownTmdbResults<T extends { tmdb_id: number; media_type?: "movie" | "tv" }>(
   results: T[],
   shown: Movie[],
 ): T[] {
-  const shownIds = new Set(shown.map((m) => m.tmdb_id).filter((id): id is number => id != null));
-  return results.filter((r) => !shownIds.has(r.tmdb_id));
+  return results.filter(
+    (r) => !shown.some((m) => m.tmdb_id === r.tmdb_id && sameTmdbKind(m, r)),
+  );
 }

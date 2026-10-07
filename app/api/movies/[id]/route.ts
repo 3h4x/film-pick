@@ -1,6 +1,12 @@
 import { NextRequest } from "next/server";
 import { getDb, deleteMovie, type Movie } from "@/lib/db";
-import { getTmdbMovieDetails, searchTmdb, getMovieLocalized } from "@/lib/tmdb";
+import {
+  getTmdbMovieDetails,
+  getTmdbTvDetails,
+  getTvLocalized,
+  searchTmdb,
+  getMovieLocalized,
+} from "@/lib/tmdb";
 import { rateLimit } from "@/lib/rate-limit";
 import { cleanTitle } from "@/lib/utils";
 import { execFile } from "child_process";
@@ -315,6 +321,7 @@ export async function GET(
   // If the auto-link attempt above didn't resolve a pseudo-ID (cda_url set, genre still null),
   // skip further TMDb calls — the ID is still fake and would 404.
   const unresolvedPseudoId = needsAutoLink && movie.cda_url && !movie.genre;
+  const isTvRow = movie.type === "tv" || movie.type === "series";
 
   // Enrich with credits from TMDb (always overwrite — TMDb is authoritative)
   if (
@@ -331,7 +338,10 @@ export async function GET(
     )
   ) {
     try {
-      const credits = await getTmdbMovieDetails(movie.tmdb_id);
+      // A series' tmdb_id is in TMDb's TV numbering; the film endpoint would describe another title.
+      const credits = isTvRow
+        ? await getTmdbTvDetails(movie.tmdb_id)
+        : await getTmdbMovieDetails(movie.tmdb_id);
       const sets: string[] = [];
       const vals: (string | number | null)[] = [];
       if (credits.director || credits.writer || credits.actors) {
@@ -380,7 +390,9 @@ export async function GET(
   // Enrich description and pl_title from TMDb if missing (covers CDA recs that already have tmdb_id)
   if (movie.tmdb_id && !unresolvedPseudoId && (!movie.description || !movie.pl_title)) {
     try {
-      const localized = await getMovieLocalized(movie.tmdb_id);
+      const localized = isTvRow
+        ? await getTvLocalized(movie.tmdb_id)
+        : await getMovieLocalized(movie.tmdb_id);
       const sets: string[] = [];
       const vals: (string | null)[] = [];
       if (localized.pl_title && !movie.pl_title) {

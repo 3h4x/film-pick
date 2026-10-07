@@ -10,6 +10,8 @@ import { initDb, insertMovie } from "@/lib/db";
 // but the GET handler does; mocking avoids side-effects when the module loads.
 vi.mock("@/lib/tmdb", () => ({
   getTmdbMovieDetails: vi.fn(),
+  getTmdbTvDetails: vi.fn(),
+  getTvLocalized: vi.fn().mockResolvedValue({ pl_title: null, description: null }),
   searchTmdb: vi.fn().mockResolvedValue([]),
   getMovieLocalized: vi.fn().mockResolvedValue({ pl_title: null, description: null }),
 }));
@@ -36,7 +38,13 @@ vi.mock("@/lib/db", async (importOriginal) => {
 
 import { GET, PATCH, DELETE } from "@/app/api/movies/[id]/route";
 import { getDb } from "@/lib/db";
-import { getTmdbMovieDetails, searchTmdb, getMovieLocalized } from "@/lib/tmdb";
+import {
+  getTmdbMovieDetails,
+  getTmdbTvDetails,
+  getTvLocalized,
+  searchTmdb,
+  getMovieLocalized,
+} from "@/lib/tmdb";
 
 const TEST_DB = path.join(__dirname, "test-movies-id-route.db");
 
@@ -559,6 +567,26 @@ describe("movies/[id] GET handler", () => {
 
     await GET(getReq(movieId), makeParams(movieId));
     expect(vi.mocked(getTmdbMovieDetails)).toHaveBeenCalledTimes(1);
+  });
+
+  it("enriches a TV series from TMDb's TV endpoints, never the film one with the same number", async () => {
+    const showId = insertMovie(db, {
+      title: "Sample Show", year: 2026, genre: null, director: null, rating: 7.4,
+      poster_url: null, source: "tmdb", imdb_id: null, tmdb_id: 270000, type: "tv",
+    });
+    vi.mocked(getTmdbTvDetails).mockResolvedValueOnce({
+      director: "Jane Example", writer: null, actors: "Alex Sample, Sam Testcase", tmdb_collection_checked: true,
+    });
+    vi.mocked(getTvLocalized).mockResolvedValueOnce({ pl_title: "Przykładowy Serial", description: "Wymyślona fabuła." });
+
+    const res = await GET(getReq(showId), makeParams(showId));
+    const { movie } = await res.json();
+
+    expect(getTmdbTvDetails).toHaveBeenCalledWith(270000);
+    expect(getTvLocalized).toHaveBeenCalledWith(270000);
+    expect(getTmdbMovieDetails).not.toHaveBeenCalled();
+    expect(getMovieLocalized).not.toHaveBeenCalled();
+    expect(movie).toMatchObject({ director: "Jane Example", actors: "Alex Sample, Sam Testcase", pl_title: "Przykładowy Serial" });
   });
 
   it("does not overwrite a stored runtime or language on read", async () => {
