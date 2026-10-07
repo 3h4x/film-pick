@@ -228,12 +228,15 @@ describe("normalizeSearchQuery", () => {
     ["Sample_Movie_2019", "Sample Movie", 2019],
     ["Sample-Movie-Returns", "Sample Movie Returns", null],
     ["Sample.Movie.2019.mkv", "Sample Movie", 2019],
-    ["[Group] Sample.Movie.(2019)", "[Group] Sample.Movie.(2019)", null],
+    ["Sample Movie.2026", "Sample Movie", 2026],
+    ["Sample Movie (2019)", "Sample Movie", 2019],
+    ["Sample Movie [2019] 1080p", "Sample Movie", 2019],
+    ["Sample Movie_2019", "Sample Movie", 2019],
   ])("%s -> %s (%s)", (query, title, year) => {
     expect(normalizeSearchQuery(query)).toEqual({ title, year });
   });
 
-  it.each(["Mr. Bean", "Spider-Man", "Blade Runner 2049", "Sample Movie", "  Sample Movie  "])(
+  it.each(["Mr. Bean", "Spider-Man", "Blade Runner 2049", "Sample Movie", "  Sample Movie  ", "E.T.", "S.W.A.T.", "Dr. Strangelove 1964", "Sample Movie 20190"])(
     "leaves an ordinary title alone: %s",
     (query) => {
       expect(normalizeSearchQuery(query)).toEqual({ title: query.trim(), year: null });

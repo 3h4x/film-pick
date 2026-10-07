@@ -11,16 +11,22 @@ const VIDEO_EXTENSION = /\.(mkv|mp4|avi|m4v|mov|wmv|webm|ts|mpe?g)$/i;
 
 /**
  * A query pasted from a file or release name ("Some.Movie.2019.1080p.WEB-DL.mkv",
- * "Some_Movie", "Some-Movie-2019") becomes a plain title plus year. Only a query
- * without spaces is treated that way, so ordinary titles with punctuation
- * ("Mr. Bean", "Spider-Man", "Blade Runner 2049") are searched as typed.
+ * "Some_Movie", "Some-Movie-2019", "Some Movie.2019", "Some Movie (2019)") becomes a
+ * plain title plus year. Ordinary titles with punctuation ("Mr. Bean", "Spider-Man",
+ * "Blade Runner 2049", "E.T.") are searched as typed.
  */
 export function normalizeSearchQuery(raw: string): NormalizedSearchQuery {
   const query = raw.trim();
+  // Without spaces: any dot/underscore or 2+ dashes ("Some.Movie.2019", "Some-Movie-2019").
+  // With spaces, only an unmistakable year: glued on by a dot/underscore ("Some Movie.2019")
+  // or in brackets ("Some Movie (2019)"). "Blade Runner 2049" and "E.T." stay as typed.
+  const acronym = /^(\p{L}\.)+\p{L}?$/u.test(query); // "E.T.", "S.W.A.T."
   const releaseLike =
     query.length > 0 &&
-    !/\s/.test(query) &&
-    (/[._]/.test(query) || (query.match(/-/g) ?? []).length >= 2);
+    !acronym &&
+    (/\s/.test(query)
+      ? /[._](19|20)\d{2}(?![\d])|[([](19|20)\d{2}[)\]]/.test(query)
+      : /[._]/.test(query) || (query.match(/-/g) ?? []).length >= 2);
   if (!releaseLike) return { title: query, year: null };
 
   const parsed = parseReleaseName(query.replace(VIDEO_EXTENSION, ""));
