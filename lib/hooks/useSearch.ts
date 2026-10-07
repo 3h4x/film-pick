@@ -34,6 +34,8 @@ export function useSearch({
   const [tmdbAdded, setTmdbAdded] = useState<Set<number>>(new Set());
   const [tmdbError, setTmdbError] = useState<string | null>(null);
   const [tmdbSearched, setTmdbSearched] = useState(false);
+  // Films dismissed as "not interested" (tmdb ids), loaded once when TMDb results are shown.
+  const [tmdbDismissed, setTmdbDismissed] = useState<Set<number> | null>(null);
 
   function findExistingMovieMatch(
     searchResult: TmdbSearchResult,
@@ -153,6 +155,7 @@ export function useSearch({
     setTmdbError(null);
     setTmdbSearched(true);
 
+    if (tmdbDismissed === null) void loadDismissed();
     try {
       const res = await fetch(`/api/search?q=${encodeURIComponent(trimmedQuery)}`);
       if (res.ok) {
@@ -165,6 +168,52 @@ export function useSearch({
       setTmdbError("error");
     } finally {
       setTmdbLoading(false);
+    }
+  }
+
+  async function loadDismissed() {
+    try {
+      const res = await fetch("/api/recommendations/dismissed");
+      if (!res.ok) return;
+      const rows = (await res.json()) as { tmdb_id: number }[];
+      setTmdbDismissed(new Set(rows.map((row) => row.tmdb_id)));
+    } catch {
+      // the cards just start as "not dismissed"
+    }
+  }
+
+  /**
+   * "Not interested" from a search card: the same dismissal a recommendation's ✕
+   * records (title and year included, so tpb shows it), or its undo. Films only: TMDb
+   * numbers series separately and dismissals are keyed by tmdb_id alone.
+   */
+  async function toggleNotInterested(result: TmdbSearchResult) {
+    if (result.media_type === "tv") return;
+    const dismissed = tmdbDismissed?.has(result.tmdb_id) ?? false;
+    try {
+      const res = dismissed
+        ? await fetch(`/api/recommendations/dismiss?tmdb_id=${result.tmdb_id}`, { method: "DELETE" })
+        : await fetch("/api/recommendations/dismiss", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              tmdb_id: result.tmdb_id,
+              engine: "search",
+              title: result.title,
+              year: result.year,
+              pl_title: result.pl_title ?? null,
+            }),
+          });
+      if (!res.ok) throw new Error(String(res.status));
+      setTmdbDismissed((prev) => {
+        const next = new Set(prev ?? []);
+        if (dismissed) next.delete(result.tmdb_id);
+        else next.add(result.tmdb_id);
+        return next;
+      });
+      addToast(dismissed ? `"${result.title}" is back` : `Not interested in "${result.title}"`);
+    } catch {
+      addToast(`Could not update "${result.title}"`);
     }
   }
 
@@ -305,6 +354,8 @@ export function useSearch({
     tmdbError,
     setTmdbError,
     tmdbSearched,
+    tmdbDismissed: tmdbDismissed ?? new Set<number>(),
+    toggleNotInterested,
     runTmdbSearch,
     handleAddMovie,
     handleNavSearch,

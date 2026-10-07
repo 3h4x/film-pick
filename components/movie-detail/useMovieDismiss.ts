@@ -14,7 +14,9 @@ interface UseMovieDismissOptions {
  * so tpb can show it), toggled from the movie detail. Needs a TMDb id.
  */
 export function useMovieDismiss({ movie, movieTitle, plTitle }: UseMovieDismissOptions) {
-  const tmdbId = movie.tmdb_id ?? null;
+  // Dismissals are keyed by tmdb_id alone and TMDb numbers series separately, so only films.
+  const isTv = movie.type === "tv" || movie.type === "series";
+  const tmdbId = isTv ? null : (movie.tmdb_id ?? null);
   const [dismissed, setDismissed] = useState(false);
   const [isSavingDismiss, setIsSavingDismiss] = useState(false);
 
