@@ -14,7 +14,7 @@ vi.mock("@/lib/tmdb", () => ({ getTmdbMovieSnapshot: vi.fn() }));
 import { getDb } from "@/lib/db";
 import { getTmdbMovieSnapshot } from "@/lib/tmdb";
 import { fillDismissedTitles } from "@/lib/tmdb-refresh";
-import { POST } from "@/app/api/recommendations/dismiss/route";
+import { DELETE, GET as GET_ONE, POST } from "@/app/api/recommendations/dismiss/route";
 import { GET } from "@/app/api/recommendations/dismissed/route";
 
 const TEST_DB = path.join(__dirname, "test-dismissed.db");
@@ -89,5 +89,27 @@ describe("dismissed recommendations keep their titles", () => {
     vi.mocked(getTmdbMovieSnapshot).mockClear();
     await fillDismissedTitles(db, { limit: 10, delayMs: 0 });
     expect(getTmdbMovieSnapshot).not.toHaveBeenCalled();
+  });
+
+  const one = (method: "GET" | "DELETE", query: string) =>
+    (method === "GET" ? GET_ONE : DELETE)(
+      new NextRequest(`http://localhost/api/recommendations/dismiss${query}`, { method }),
+    );
+
+  it("tells the detail whether a film is dismissed, and undoes it", async () => {
+    await post({ tmdb_id: 601, title: "Sample Movie", year: 1999 });
+    expect(await (await one("GET", "?tmdb_id=601")).json()).toEqual({ dismissed: true });
+    expect(await (await one("GET", "?tmdb_id=602")).json()).toEqual({ dismissed: false });
+
+    expect((await one("DELETE", "?tmdb_id=601")).status).toBe(200);
+    expect(await (await one("GET", "?tmdb_id=601")).json()).toEqual({ dismissed: false });
+    expect(getDismissedRecommendations(db)).toEqual([]);
+  });
+
+  it("requires a numeric tmdb_id for GET and DELETE", async () => {
+    for (const q of ["", "?tmdb_id=abc", "?tmdb_id=-1", "?tmdb_id=0"]) {
+      expect((await one("GET", q)).status, q).toBe(400);
+      expect((await one("DELETE", q)).status, q).toBe(400);
+    }
   });
 });

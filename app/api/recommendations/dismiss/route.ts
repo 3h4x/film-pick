@@ -1,5 +1,11 @@
 import { NextRequest } from "next/server";
-import { getDb, dismissRecommendation, recordRecommendationEvent } from "@/lib/db";
+import {
+  getDb,
+  dismissRecommendation,
+  isDismissed,
+  recordRecommendationEvent,
+  undismissRecommendation,
+} from "@/lib/db";
 import { rateLimit } from "@/lib/rate-limit";
 
 export async function POST(request: NextRequest) {
@@ -25,5 +31,34 @@ export async function POST(request: NextRequest) {
     pl_title: typeof body.pl_title === "string" ? body.pl_title.slice(0, 300) : null,
   });
   recordRecommendationEvent(db, tmdb_id, engine, "dismiss");
+  return Response.json({ ok: true });
+}
+
+function tmdbIdParam(request: NextRequest): number | null {
+  const raw = request.nextUrl.searchParams.get("tmdb_id");
+  const id = raw && /^\d+$/.test(raw) ? Number(raw) : NaN;
+  return Number.isInteger(id) && id > 0 ? id : null;
+}
+
+/** Whether a film is dismissed ("not interested"), for the movie detail's toggle. */
+export async function GET(request: NextRequest) {
+  const tmdbId = tmdbIdParam(request);
+  if (tmdbId === null) {
+    return Response.json({ error: "tmdb_id is required" }, { status: 400 });
+  }
+  return Response.json({ dismissed: isDismissed(getDb(), tmdbId) });
+}
+
+/** Undo a dismissal (the detail's "not interested" toggled off). */
+export async function DELETE(request: NextRequest) {
+  const limited = rateLimit(request, "mutation");
+  if (limited) return limited;
+  const tmdbId = tmdbIdParam(request);
+  if (tmdbId === null) {
+    return Response.json({ error: "tmdb_id is required" }, { status: 400 });
+  }
+  const db = getDb();
+  undismissRecommendation(db, tmdbId);
+  recordRecommendationEvent(db, tmdbId, "", "undismiss");
   return Response.json({ ok: true });
 }
