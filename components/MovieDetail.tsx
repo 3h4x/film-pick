@@ -10,6 +10,7 @@ import { useMovieFileActions } from "@/components/movie-detail/useMovieFileActio
 import { useMovieDetailMetadata } from "@/components/movie-detail/useMovieDetailMetadata";
 import { useMoviePlayback } from "@/components/movie-detail/useMoviePlayback";
 import { subtitleCheckFromRow } from "@/lib/subtitle-check";
+import { useMovieDismiss } from "@/components/movie-detail/useMovieDismiss";
 import { useMovieWatchlist } from "@/components/movie-detail/useMovieWatchlist";
 import { useMovieRating } from "@/components/movie-detail/useMovieRating";
 import { useMovieSubtitles } from "@/components/movie-detail/useMovieSubtitles";
@@ -113,6 +114,21 @@ export default function MovieDetail({
     isPersistedMovie,
     onUpdate,
   });
+  const { dismissed, isSavingDismiss, canDismiss, toggleDismiss } = useMovieDismiss({
+    movie,
+    movieTitle,
+    plTitle,
+  });
+  // "Want to watch" and "Not interested" exclude each other.
+  const handleToggleDismiss = async () => {
+    const nowDismissed = await toggleDismiss();
+    if (nowDismissed === true && onWatchlist) await toggleWatchlist();
+  };
+  const handleToggleWatchlist = async () => {
+    const wasOnWatchlist = onWatchlist;
+    await toggleWatchlist();
+    if (!wasOnWatchlist && dismissed) await toggleDismiss();
+  };
   const {
     lastCheck: subtitleCheck,
     hasSubtitles,
@@ -378,7 +394,11 @@ export default function MovieDetail({
               showRatingPicker={showRatingPicker}
               onWatchlist={onWatchlist}
               isSavingWatchlist={isSavingWatchlist}
-              onToggleWatchlist={toggleWatchlist}
+              onToggleWatchlist={handleToggleWatchlist}
+              dismissed={dismissed}
+              isSavingDismiss={isSavingDismiss}
+              canDismiss={canDismiss}
+              onToggleDismiss={handleToggleDismiss}
               isMergeMode={isMergeMode}
               mergeQuery={mergeQuery}
               potentialMerges={potentialMerges}

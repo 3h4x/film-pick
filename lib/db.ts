@@ -1264,6 +1264,15 @@ export function getDismissedRecommendations(db: Database.Database): DismissedRec
     .all() as DismissedRecommendation[];
 }
 
+export function isDismissed(db: Database.Database, tmdbId: number): boolean {
+  return !!db.prepare("SELECT 1 FROM dismissed_recommendations WHERE tmdb_id = ?").get(tmdbId);
+}
+
+/** Undo a dismissal: the film can be recommended again and is no longer "not interested". */
+export function undismissRecommendation(db: Database.Database, tmdbId: number): void {
+  db.prepare("DELETE FROM dismissed_recommendations WHERE tmdb_id = ?").run(tmdbId);
+}
+
 export function getDismissedIds(db: Database.Database): Set<number> {
   const rows = db
     .prepare("SELECT tmdb_id FROM dismissed_recommendations")
@@ -1271,7 +1280,7 @@ export function getDismissedIds(db: Database.Database): Set<number> {
   return new Set(rows.map((r) => r.tmdb_id));
 }
 
-export type RecommendationEventType = "open" | "add" | "dismiss";
+export type RecommendationEventType = "open" | "add" | "dismiss" | "undismiss";
 
 export function recordRecommendationEvent(
   db: Database.Database,

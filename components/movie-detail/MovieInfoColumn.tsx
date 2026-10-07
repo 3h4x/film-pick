@@ -11,6 +11,7 @@ import RatingControls from "@/components/movie-detail/RatingControls";
 import StorageSection from "@/components/movie-detail/StorageSection";
 import type { SubtitleCheck } from "@/lib/subtitle-check";
 import WatchlistButton from "@/components/movie-detail/WatchlistButton";
+import NotInterestedButton from "@/components/movie-detail/NotInterestedButton";
 import SubtitlesSection from "@/components/movie-detail/SubtitlesSection";
 import TvEpisodeProgressSection from "@/components/movie-detail/TvEpisodeProgressSection";
 import type {
@@ -36,6 +37,10 @@ interface MovieInfoColumnProps {
   onWatchlist: boolean;
   isSavingWatchlist: boolean;
   onToggleWatchlist: () => void;
+  dismissed: boolean;
+  isSavingDismiss: boolean;
+  canDismiss: boolean;
+  onToggleDismiss: () => void;
   isMergeMode: boolean;
   mergeQuery: string;
   potentialMerges: MovieDetailMovie[];
@@ -142,6 +147,10 @@ export default function MovieInfoColumn({
   onWatchlist,
   isSavingWatchlist,
   onToggleWatchlist,
+  dismissed,
+  isSavingDismiss,
+  canDismiss,
+  onToggleDismiss,
   isMergeMode,
   mergeQuery,
   potentialMerges,
@@ -181,12 +190,18 @@ export default function MovieInfoColumn({
     <div className="order-1 lg:order-2 lg:col-span-8 space-y-4 sm:space-y-5">
       <MovieTitleBlock movieTitle={movieTitle} plTitle={plTitle} />
 
-      <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
+      {/* 1. What it is */}
+      <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
         <MovieMetadataBadges
           year={movie.year}
           source={movie.source}
           filePath={filePath}
         />
+        <GenreBadges genre={movie.genre} />
+      </div>
+
+      {/* 2. What I think of it. The rating picker floats, so this row never reflows. */}
+      <div className="flex flex-wrap items-center gap-2 sm:gap-3">
         <RatingControls
           globalRating={movie.rating}
           userRating={userRating}
@@ -195,18 +210,29 @@ export default function MovieInfoColumn({
           onTogglePicker={onToggleRatingPicker}
           onRate={onRate}
         />
-        {/* Rating a film takes it off the watchlist, so only offer it while unrated. */}
+        {/* Rating a film takes it off the watchlist and out of "not interested",
+            so both are only offered while it is unrated. */}
         {!(userRating != null && userRating > 0) && (
-          <WatchlistButton
-            onWatchlist={onWatchlist}
-            isSaving={isSavingWatchlist}
-            onToggle={onToggleWatchlist}
-          />
+          <>
+            <span aria-hidden="true" className="hidden h-6 w-px bg-gray-700/60 sm:block" />
+            <WatchlistButton
+              onWatchlist={onWatchlist}
+              isSaving={isSavingWatchlist}
+              onToggle={onToggleWatchlist}
+            />
+            {canDismiss && (
+              <NotInterestedButton
+                dismissed={dismissed}
+                isSaving={isSavingDismiss}
+                onToggle={onToggleDismiss}
+              />
+            )}
+          </>
         )}
       </div>
 
-      <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
-        <GenreBadges genre={movie.genre} />
+      {/* 3. Where to find it */}
+      <div className="flex flex-wrap items-center gap-2">
         <QuickLinks
           title={movie.title}
           year={movie.year}
