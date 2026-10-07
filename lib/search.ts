@@ -7,6 +7,14 @@ export interface NormalizedSearchQuery {
   year: number | null;
 }
 
+/**
+ * Key of a "not interested" TMDb result: TMDb numbers films and series separately,
+ * so the id alone is ambiguous.
+ */
+export function dismissedKey(tmdbId: number, mediaType?: string | null): string {
+  return `${mediaType === "tv" ? "tv" : "movie"}:${tmdbId}`;
+}
+
 const VIDEO_EXTENSION = /\.(mkv|mp4|avi|m4v|mov|wmv|webm|ts|mpe?g)$/i;
 
 /**

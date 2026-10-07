@@ -2,6 +2,7 @@
 // tamtam inspected 2026-05-21
 import { useState } from "react";
 import {
+  dismissedKey,
   getCanonicalMatchingMovie,
   sameTmdbKind,
   shouldAutoSearchTmdb,
@@ -34,8 +35,9 @@ export function useSearch({
   const [tmdbAdded, setTmdbAdded] = useState<Set<number>>(new Set());
   const [tmdbError, setTmdbError] = useState<string | null>(null);
   const [tmdbSearched, setTmdbSearched] = useState(false);
-  // Films dismissed as "not interested" (tmdb ids), loaded once when TMDb results are shown.
-  const [tmdbDismissed, setTmdbDismissed] = useState<Set<number> | null>(null);
+  // Films and series dismissed as "not interested" (dismissedKey), loaded once when TMDb
+  // results are shown.
+  const [tmdbDismissed, setTmdbDismissed] = useState<Set<string> | null>(null);
 
   function findExistingMovieMatch(
     searchResult: TmdbSearchResult,
@@ -175,8 +177,8 @@ export function useSearch({
     try {
       const res = await fetch("/api/recommendations/dismissed");
       if (!res.ok) return;
-      const rows = (await res.json()) as { tmdb_id: number }[];
-      setTmdbDismissed(new Set(rows.map((row) => row.tmdb_id)));
+      const rows = (await res.json()) as { tmdb_id: number; media_type?: string }[];
+      setTmdbDismissed(new Set(rows.map((row) => dismissedKey(row.tmdb_id, row.media_type))));
     } catch {
       // the cards just start as "not dismissed"
     }
@@ -184,20 +186,25 @@ export function useSearch({
 
   /**
    * "Not interested" from a search card: the same dismissal a recommendation's ✕
-   * records (title and year included, so tpb shows it), or its undo. Films only: TMDb
-   * numbers series separately and dismissals are keyed by tmdb_id alone.
+   * records (title and year included, so tpb shows it), or its undo. A series is
+   * dismissed with media_type "tv", since TMDb numbers series separately.
    */
   async function toggleNotInterested(result: TmdbSearchResult) {
-    if (result.media_type === "tv") return;
-    const dismissed = tmdbDismissed?.has(result.tmdb_id) ?? false;
+    const mediaType = result.media_type === "tv" ? "tv" : "movie";
+    const key = dismissedKey(result.tmdb_id, mediaType);
+    const dismissed = tmdbDismissed?.has(key) ?? false;
     try {
       const res = dismissed
-        ? await fetch(`/api/recommendations/dismiss?tmdb_id=${result.tmdb_id}`, { method: "DELETE" })
+        ? await fetch(
+            `/api/recommendations/dismiss?tmdb_id=${result.tmdb_id}&media_type=${mediaType}`,
+            { method: "DELETE" },
+          )
         : await fetch("/api/recommendations/dismiss", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({
               tmdb_id: result.tmdb_id,
+              media_type: mediaType,
               engine: "search",
               title: result.title,
               year: result.year,
@@ -207,8 +214,8 @@ export function useSearch({
       if (!res.ok) throw new Error(String(res.status));
       setTmdbDismissed((prev) => {
         const next = new Set(prev ?? []);
-        if (dismissed) next.delete(result.tmdb_id);
-        else next.add(result.tmdb_id);
+        if (dismissed) next.delete(key);
+        else next.add(key);
         return next;
       });
       addToast(dismissed ? `"${result.title}" is back` : `Not interested in "${result.title}"`);
@@ -354,7 +361,7 @@ export function useSearch({
     tmdbError,
     setTmdbError,
     tmdbSearched,
-    tmdbDismissed: tmdbDismissed ?? new Set<number>(),
+    tmdbDismissed: tmdbDismissed ?? new Set<string>(),
     toggleNotInterested,
     runTmdbSearch,
     handleAddMovie,

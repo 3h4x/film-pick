@@ -11,12 +11,13 @@ interface UseMovieDismissOptions {
 
 /**
  * "Not interested": the same dismissal a recommendation's ✕ records (title included,
- * so tpb can show it), toggled from the movie detail. Needs a TMDb id.
+ * so tpb can show it), toggled from the movie or series detail. Needs a TMDb id.
  */
 export function useMovieDismiss({ movie, movieTitle, plTitle }: UseMovieDismissOptions) {
-  // Dismissals are keyed by tmdb_id alone and TMDb numbers series separately, so only films.
+  // TMDb numbers series separately from films, so series are dismissed with media_type=tv.
   const isTv = movie.type === "tv" || movie.type === "series";
-  const tmdbId = isTv ? null : (movie.tmdb_id ?? null);
+  const mediaType = isTv ? "tv" : "movie";
+  const tmdbId = movie.tmdb_id ?? null;
   const [dismissed, setDismissed] = useState(false);
   const [isSavingDismiss, setIsSavingDismiss] = useState(false);
 
@@ -26,7 +27,7 @@ export function useMovieDismiss({ movie, movieTitle, plTitle }: UseMovieDismissO
     let current = true;
     void (async () => {
       try {
-        const res = await fetch(`/api/recommendations/dismiss?tmdb_id=${tmdbId}`);
+        const res = await fetch(`/api/recommendations/dismiss?tmdb_id=${tmdbId}&media_type=${mediaType}`);
         if (!res.ok) return;
         const data = (await res.json()) as { dismissed?: boolean };
         if (current) setDismissed(Boolean(data.dismissed));
@@ -37,7 +38,7 @@ export function useMovieDismiss({ movie, movieTitle, plTitle }: UseMovieDismissO
     return () => {
       current = false;
     };
-  }, [tmdbId]);
+  }, [tmdbId, mediaType]);
 
   /** Resolves to the new state, or null when nothing changed. */
   const toggleDismiss = async (): Promise<boolean | null> => {
@@ -51,13 +52,16 @@ export function useMovieDismiss({ movie, movieTitle, plTitle }: UseMovieDismissO
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({
               tmdb_id: tmdbId,
+              media_type: mediaType,
               engine: "detail",
               title: movieTitle,
               year: movie.year,
               pl_title: plTitle,
             }),
           })
-        : await fetch(`/api/recommendations/dismiss?tmdb_id=${tmdbId}`, { method: "DELETE" });
+        : await fetch(`/api/recommendations/dismiss?tmdb_id=${tmdbId}&media_type=${mediaType}`, {
+            method: "DELETE",
+          });
       if (!res.ok) return null;
       setDismissed(next);
       return next;
