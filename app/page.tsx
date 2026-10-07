@@ -430,6 +430,8 @@ export default function Home() {
             onSearchTmdb={() => search.handleNavSearch(searchQuery, { forceTmdb: true })}
             onAddToLibrary={async (r) => { await search.handleAddMovie(r, false); search.setTmdbAdded((prev) => new Set(prev).add(r.tmdb_id)); }}
             onAddToWatchlist={async (r) => { await search.handleAddMovie(r, true); search.setTmdbAdded((prev) => new Set(prev).add(r.tmdb_id)); }}
+            tmdbDismissed={search.tmdbDismissed}
+            onToggleNotInterested={search.toggleNotInterested}
           />
         )}
         {activeTab === "library" && (

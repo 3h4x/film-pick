@@ -33,6 +33,9 @@ interface SearchViewProps {
   onSearchTmdb: () => Promise<void>;
   onAddToLibrary: (r: TmdbSearchResult) => Promise<void>;
   onAddToWatchlist: (r: TmdbSearchResult) => Promise<void>;
+  /** tmdb ids of films marked "not interested". */
+  tmdbDismissed?: Set<number>;
+  onToggleNotInterested?: (r: TmdbSearchResult) => void;
 }
 
 export default function SearchView({
@@ -50,6 +53,8 @@ export default function SearchView({
   onSearchTmdb,
   onAddToLibrary,
   onAddToWatchlist,
+  tmdbDismissed = new Set<number>(),
+  onToggleNotInterested,
 }: SearchViewProps) {
   const { libraryMatches, wishlistMatches } = getSearchMatches(
     movies,
@@ -194,6 +199,8 @@ export default function SearchView({
                     r.media_type,
                   );
                   const justAdded = tmdbAdded.has(r.tmdb_id);
+                  const canDismiss = r.media_type !== "tv" && !!onToggleNotInterested;
+                  const notInterested = canDismiss && tmdbDismissed.has(r.tmdb_id);
                   return (
                     <div key={r.tmdb_id} className="relative group/card">
                       <MovieCard
@@ -212,6 +219,16 @@ export default function SearchView({
                         <div className="absolute top-1.5 left-1.5 bg-green-600/90 text-white text-xs px-1.5 py-0.5 rounded font-medium">
                           {justAdded ? "Added" : existingLabel}
                         </div>
+                      ) : notInterested ? (
+                        <button
+                          type="button"
+                          onClick={() => onToggleNotInterested?.(r)}
+                          className="absolute top-1.5 left-1.5 z-10 rounded bg-red-600/90 px-1.5 py-0.5 text-xs font-medium text-white hover:bg-red-500"
+                          title="Marked not interested. Click to undo"
+                          aria-label={`Undo not interested in ${r.title}`}
+                        >
+                          ✕ Not interested
+                        </button>
                       ) : (
                         <div className="absolute bottom-14 right-1 z-10 flex flex-col gap-1 rounded-xl border border-gray-800/70 bg-black/35 p-1 opacity-100 shadow-lg backdrop-blur-sm transition-all duration-200 sm:bottom-14 sm:right-1 sm:border-transparent sm:bg-transparent sm:p-0 sm:opacity-0 sm:shadow-none sm:backdrop-blur-0 sm:group-hover/card:opacity-100">
                           <button
@@ -230,6 +247,16 @@ export default function SearchView({
                           >
                             🔖
                           </button>
+                          {canDismiss && (
+                            <button
+                              onClick={() => onToggleNotInterested?.(r)}
+                              className="flex h-8 w-8 items-center justify-center rounded-lg bg-red-600/90 text-sm text-white transition-colors hover:bg-red-500 sm:h-7 sm:w-7"
+                              aria-label={`Not interested in ${r.title}`}
+                              title="Not interested (never recommend it, flag it in tpb)"
+                            >
+                              ✕
+                            </button>
+                          )}
                         </div>
                       )}
                     </div>
