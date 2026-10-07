@@ -3,7 +3,7 @@ import { NextRequest } from "next/server";
 import Database from "better-sqlite3";
 import fs from "fs";
 import path from "path";
-import { initDb, dismissRecommendation, getDismissedRecommendations } from "@/lib/db";
+import { initDb, dismissRecommendation, getDismissedIds, getDismissedRecommendations } from "@/lib/db";
 
 vi.mock("@/lib/db", async (importOriginal) => {
   const actual = await importOriginal<typeof import("@/lib/db")>();
@@ -103,6 +103,21 @@ describe("dismissed recommendations keep their titles", () => {
 
     expect((await one("DELETE", "?tmdb_id=601")).status).toBe(200);
     expect(await (await one("GET", "?tmdb_id=601")).json()).toEqual({ dismissed: false });
+    expect(getDismissedRecommendations(db)).toEqual([]);
+  });
+
+  it("keeps a dismissed series apart from a film with the same tmdb_id", async () => {
+    await post({ tmdb_id: 701, media_type: "tv", title: "Sample Show", year: 2022 });
+    expect(await (await one("GET", "?tmdb_id=701&media_type=tv")).json()).toEqual({ dismissed: true });
+    expect(await (await one("GET", "?tmdb_id=701")).json()).toEqual({ dismissed: false });
+    expect(getDismissedIds(db).has(701)).toBe(false);
+    expect(await (await GET()).json()).toEqual([
+      expect.objectContaining({ tmdb_id: 701, media_type: "tv", title: "Sample Show", year: 2022 }),
+    ]);
+
+    expect((await one("DELETE", "?tmdb_id=701")).status).toBe(200);
+    expect(await (await one("GET", "?tmdb_id=701&media_type=tv")).json()).toEqual({ dismissed: true });
+    expect((await one("DELETE", "?tmdb_id=701&media_type=tv")).status).toBe(200);
     expect(getDismissedRecommendations(db)).toEqual([]);
   });
 

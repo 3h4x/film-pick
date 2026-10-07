@@ -276,6 +276,16 @@ export function initDb(db: Database.Database): void {
       dismissed_at DATETIME DEFAULT CURRENT_TIMESTAMP
     );
 
+    -- "Not interested" series. TMDb numbers series separately from films, so they cannot
+    -- share dismissed_recommendations (keyed by tmdb_id alone).
+    CREATE TABLE IF NOT EXISTS dismissed_series (
+      tmdb_id INTEGER PRIMARY KEY,
+      title TEXT,
+      year INTEGER,
+      pl_title TEXT,
+      dismissed_at DATETIME DEFAULT CURRENT_TIMESTAMP
+    );
+
     CREATE TABLE IF NOT EXISTS recommendation_cache (
       engine TEXT PRIMARY KEY,
       data TEXT NOT NULL,
@@ -1226,57 +1236,81 @@ export interface DismissedTitle {
   pl_title?: string | null;
 }
 
+/** Films live in dismissed_recommendations, series in dismissed_series. */
+export type DismissedKind = "movie" | "tv";
+
+function dismissedTable(kind: DismissedKind): string {
+  return kind === "tv" ? "dismissed_series" : "dismissed_recommendations";
+}
+
 export function dismissRecommendation(
   db: Database.Database,
   tmdbId: number,
   film: DismissedTitle = {},
+  kind: DismissedKind = "movie",
 ): void {
   // Keep the title so a dismissed film can be recognised by name elsewhere; fall back to
   // what the library or the recommendation cache knows about this tmdb_id.
-  const known = (db
-    .prepare(
-      `SELECT title, year, pl_title FROM movies WHERE tmdb_id = ?
-       UNION ALL SELECT title, year, pl_title FROM recommended_movies WHERE tmdb_id = ?
-       LIMIT 1`,
-    )
-    .get(tmdbId, tmdbId) ?? {}) as DismissedTitle;
+  const known = (kind === "tv"
+    ? db
+        .prepare(
+          "SELECT title, year, pl_title FROM movies WHERE tmdb_id = ? AND type IN ('tv', 'series') LIMIT 1",
+        )
+        .get(tmdbId)
+    : db
+        .prepare(
+          `SELECT title, year, pl_title FROM movies WHERE tmdb_id = ? AND COALESCE(type, 'movie') NOT IN ('tv', 'series')
+           UNION ALL SELECT title, year, pl_title FROM recommended_movies WHERE tmdb_id = ?
+           LIMIT 1`,
+        )
+        .get(tmdbId, tmdbId)) as DismissedTitle | undefined;
+  const table = dismissedTable(kind);
   db.prepare(
-    `INSERT INTO dismissed_recommendations (tmdb_id, title, year, pl_title) VALUES (?, ?, ?, ?)
+    `INSERT INTO ${table} (tmdb_id, title, year, pl_title) VALUES (?, ?, ?, ?)
      ON CONFLICT(tmdb_id) DO UPDATE SET
-       title = COALESCE(dismissed_recommendations.title, excluded.title),
-       year = COALESCE(dismissed_recommendations.year, excluded.year),
-       pl_title = COALESCE(dismissed_recommendations.pl_title, excluded.pl_title)`,
+       title = COALESCE(${table}.title, excluded.title),
+       year = COALESCE(${table}.year, excluded.year),
+       pl_title = COALESCE(${table}.pl_title, excluded.pl_title)`,
   ).run(
     tmdbId,
-    film.title || known.title || null,
-    film.year ?? known.year ?? null,
-    film.pl_title || known.pl_title || null,
+    film.title || known?.title || null,
+    film.year ?? known?.year ?? null,
+    film.pl_title || known?.pl_title || null,
   );
 }
 
 export interface DismissedRecommendation {
   tmdb_id: number;
+  media_type: DismissedKind;
   title: string | null;
   year: number | null;
   pl_title: string | null;
   dismissed_at: string;
 }
 
+/** Dismissed films and series, newest first; `media_type` tells them apart. */
 export function getDismissedRecommendations(db: Database.Database): DismissedRecommendation[] {
   return db
     .prepare(
-      "SELECT tmdb_id, title, year, pl_title, dismissed_at FROM dismissed_recommendations ORDER BY dismissed_at DESC",
+      `SELECT tmdb_id, 'movie' AS media_type, title, year, pl_title, dismissed_at FROM dismissed_recommendations
+       UNION ALL
+       SELECT tmdb_id, 'tv' AS media_type, title, year, pl_title, dismissed_at FROM dismissed_series
+       ORDER BY dismissed_at DESC`,
     )
     .all() as DismissedRecommendation[];
 }
 
-export function isDismissed(db: Database.Database, tmdbId: number): boolean {
-  return !!db.prepare("SELECT 1 FROM dismissed_recommendations WHERE tmdb_id = ?").get(tmdbId);
+export function isDismissed(db: Database.Database, tmdbId: number, kind: DismissedKind = "movie"): boolean {
+  return !!db.prepare(`SELECT 1 FROM ${dismissedTable(kind)} WHERE tmdb_id = ?`).get(tmdbId);
 }
 
 /** Undo a dismissal: the film can be recommended again and is no longer "not interested". */
-export function undismissRecommendation(db: Database.Database, tmdbId: number): void {
-  db.prepare("DELETE FROM dismissed_recommendations WHERE tmdb_id = ?").run(tmdbId);
+export function undismissRecommendation(
+  db: Database.Database,
+  tmdbId: number,
+  kind: DismissedKind = "movie",
+): void {
+  db.prepare(`DELETE FROM ${dismissedTable(kind)} WHERE tmdb_id = ?`).run(tmdbId);
 }
 
 export function getDismissedIds(db: Database.Database): Set<number> {

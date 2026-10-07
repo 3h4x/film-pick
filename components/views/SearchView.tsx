@@ -6,6 +6,7 @@ import MovieCard from "@/components/MovieCard";
 import Spinner from "@/components/ui/Spinner";
 import {
   buildTmdbMovieIndex,
+  dismissedKey,
   getSearchMatches,
   excludeShownTmdbResults,
   getTmdbSearchMovieState,
@@ -34,7 +35,8 @@ interface SearchViewProps {
   onAddToLibrary: (r: TmdbSearchResult) => Promise<void>;
   onAddToWatchlist: (r: TmdbSearchResult) => Promise<void>;
   /** tmdb ids of films marked "not interested". */
-  tmdbDismissed?: Set<number>;
+  /** dismissedKey of every "not interested" film and series. */
+  tmdbDismissed?: Set<string>;
   onToggleNotInterested?: (r: TmdbSearchResult) => void;
 }
 
@@ -53,7 +55,7 @@ export default function SearchView({
   onSearchTmdb,
   onAddToLibrary,
   onAddToWatchlist,
-  tmdbDismissed = new Set<number>(),
+  tmdbDismissed = new Set<string>(),
   onToggleNotInterested,
 }: SearchViewProps) {
   const { libraryMatches, wishlistMatches } = getSearchMatches(
@@ -199,8 +201,9 @@ export default function SearchView({
                     r.media_type,
                   );
                   const justAdded = tmdbAdded.has(r.tmdb_id);
-                  const canDismiss = r.media_type !== "tv" && !!onToggleNotInterested;
-                  const notInterested = canDismiss && tmdbDismissed.has(r.tmdb_id);
+                  const canDismiss = !!onToggleNotInterested;
+                  const notInterested =
+                    canDismiss && tmdbDismissed.has(dismissedKey(r.tmdb_id, r.media_type));
                   return (
                     <div key={r.tmdb_id} className="relative group/card">
                       <MovieCard
