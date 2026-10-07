@@ -1,6 +1,6 @@
 import type Database from "better-sqlite3";
 import { getSetting } from "@/lib/db";
-import { refreshStaleTmdbMetadata } from "@/lib/tmdb-refresh";
+import { fillDismissedTitles, refreshStaleTmdbMetadata } from "@/lib/tmdb-refresh";
 import { rematchLocalMovies } from "@/lib/tmdb-rematch";
 import {
   BACKGROUND_ENRICH_OPTIONS,
@@ -46,6 +46,8 @@ async function runBatch(db: Database.Database): Promise<TmdbRefreshBatchResult> 
   // refreshed in the same batch.
   const rematch = await rematchLocalMovies(db, BACKGROUND_REMATCH_OPTIONS);
   const refresh = await refreshStaleTmdbMetadata(db, BACKGROUND_ENRICH_OPTIONS);
+  // Dismissals recorded before titles were stored (see the add_dismissed_titles migration).
+  await fillDismissedTitles(db, { limit: 50, delayMs: BACKGROUND_ENRICH_OPTIONS.delayMs });
   if (rematch.matched > 0 || refresh.updated > 0) {
     console.log(
       `[tmdb-refresh] batch: ${rematch.matched} matched, ${refresh.updated} refreshed`,

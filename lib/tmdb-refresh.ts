@@ -1,5 +1,6 @@
 import type Database from "better-sqlite3";
 import {
+  MAX_TMDB_ID,
   getMovie,
   getStaleTmdbMovies,
   updateMovieTmdbMetadata,
@@ -133,4 +134,37 @@ export async function refreshStaleTmdbMetadata(
   if (fatal !== null) throw fatal;
 
   return { updated, skipped };
+}
+
+/**
+ * Give dismissed recommendations recorded before titles were stored a title, year and
+ * Polish title from TMDb, a few per run. A film TMDb no longer knows gets an empty
+ * title so it is not asked about again.
+ */
+export async function fillDismissedTitles(
+  db: Database.Database,
+  { limit, delayMs }: { limit: number; delayMs: number },
+): Promise<number> {
+  const rows = db
+    .prepare(
+      `SELECT tmdb_id FROM dismissed_recommendations
+       WHERE title IS NULL AND tmdb_id < ${MAX_TMDB_ID}
+       ORDER BY dismissed_at DESC LIMIT ?`,
+    )
+    .all(limit) as { tmdb_id: number }[];
+  const save = db.prepare(
+    "UPDATE dismissed_recommendations SET title = ?, year = ?, pl_title = ? WHERE tmdb_id = ?",
+  );
+  let filled = 0;
+  for (const { tmdb_id } of rows) {
+    const snapshot = await getTmdbMovieSnapshot(tmdb_id);
+    if (snapshot) {
+      save.run(snapshot.title, snapshot.year, snapshot.pl_title ?? null, tmdb_id);
+      filled++;
+    } else {
+      save.run("", null, null, tmdb_id);
+    }
+    await wait(delayMs);
+  }
+  return filled;
 }

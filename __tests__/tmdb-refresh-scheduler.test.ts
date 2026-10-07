@@ -4,7 +4,7 @@ import fs from "fs";
 import path from "path";
 import { initDb, setSetting } from "@/lib/db";
 
-vi.mock("@/lib/tmdb-refresh", () => ({ refreshStaleTmdbMetadata: vi.fn() }));
+vi.mock("@/lib/tmdb-refresh", () => ({ refreshStaleTmdbMetadata: vi.fn(), fillDismissedTitles: vi.fn() }));
 vi.mock("@/lib/tmdb-rematch", () => ({ rematchLocalMovies: vi.fn() }));
 
 import {
@@ -12,7 +12,7 @@ import {
   rescheduleTmdbRefreshJob,
   runTmdbRefreshNow,
 } from "@/lib/tmdb-refresh-scheduler";
-import { refreshStaleTmdbMetadata } from "@/lib/tmdb-refresh";
+import { fillDismissedTitles, refreshStaleTmdbMetadata } from "@/lib/tmdb-refresh";
 import { rematchLocalMovies } from "@/lib/tmdb-rematch";
 import { BACKGROUND_ENRICH_OPTIONS, BACKGROUND_REMATCH_OPTIONS } from "@/lib/tmdb-enrich-options";
 
@@ -29,6 +29,7 @@ describe("TMDb background refresh scheduler", () => {
     process.env.TMDB_API_KEY = "test-key";
     vi.mocked(rematchLocalMovies).mockResolvedValue({ matched: 0, unmatched: 0, failed: 0 });
     vi.mocked(refreshStaleTmdbMetadata).mockResolvedValue({ updated: 0, skipped: 0 });
+    vi.mocked(fillDismissedTitles).mockResolvedValue(0);
     vi.spyOn(console, "log").mockImplementation(() => {});
   });
 
@@ -54,6 +55,7 @@ describe("TMDb background refresh scheduler", () => {
     expect(result).toEqual({ rematched: 2, refreshed: 40, skipped: false });
     expect(rematchLocalMovies).toHaveBeenCalledWith(db, BACKGROUND_REMATCH_OPTIONS);
     expect(refreshStaleTmdbMetadata).toHaveBeenCalledWith(db, BACKGROUND_ENRICH_OPTIONS);
+    expect(fillDismissedTitles).toHaveBeenCalledWith(db, expect.objectContaining({ limit: 50 }));
     expect(BACKGROUND_ENRICH_OPTIONS.limit).toBeLessThanOrEqual(100);
   });
 

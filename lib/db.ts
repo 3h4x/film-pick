@@ -473,6 +473,38 @@ export function initDb(db: Database.Database): void {
     ).run();
   }
 
+  // Titles on dismissals, so other tools (tpb) can recognise a dismissed film by name.
+  // Old rows are filled from the library / recommendation cache here, the rest from
+  // TMDb by the hourly background batch (fillDismissedTitles in lib/tmdb-refresh.ts).
+  const hasDismissedTitles = db
+    .prepare("SELECT 1 FROM _migrations WHERE name = 'add_dismissed_titles'")
+    .get();
+  if (!hasDismissedTitles) {
+    const cols = (db.pragma("table_info(dismissed_recommendations)") as { name: string }[]).map((c) => c.name);
+    for (const [col, type] of [
+      ["title", "TEXT"],
+      ["year", "INTEGER"],
+      ["pl_title", "TEXT"],
+    ] as const) {
+      if (!cols.includes(col)) db.exec(`ALTER TABLE dismissed_recommendations ADD COLUMN ${col} ${type}`);
+    }
+    db.exec(`
+      UPDATE dismissed_recommendations SET
+        title = COALESCE(title,
+          (SELECT m.title FROM movies m WHERE m.tmdb_id = dismissed_recommendations.tmdb_id LIMIT 1),
+          (SELECT r.title FROM recommended_movies r WHERE r.tmdb_id = dismissed_recommendations.tmdb_id LIMIT 1)),
+        year = COALESCE(year,
+          (SELECT m.year FROM movies m WHERE m.tmdb_id = dismissed_recommendations.tmdb_id LIMIT 1),
+          (SELECT r.year FROM recommended_movies r WHERE r.tmdb_id = dismissed_recommendations.tmdb_id LIMIT 1)),
+        pl_title = COALESCE(pl_title,
+          (SELECT m.pl_title FROM movies m WHERE m.tmdb_id = dismissed_recommendations.tmdb_id LIMIT 1),
+          (SELECT r.pl_title FROM recommended_movies r WHERE r.tmdb_id = dismissed_recommendations.tmdb_id LIMIT 1))
+    `);
+    db.prepare(
+      "INSERT OR IGNORE INTO _migrations (name) VALUES ('add_dismissed_titles')",
+    ).run();
+  }
+
   // Indexes for common query patterns (idempotent — IF NOT EXISTS)
   db.exec(`
     CREATE INDEX IF NOT EXISTS idx_movies_tmdb_id ON movies (tmdb_id);
@@ -1182,13 +1214,54 @@ export function getMovieByFilePath(
   );
 }
 
+export interface DismissedTitle {
+  title?: string | null;
+  year?: number | null;
+  pl_title?: string | null;
+}
+
 export function dismissRecommendation(
   db: Database.Database,
   tmdbId: number,
+  film: DismissedTitle = {},
 ): void {
+  // Keep the title so a dismissed film can be recognised by name elsewhere; fall back to
+  // what the library or the recommendation cache knows about this tmdb_id.
+  const known = (db
+    .prepare(
+      `SELECT title, year, pl_title FROM movies WHERE tmdb_id = ?
+       UNION ALL SELECT title, year, pl_title FROM recommended_movies WHERE tmdb_id = ?
+       LIMIT 1`,
+    )
+    .get(tmdbId, tmdbId) ?? {}) as DismissedTitle;
   db.prepare(
-    "INSERT OR IGNORE INTO dismissed_recommendations (tmdb_id) VALUES (?)",
-  ).run(tmdbId);
+    `INSERT INTO dismissed_recommendations (tmdb_id, title, year, pl_title) VALUES (?, ?, ?, ?)
+     ON CONFLICT(tmdb_id) DO UPDATE SET
+       title = COALESCE(dismissed_recommendations.title, excluded.title),
+       year = COALESCE(dismissed_recommendations.year, excluded.year),
+       pl_title = COALESCE(dismissed_recommendations.pl_title, excluded.pl_title)`,
+  ).run(
+    tmdbId,
+    film.title || known.title || null,
+    film.year ?? known.year ?? null,
+    film.pl_title || known.pl_title || null,
+  );
+}
+
+export interface DismissedRecommendation {
+  tmdb_id: number;
+  title: string | null;
+  year: number | null;
+  pl_title: string | null;
+  dismissed_at: string;
+}
+
+export function getDismissedRecommendations(db: Database.Database): DismissedRecommendation[] {
+  return db
+    .prepare(
+      "SELECT tmdb_id, title, year, pl_title, dismissed_at FROM dismissed_recommendations ORDER BY dismissed_at DESC",
+    )
+    .all() as DismissedRecommendation[];
 }
 
 export function getDismissedIds(db: Database.Database): Set<number> {

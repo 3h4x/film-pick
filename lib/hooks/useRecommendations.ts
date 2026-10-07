@@ -383,7 +383,14 @@ export function useRecommendations({
     void fetch("/api/recommendations/dismiss", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ tmdb_id: tmdbId, engine }),
+      // The title travels with the dismissal so it can be recognised by name elsewhere.
+      body: JSON.stringify({
+        tmdb_id: tmdbId,
+        engine,
+        title: rec.title,
+        year: rec.year,
+        pl_title: rec.pl_title ?? null,
+      }),
     });
   }
 
