@@ -15,7 +15,9 @@
 # security-updates` group and opened one PR per advisory, each conflicting with the
 # others' lockfile; merging one made Dependabot open the next. Do not move back to
 # multi-ecosystem-groups for that reason.
-# Semver-major version updates stay ignored, so one breaking major cannot hold a
+# The minor-patch groups have no update-types filter on purpose: a SHA-pinned action or
+# a Docker digest is neither minor nor patch, and would get its own PR. Majors never reach
+# them anyway: semver-major version updates stay ignored, so one breaking major cannot hold a
 # grouped PR red; majors are bumped by hand. Security updates drop update-type
 # ignores, so they still get majors when the fix needs one.
 version: 2
@@ -37,7 +39,6 @@ updates:
       npm-minor-patch:
         applies-to: version-updates
         patterns: ["*"]
-        update-types: [minor, patch]
 
   - package-ecosystem: github-actions
     schedule: {interval: weekly, day: monday, time: "06:00", timezone: Europe/Warsaw}
@@ -56,4 +57,3 @@ updates:
       actions-minor-patch:
         applies-to: version-updates
         patterns: ["*"]
-        update-types: [minor, patch]
