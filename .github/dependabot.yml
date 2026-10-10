@@ -8,45 +8,52 @@
 # `open-pull-requests-limit` apply to version updates only; security updates
 # are never delayed.
 #
-# One Dependabot version-update PR at a time: the version updates of every
-# ecosystem below join the single `dependencies` multi-ecosystem group (one
-# weekly PR; open-pull-requests-limit: 1 on each entry), and semver-major
-# version updates are ignored so one breaking major cannot block that PR;
-# majors are bumped by hand. Security updates cannot join a multi-ecosystem
-# group, so they stay grouped per ecosystem (`applies-to: security-updates`);
-# open-pull-requests-limit and the major ignore do not apply to them.
+# Grouping (3h4x, 2026-10-10): one grouped PR per ecosystem and directory, for
+# version updates (<eco>-minor-patch) and for security updates (<eco>-security).
+# This replaced `multi-ecosystem-groups` (2026-09-30 to 2026-10-10). While an entry
+# belonged to a multi-ecosystem group, Dependabot ignored its `applies-to:
+# security-updates` group and opened one PR per advisory, each conflicting with the
+# others' lockfile; merging one made Dependabot open the next. Do not move back to
+# multi-ecosystem-groups for that reason.
+# Semver-major version updates stay ignored, so one breaking major cannot hold a
+# grouped PR red; majors are bumped by hand. Security updates drop update-type
+# ignores, so they still get majors when the fix needs one.
 version: 2
-multi-ecosystem-groups:
-  dependencies:
-    open-pull-requests-limit: 1    # the limit belongs on the group, not on its member entries
-    schedule: {interval: weekly, day: monday, time: "06:00", timezone: Europe/Warsaw}
 updates:
   - package-ecosystem: npm
+    schedule: {interval: weekly, day: monday, time: "06:00", timezone: Europe/Warsaw}
+    open-pull-requests-limit: 1 # version PRs only; security PRs are not capped
     directory: "/"
     cooldown:
       default-days: 7
-    multi-ecosystem-group: dependencies
-    patterns: ["*"]
     ignore:
-      # Majors are done by hand: one breaking major would hold up the single grouped PR.
+      # Majors are done by hand: one breaking major would hold up a grouped PR.
       - dependency-name: "*"
         update-types: ["version-update:semver-major"]
     groups:
       npm-security:
         applies-to: security-updates
         patterns: ["*"]
+      npm-minor-patch:
+        applies-to: version-updates
+        patterns: ["*"]
+        update-types: [minor, patch]
 
   - package-ecosystem: github-actions
+    schedule: {interval: weekly, day: monday, time: "06:00", timezone: Europe/Warsaw}
+    open-pull-requests-limit: 1 # version PRs only; security PRs are not capped
     directory: "/"
     cooldown:
       default-days: 7
-    multi-ecosystem-group: dependencies
-    patterns: ["*"]
     ignore:
-      # Majors are done by hand: one breaking major would hold up the single grouped PR.
+      # Majors are done by hand: one breaking major would hold up a grouped PR.
       - dependency-name: "*"
         update-types: ["version-update:semver-major"]
     groups:
       actions-security:
         applies-to: security-updates
         patterns: ["*"]
+      actions-minor-patch:
+        applies-to: version-updates
+        patterns: ["*"]
+        update-types: [minor, patch]
