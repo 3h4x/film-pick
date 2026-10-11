@@ -18,6 +18,23 @@ export async function POST(
   const { id: movieId } = await params;
   const { action = "play" } = await req.json(); // "play" or "folder"
 
+  // Both actions run macOS `open` on the machine FilmPick runs on, which is only the
+  // viewer's machine when FilmPick runs locally. In the Docker image there is no `open`
+  // (and a player would start on the server anyway), so say so and let the client
+  // hand VLC a playlist of stream URLs instead.
+  if (process.platform !== "darwin") {
+    return NextResponse.json(
+      {
+        error:
+          action === "folder"
+            ? "Open folder only works when FilmPick runs on this Mac"
+            : "The server cannot start a local player",
+        code: "NO_LOCAL_PLAYER",
+      },
+      { status: 501 },
+    );
+  }
+
   try {
     const db = getDb();
     const movie = db

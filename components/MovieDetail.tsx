@@ -425,6 +425,8 @@ export default function MovieDetail({
               onMerge={handleMerge}
               onSelectPart={setActivePart}
               onCloseEmbedded={() => setShowEmbedded(false)}
+              videoMetadata={videoMetadata}
+              onPlay={() => handlePlay("play")}
               onDragOverSub={onDragOverSub}
               onDragLeaveSub={onDragLeaveSub}
               onDropSub={onDropSub}

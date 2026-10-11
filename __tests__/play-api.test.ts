@@ -93,7 +93,15 @@ describe("movies/[id]/play POST handler", () => {
     });
   });
 
+  // The route only launches a player on macOS; pin the platform so these tests do the
+  // same on a Linux CI runner. The non-macOS answer has its own test below.
+  const realPlatform = process.platform;
+  beforeEach(() => {
+    Object.defineProperty(process, "platform", { value: "darwin", configurable: true });
+  });
+
   afterEach(() => {
+    Object.defineProperty(process, "platform", { value: realPlatform, configurable: true });
     db.close();
     _resetForTests();
     delete process.env.RATE_LIMIT_ENFORCE_IN_TESTS;
@@ -103,6 +111,17 @@ describe("movies/[id]/play POST handler", () => {
       fs.unlinkSync(TEST_DB);
     } catch {}
     vi.resetAllMocks();
+  });
+
+  it("answers NO_LOCAL_PLAYER without spawning anything when the server is not a Mac", async () => {
+    Object.defineProperty(process, "platform", { value: "linux", configurable: true });
+    for (const action of ["play", "folder"]) {
+      const res = await POST(postReq(movieWithFileId, { action }), makeParams(movieWithFileId));
+      expect(res.status).toBe(501);
+      const data = await res.json();
+      expect(data.code).toBe("NO_LOCAL_PLAYER");
+    }
+    expect(mockExecFile).not.toHaveBeenCalled();
   });
 
   it("returns 404 for non-existent movie", async () => {

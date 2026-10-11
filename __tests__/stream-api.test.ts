@@ -6,11 +6,17 @@ import path from "path";
 import fs from "fs";
 import { initDb, insertMovie } from "@/lib/db";
 
-const { mockStat, mockReadFile, mockCreateReadStream } = vi.hoisted(() => ({
+const { mockStat, mockReadFile, mockCreateReadStream, mockSpawn } = vi.hoisted(() => ({
   mockStat: vi.fn(),
   mockReadFile: vi.fn(),
   mockCreateReadStream: vi.fn(),
+  mockSpawn: vi.fn(),
 }));
+
+vi.mock("child_process", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("child_process")>();
+  return { ...actual, spawn: mockSpawn };
+});
 
 vi.mock("fs/promises", () => ({
   default: { readFile: mockReadFile },
@@ -46,10 +52,23 @@ function makeParams(id: number) {
   return { params: Promise.resolve({ id: String(id) }) };
 }
 
-function getReq(id: number, options: { range?: string; part?: number; sub?: string } = {}) {
+function getReq(
+  id: number,
+  options: {
+    range?: string;
+    part?: number;
+    sub?: string;
+    mode?: string;
+    start?: number;
+    shift?: number;
+  } = {},
+) {
   const url = new URL(`http://localhost/api/movies/${id}/stream`);
   if (options.part !== undefined) url.searchParams.set("part", String(options.part));
   if (options.sub) url.searchParams.set("sub", options.sub);
+  if (options.mode) url.searchParams.set("mode", options.mode);
+  if (options.start !== undefined) url.searchParams.set("start", String(options.start));
+  if (options.shift !== undefined) url.searchParams.set("shift", String(options.shift));
   const headers: Record<string, string> = {};
   if (options.range) headers["range"] = options.range;
   return new NextRequest(url.toString(), { headers });
@@ -181,6 +200,94 @@ describe("movies/[id]/stream GET handler", () => {
     });
   });
 
+  describe("compatibility (remux) stream", () => {
+    const FILE_PATH = "/mnt/library/Sample Movie (1999)/Sample Movie.mkv";
+
+    function fakeFfmpeg() {
+      // eslint-disable-next-line @typescript-eslint/no-require-imports
+      const { EventEmitter } = require("events") as typeof import("events");
+      // eslint-disable-next-line @typescript-eslint/no-require-imports
+      const { PassThrough } = require("stream") as typeof import("stream");
+      const child = Object.assign(new EventEmitter(), {
+        stdout: new PassThrough(),
+        stderr: new PassThrough(),
+        exitCode: null as number | null,
+        signalCode: null as string | null,
+        kill: vi.fn(function (this: { signalCode: string | null }) {
+          this.signalCode = "SIGKILL";
+          return true;
+        }),
+      });
+      return child;
+    }
+
+    beforeEach(() => {
+      movieId = insertMovie(db, {
+        title: "Sample Movie",
+        year: 1999,
+        genre: "Drama",
+        director: null,
+        rating: null,
+        poster_url: null,
+        source: "local",
+        imdb_id: null,
+        tmdb_id: null,
+        type: "movie",
+      });
+      db.prepare("UPDATE movies SET file_path = ?, video_metadata = ? WHERE id = ?").run(
+        FILE_PATH,
+        JSON.stringify({ video: { codec: "hevc" }, audio: [{ codec: "eac3" }] }),
+        movieId,
+      );
+    });
+
+    it("streams ffmpeg's fragmented MP4 from the requested offset", async () => {
+      const child = fakeFfmpeg();
+      mockSpawn.mockReturnValue(child);
+
+      const res = await GET(getReq(movieId, { mode: "remux", start: 600 }), makeParams(movieId));
+      expect(res.status).toBe(200);
+      expect(res.headers.get("Content-Type")).toBe("video/mp4");
+
+      const [cmd, args] = mockSpawn.mock.calls[0];
+      expect(cmd).toBe("ffmpeg");
+      expect(args).toEqual(expect.arrayContaining(["-ss", "600", "-i", FILE_PATH, "-tag:v", "hvc1"]));
+      expect(mockStat).not.toHaveBeenCalled();
+
+      child.stdout.end(Buffer.from("fragment"));
+      expect(await res.text()).toBe("fragment");
+      child.emit("close", 0, null);
+    });
+
+    it("kills ffmpeg when the player drops the connection", async () => {
+      const child = fakeFfmpeg();
+      mockSpawn.mockReturnValue(child);
+      const controller = new AbortController();
+      const req = new NextRequest(
+        `http://localhost/api/movies/${movieId}/stream?mode=remux`,
+        { signal: controller.signal },
+      );
+
+      await GET(req, makeParams(movieId));
+      controller.abort();
+      expect(child.kill).toHaveBeenCalledWith("SIGKILL");
+      child.emit("close", null, "SIGKILL");
+    });
+
+    it("refuses a third concurrent stream", async () => {
+      const children = [fakeFfmpeg(), fakeFfmpeg()];
+      mockSpawn.mockReturnValueOnce(children[0]).mockReturnValueOnce(children[1]);
+
+      await GET(getReq(movieId, { mode: "remux" }), makeParams(movieId));
+      await GET(getReq(movieId, { mode: "remux" }), makeParams(movieId));
+      const third = await GET(getReq(movieId, { mode: "remux" }), makeParams(movieId));
+      expect(third.status).toBe(503);
+      expect(mockSpawn).toHaveBeenCalledTimes(2);
+
+      for (const child of children) child.emit("close", 0, null);
+    });
+  });
+
   describe("subtitle serving", () => {
     const FILE_PATH = "/movies/Dune/Dune.mp4";
     const SUB_DIR = "/movies/Dune";
@@ -213,6 +320,17 @@ describe("movies/[id]/stream GET handler", () => {
       expect(text).toBe(vttContent);
       // Read as bytes, not as a UTF-8 string — the encoding is sniffed, not assumed.
       expect(mockReadFile).toHaveBeenCalledWith(path.join(SUB_DIR, "Dune.vtt"));
+    });
+
+    it("shifts cues for a compatibility stream that starts at an offset", async () => {
+      const srtContent =
+        "1\n00:00:01,000 --> 00:00:03,000\nBefore\n\n2\n00:02:05,000 --> 00:02:07,000\nAfter\n";
+      mockReadFile.mockResolvedValue(Buffer.from(srtContent, "utf8"));
+
+      const res = await GET(getReq(movieId, { sub: "Dune.srt", shift: 120 }), makeParams(movieId));
+      const text = await res.text();
+      expect(text).not.toContain("Before");
+      expect(text).toContain("00:00:05.000 --> 00:00:07.000");
     });
 
     it("converts SRT to VTT format", async () => {

@@ -9,11 +9,61 @@ import {
   readMicroDvdFps,
 } from "@/lib/subtitles";
 import { probeFps } from "@/lib/ffprobe";
+import { buildRemuxArgs, shiftVttCues } from "@/lib/playback";
+import { spawn } from "child_process";
+import { Readable } from "stream";
 import fs from "fs";
 import { stat } from "fs/promises";
 import path from "path";
 
 const SRT_TIMESTAMP_RE = /(\d{2}:\d{2}:\d{2}),(\d{3})/g;
+
+// Each remux is an ffmpeg process; a small home server copes with a couple at once.
+const MAX_REMUX_STREAMS = 2;
+let activeRemuxStreams = 0;
+
+function remuxResponse(
+  req: NextRequest,
+  filePath: string,
+  videoCodec: string | undefined,
+): NextResponse {
+  if (activeRemuxStreams >= MAX_REMUX_STREAMS) {
+    return new NextResponse("Too many compatibility streams, try again shortly", {
+      status: 503,
+    });
+  }
+  const start = parseFloat(req.nextUrl.searchParams.get("start") || "0");
+  const child = spawn("ffmpeg", buildRemuxArgs(filePath, start, videoCodec), {
+    stdio: ["ignore", "pipe", "pipe"],
+  });
+  activeRemuxStreams++;
+
+  let stderr = "";
+  child.stderr.on("data", (chunk: Buffer) => {
+    if (stderr.length < 4000) stderr += chunk.toString();
+  });
+  const stop = () => {
+    if (child.exitCode === null && child.signalCode === null) child.kill("SIGKILL");
+  };
+  // The player drops the connection on every seek and on close: end ffmpeg with it.
+  req.signal.addEventListener("abort", stop, { once: true });
+  child.on("error", (err) => console.error("[Stream remux] ffmpeg failed to start", err));
+  child.on("close", (code, signal) => {
+    activeRemuxStreams--;
+    req.signal.removeEventListener("abort", stop);
+    if (code && !signal && !req.signal.aborted) {
+      console.error(`[Stream remux] ffmpeg exited with ${code}: ${stderr.trim()}`);
+    }
+  });
+
+  // Readable.toWeb keeps backpressure: ffmpeg is paused while the client is not reading,
+  // so a slow player never buffers a whole film in memory.
+  const body = Readable.toWeb(child.stdout) as ReadableStream<Uint8Array>;
+  return new NextResponse(body, {
+    status: 200,
+    headers: { "Content-Type": "video/mp4", "Cache-Control": "no-store" },
+  });
+}
 
 export async function GET(
   req: NextRequest,
@@ -57,8 +107,10 @@ export async function GET(
         return new NextResponse("Subtitle not found", { status: 404 });
       }
 
+      // A remux stream started at `shift` seconds restarts its timeline at 0.
+      const shift = parseFloat(req.nextUrl.searchParams.get("shift") || "0");
       const vttResponse = (body: string) =>
-        new NextResponse(body, {
+        new NextResponse(shiftVttCues(body, shift), {
           headers: {
             "Content-Type": "text/vtt",
             "Content-Disposition": "inline",
@@ -91,6 +143,19 @@ export async function GET(
         "WEBVTT\n\n" +
           normalized.content.toString("utf8").replace(SRT_TIMESTAMP_RE, "$1.$2"),
       );
+    }
+
+    if (req.nextUrl.searchParams.get("mode") === "remux") {
+      let videoCodec: string | undefined;
+      try {
+        const meta = JSON.parse(movie.video_metadata || "{}") as {
+          video?: { codec?: string };
+        };
+        videoCodec = meta.video?.codec;
+      } catch {
+        videoCodec = undefined;
+      }
+      return remuxResponse(req, activeFilePath, videoCodec);
     }
 
     const fileStat = await stat(activeFilePath);
