@@ -10,6 +10,7 @@ import QuickLinks from "@/components/movie-detail/QuickLinks";
 import RatingControls from "@/components/movie-detail/RatingControls";
 import StorageSection from "@/components/movie-detail/StorageSection";
 import type { SubtitleCheck } from "@/lib/subtitle-check";
+import type { PlaybackMetadata } from "@/lib/playback";
 import WatchlistButton from "@/components/movie-detail/WatchlistButton";
 import NotInterestedButton from "@/components/movie-detail/NotInterestedButton";
 import SubtitlesSection from "@/components/movie-detail/SubtitlesSection";
@@ -67,6 +68,8 @@ interface MovieInfoColumnProps {
   onMerge: (targetId: number) => void;
   onSelectPart: (part: number) => void;
   onCloseEmbedded: () => void;
+  videoMetadata: PlaybackMetadata | null;
+  onPlay: () => void;
   onDragOverSub: (event: DragEvent<HTMLLabelElement>) => void;
   onDragLeaveSub: (event: DragEvent<HTMLLabelElement>) => void;
   onDropSub: (event: DragEvent<HTMLLabelElement>) => void;
@@ -177,6 +180,8 @@ export default function MovieInfoColumn({
   onMerge,
   onSelectPart,
   onCloseEmbedded,
+  videoMetadata,
+  onPlay,
   onDragOverSub,
   onDragLeaveSub,
   onDropSub,
@@ -271,6 +276,8 @@ export default function MovieInfoColumn({
           activePart={activePart}
           subtitlesList={subtitlesList}
           onSelectPart={onSelectPart}
+          videoMetadata={videoMetadata}
+          onPlayExternal={onPlay}
           onClose={onCloseEmbedded}
         />
       ) : (

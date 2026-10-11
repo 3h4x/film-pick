@@ -8,6 +8,8 @@ export interface VideoMetadata {
   error?: string;
   size?: number;
   bitrate?: number;
+  /** Seconds, from ffprobe's format.duration. */
+  duration?: number;
   video?: {
     width?: number;
     height?: number;
