@@ -78,6 +78,23 @@ describe("scanLibraryGenerator", () => {
     ]);
   });
 
+  it("finds a film that grew past a sample while its folder stayed cached", async () => {
+    const film = touch("Sample Movie (1999)/Sample.Movie.1999.mkv", 10);
+    touch("Sample Movie (1999)/Sample.avi", 500);
+    age("Sample Movie (1999)", ".");
+    const cache = memoryCache();
+    expect((await collect(root, { cache })).map((f) => path.basename(f))).toEqual(["Sample.avi"]);
+
+    // Still downloading: the file grows, its folder's mtime does not change.
+    fs.writeFileSync(film, "x".repeat(10_000));
+    age("Sample Movie (1999)");
+    const stats: ScanStats = { dirsListed: 0, dirsCached: 0 };
+    expect((await collect(root, { cache, stats })).map((f) => path.basename(f))).toEqual([
+      "Sample.Movie.1999.mkv",
+    ]);
+    expect(stats.dirsListed).toBe(0);
+  });
+
   it("walks many folders in parallel and yields every file", async () => {
     for (let i = 0; i < 40; i++) touch(`Film ${i} (20${String(i % 25).padStart(2, "0")})/Film ${i}.mkv`);
     expect(await collect(root, { concurrency: 8 })).toHaveLength(40);

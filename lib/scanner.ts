@@ -39,7 +39,7 @@ function isVideoName(name: string): boolean {
  */
 function dropMinorVideos(names: string[], sizes: (number | null)[]): string[] {
   if (names.length < 2) return names;
-  const largest = Math.max(0, ...sizes.map((size) => size ?? 0));
+  const largest = sizes.reduce<number>((max, size) => Math.max(max, size ?? 0), 0);
   return names.filter((_, i) => {
     const size = sizes[i];
     return size === null || size * MINOR_VIDEO_RATIO >= largest;
@@ -60,6 +60,18 @@ async function fileSize(filePath: string): Promise<number | null> {
   } catch {
     return null;
   }
+}
+
+/**
+ * dropMinorVideos for a listed folder. Sizes are read on every scan, never
+ * cached: a file still downloading grows without changing its folder's mtime,
+ * so a cached decision could hide the film until the next full scan.
+ */
+async function mainVideos(dir: string, names: string[]): Promise<string[]> {
+  if (names.length < 2) return names;
+  const sizes: (number | null)[] = [];
+  for (const name of names) sizes.push(await fileSize(path.join(dir, name)));
+  return dropMinorVideos(names, sizes);
 }
 
 export interface ScannedFile {
@@ -172,12 +184,6 @@ async function listDirectory(dir: string): Promise<DirListing | null> {
       listing.files.push(entry.name);
     }
   }
-  if (listing.files.length > 1) {
-    const sizes = await Promise.all(
-      listing.files.map((name) => fileSize(path.join(dir, name))),
-    );
-    listing.files = dropMinorVideos(listing.files, sizes);
-  }
   return listing;
 }
 
@@ -224,7 +230,7 @@ export async function* scanLibraryGenerator(
       if (listing) cache?.set(dir, { mtimeMs, scannedAtMs: Date.now(), listing });
     }
     if (!listing) return;
-    for (const name of listing.files) {
+    for (const name of await mainVideos(dir, listing.files)) {
       const { title, year } = parseFilename(name);
       if (!title) continue;
       found.push({
