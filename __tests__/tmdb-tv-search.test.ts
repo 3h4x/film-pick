@@ -48,6 +48,31 @@ describe("TV series in TMDb search", () => {
     expect(results[0]).toMatchObject({ year: 2026, tmdb_id: 900, genre: "Comedy, Sci-Fi, Fantasy" });
   });
 
+  it("with a year, shows only that year's titles, then +/-1, then everything", async () => {
+    global.fetch = vi.fn(async (url: string | URL | Request) => {
+      const u = String(url);
+      if (u.includes("/search/movie")) {
+        // TMDb's year filter also matches re-releases, so an older film of the same title comes back
+        return json({ results: [
+          { id: 1, title: "Sample Film", release_date: "2025-12-01", genre_ids: [], vote_average: 6, poster_path: null },
+          { id: 2, title: "Sample Film", release_date: "2024-03-01", genre_ids: [], vote_average: 5, poster_path: null },
+          { id: 3, title: "Sample Film", release_date: "1997-04-11", genre_ids: [], vote_average: 5, poster_path: null },
+        ] });
+      }
+      if (u.includes("/search/tv")) {
+        return u.includes("first_air_date_year")
+          ? json({ results: [] })
+          : json({ results: [{ id: 900, name: "Sample Film Show", first_air_date: "1999-01-01", genre_ids: [], vote_average: 7, poster_path: null }] });
+      }
+      throw new Error(`unexpected ${u}`);
+    }) as unknown as typeof fetch;
+
+    expect((await searchTmdbForUi("Sample Film", 2025)).map((r) => r.tmdb_id)).toEqual([1]);
+    expect((await searchTmdbForUi("Sample Film", 2023)).map((r) => r.tmdb_id)).toEqual([2]);
+    expect((await searchTmdbForUi("Sample Film", 2010)).map((r) => r.tmdb_id).sort((x, y) => x - y)).toEqual([1, 2, 3, 900]);
+    expect((await searchTmdbForUi("Sample Film")).map((r) => r.tmdb_id).sort((x, y) => x - y)).toEqual([1, 2, 3, 900]);
+  });
+
   it("still returns films when the TV search fails", async () => {
     vi.spyOn(console, "warn").mockImplementation(() => {});
     global.fetch = vi.fn(async (url: string | URL | Request) =>

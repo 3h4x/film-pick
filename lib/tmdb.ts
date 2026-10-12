@@ -580,6 +580,20 @@ export async function searchTmdbTv(query: string, year?: number | null): Promise
   return results.length === 0 && year ? search(null) : results;
 }
 
+/**
+ * With a year in the query, keep the results from that year: TMDb's `year` filter also
+ * matches a film's later re-releases, and the series search falls back to no year at all,
+ * so an older film of the same title would show up too. Falls back to +/-1 year, then to
+ * everything, so a wrong year in a release name still finds something.
+ */
+export function narrowToYear(results: TmdbSearchResult[], year?: number | null): TmdbSearchResult[] {
+  if (!year) return results;
+  const exact = results.filter((r) => r.year === year);
+  if (exact.length > 0) return exact;
+  const near = results.filter((r) => r.year != null && Math.abs(r.year - year) <= 1);
+  return near.length > 0 ? near : results;
+}
+
 export async function searchTmdbForUi(
   query: string,
   year?: number | null,
@@ -600,7 +614,7 @@ export async function searchTmdbForUi(
     const rest = [...movieResults, ...tvResults].filter(
       (r) => !exactTv.includes(r) && !exactMovie.includes(r),
     );
-    return [...exactMovie, ...exactTv, ...rest];
+    return narrowToYear([...exactMovie, ...exactTv, ...rest], year);
   }
 
   const apiKey = getApiKey();
