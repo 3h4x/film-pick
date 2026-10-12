@@ -104,6 +104,14 @@ describe("scanDirectory", () => {
     expect(results).toHaveLength(0);
   });
 
+  it("ignores release-group promo clips like RARBG.com.avi", () => {
+    touch(tmpDir, "Sample.Movie.1999", "RARBG.com.avi");
+    touch(tmpDir, "Other.Movie.2001", "RARBG.COM.mp4");
+    touch(tmpDir, "Sample.Movie.1999", "Sample.Movie.1999.avi");
+    const results = scanDirectory(tmpDir);
+    expect(results.map((r) => r.filename)).toEqual(["Sample.Movie.1999.avi"]);
+  });
+
   it("ignores the 'iphotos' directory", () => {
     touch(tmpDir, "iphotos", "Photo.mkv");
     const results = scanDirectory(tmpDir);

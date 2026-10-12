@@ -56,6 +56,7 @@ describe("scanLibraryGenerator", () => {
     touch("Dune (2021)/.hidden.mkv");
     touch("#recycle/Trash.2000.mkv");
     touch("Home Movies/Holiday.2010.mp4");
+    touch("Dune (2021)/RARBG.com.avi");
     touch("Alien (1979).avi");
 
     const found = await collect(root);

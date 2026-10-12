@@ -15,12 +15,17 @@ const VIDEO_EXTENSIONS = new Set([
 
 const IGNORED_DIRECTORY_NAMES = new Set(["Home Movies", "iphotos"]);
 
+// Release-group promo clips bundled with torrents (e.g. "RARBG.com.avi",
+// "RARBG.COM.mp4"): video files, but never a film.
+const PROMO_FILE_PATTERN = /^rarbg\.com\./i;
+
 function isIgnoredName(name: string): boolean {
   return (
     name.startsWith(".") ||
     name.startsWith("#") ||
     name.includes("#snapshot") ||
-    IGNORED_DIRECTORY_NAMES.has(name)
+    IGNORED_DIRECTORY_NAMES.has(name) ||
+    PROMO_FILE_PATTERN.test(name)
   );
 }
 
@@ -43,13 +48,7 @@ export function* scanDirectoryGenerator(
     }
 
     for (const entry of entries) {
-      if (
-        entry.name.startsWith(".") ||
-        entry.name.startsWith("#") ||
-        entry.name.includes("#snapshot")
-      )
-        continue;
-      if (IGNORED_DIRECTORY_NAMES.has(entry.name)) continue;
+      if (isIgnoredName(entry.name)) continue;
       const fullPath = path.join(dir, entry.name);
       if (fullPath.includes("#snapshot")) continue;
       if (entry.isDirectory()) {
