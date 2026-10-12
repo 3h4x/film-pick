@@ -15,18 +15,51 @@ const VIDEO_EXTENSIONS = new Set([
 
 const IGNORED_DIRECTORY_NAMES = new Set(["Home Movies", "iphotos"]);
 
-// Release-group promo clips bundled with torrents (e.g. "RARBG.com.avi",
-// "RARBG.COM.mp4"): video files, but never a film.
-const PROMO_FILE_PATTERN = /^rarbg\.com\./i;
+// A video this many times smaller than the biggest one in its folder is an
+// extra (a release group's promo clip, a sample, a trailer), not another film.
+const MINOR_VIDEO_RATIO = 10;
 
 function isIgnoredName(name: string): boolean {
   return (
     name.startsWith(".") ||
     name.startsWith("#") ||
     name.includes("#snapshot") ||
-    IGNORED_DIRECTORY_NAMES.has(name) ||
-    PROMO_FILE_PATTERN.test(name)
+    IGNORED_DIRECTORY_NAMES.has(name)
   );
+}
+
+function isVideoName(name: string): boolean {
+  return VIDEO_EXTENSIONS.has(path.extname(name).toLowerCase());
+}
+
+/**
+ * Drop the videos that are far smaller than the biggest one in the same folder.
+ * Files of similar size (CD1/CD2 parts, episodes of a season) are all kept, and
+ * so is any file whose size could not be read.
+ */
+function dropMinorVideos(names: string[], sizes: (number | null)[]): string[] {
+  if (names.length < 2) return names;
+  const largest = Math.max(0, ...sizes.map((size) => size ?? 0));
+  return names.filter((_, i) => {
+    const size = sizes[i];
+    return size === null || size * MINOR_VIDEO_RATIO >= largest;
+  });
+}
+
+function fileSizeSync(filePath: string): number | null {
+  try {
+    return fs.statSync(filePath).size;
+  } catch {
+    return null;
+  }
+}
+
+async function fileSize(filePath: string): Promise<number | null> {
+  try {
+    return (await fs.promises.stat(filePath)).size;
+  } catch {
+    return null;
+  }
 }
 
 export interface ScannedFile {
@@ -47,25 +80,31 @@ export function* scanDirectoryGenerator(
       return;
     }
 
+    const videos: string[] = [];
     for (const entry of entries) {
       if (isIgnoredName(entry.name)) continue;
       const fullPath = path.join(dir, entry.name);
       if (fullPath.includes("#snapshot")) continue;
       if (entry.isDirectory()) {
         yield* walk(fullPath);
-      } else if (entry.isFile()) {
-        const ext = path.extname(entry.name).toLowerCase();
-        if (VIDEO_EXTENSIONS.has(ext)) {
-          const { title, year } = parseFilename(entry.name);
-          if (title) {
-            yield {
-              filePath: fullPath,
-              filename: entry.name,
-              parsedTitle: title,
-              parsedYear: year,
-            };
-          }
-        }
+      } else if (entry.isFile() && isVideoName(entry.name)) {
+        videos.push(entry.name);
+      }
+    }
+
+    const sizes =
+      videos.length > 1
+        ? videos.map((name) => fileSizeSync(path.join(dir, name)))
+        : [];
+    for (const name of dropMinorVideos(videos, sizes)) {
+      const { title, year } = parseFilename(name);
+      if (title) {
+        yield {
+          filePath: path.join(dir, name),
+          filename: name,
+          parsedTitle: title,
+          parsedYear: year,
+        };
       }
     }
   }
@@ -129,12 +168,15 @@ async function listDirectory(dir: string): Promise<DirListing | null> {
     if (path.join(dir, entry.name).includes("#snapshot")) continue;
     if (entry.isDirectory()) {
       listing.dirs.push(entry.name);
-    } else if (
-      entry.isFile() &&
-      VIDEO_EXTENSIONS.has(path.extname(entry.name).toLowerCase())
-    ) {
+    } else if (entry.isFile() && isVideoName(entry.name)) {
       listing.files.push(entry.name);
     }
+  }
+  if (listing.files.length > 1) {
+    const sizes = await Promise.all(
+      listing.files.map((name) => fileSize(path.join(dir, name))),
+    );
+    listing.files = dropMinorVideos(listing.files, sizes);
   }
   return listing;
 }
