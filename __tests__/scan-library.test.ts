@@ -32,10 +32,10 @@ async function collect(root: string, options: Parameters<typeof scanLibraryGener
 describe("scanLibraryGenerator", () => {
   let root: string;
 
-  function touch(rel: string) {
+  function touch(rel: string, bytes = 1) {
     const full = path.join(root, rel);
     fs.mkdirSync(path.dirname(full), { recursive: true });
-    fs.writeFileSync(full, "x");
+    fs.writeFileSync(full, "x".repeat(bytes));
     return full;
   }
   function age(...rels: string[]) {
@@ -63,6 +63,36 @@ describe("scanLibraryGenerator", () => {
       "Alien (1979).avi",
       path.join("Dune (2021)", "Dune.2021.mkv"),
     ]);
+  });
+
+  it("skips a video far smaller than another one in the same folder", async () => {
+    touch("Sample Movie (1999)/Sample.Movie.1999.mkv", 1000);
+    touch("Sample Movie (1999)/Promo.Clip.avi", 50);
+    touch("Two Parts (2001)/Two.Parts.2001.CD1.avi", 1000);
+    touch("Two Parts (2001)/Two.Parts.2001.CD2.avi", 900);
+
+    expect((await collect(root)).map((f) => path.relative(root, f))).toEqual([
+      path.join("Sample Movie (1999)", "Sample.Movie.1999.mkv"),
+      path.join("Two Parts (2001)", "Two.Parts.2001.CD1.avi"),
+      path.join("Two Parts (2001)", "Two.Parts.2001.CD2.avi"),
+    ]);
+  });
+
+  it("finds a film that grew past a sample while its folder stayed cached", async () => {
+    const film = touch("Sample Movie (1999)/Sample.Movie.1999.mkv", 10);
+    touch("Sample Movie (1999)/Sample.avi", 500);
+    age("Sample Movie (1999)", ".");
+    const cache = memoryCache();
+    expect((await collect(root, { cache })).map((f) => path.basename(f))).toEqual(["Sample.avi"]);
+
+    // Still downloading: the file grows, its folder's mtime does not change.
+    fs.writeFileSync(film, "x".repeat(10_000));
+    age("Sample Movie (1999)");
+    const stats: ScanStats = { dirsListed: 0, dirsCached: 0 };
+    expect((await collect(root, { cache, stats })).map((f) => path.basename(f))).toEqual([
+      "Sample.Movie.1999.mkv",
+    ]);
+    expect(stats.dirsListed).toBe(0);
   });
 
   it("walks many folders in parallel and yields every file", async () => {

@@ -102,7 +102,7 @@ pnpm backup              # Backup SQLite DB
 │   ├── utils.ts                      — Shared utilities
 │   ├── search.ts                     — Shared search types (SearchMatches, TmdbSearchMovieState)
 │   ├── latest-only-runner.ts         — Utility: run async tasks, discard stale (latest-wins)
-│   ├── scanner.ts                    — Filesystem video scanner + filename parser; `scanLibraryGenerator` = async parallel scan that skips directories whose mtime is unchanged (used by sync)
+│   ├── scanner.ts                    — Filesystem video scanner + filename parser; `scanLibraryGenerator` = async parallel scan that skips directories whose mtime is unchanged (used by sync); both scanners skip a video at least 10× smaller than the biggest one in its folder (promo clip, sample, trailer)
 │   ├── scan-cache.ts                 — `scan_dirs` directory-listing cache, weekly forced full scan (`last_full_scan_at` setting)
 │   ├── tmdb-rematch.ts               — Retry TMDb matching for `source=local` films without a tmdb_id (`tmdb_matched_at`)
 │   ├── library-folders.ts            — Library folders: primary (`library_path` setting) + extras (`library_extra_paths` JSON); standardize moves into the primary

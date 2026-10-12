@@ -104,6 +104,20 @@ describe("scanDirectory", () => {
     expect(results).toHaveLength(0);
   });
 
+  it("skips a video far smaller than another one in the same folder", () => {
+    fs.mkdirSync(path.join(tmpDir, "Sample Movie (1999)"));
+    fs.writeFileSync(path.join(tmpDir, "Sample Movie (1999)", "Sample.Movie.1999.mkv"), "x".repeat(1000));
+    fs.writeFileSync(path.join(tmpDir, "Sample Movie (1999)", "Promo.Clip.avi"), "x".repeat(50));
+    expect(scanDirectory(tmpDir).map((r) => r.filename)).toEqual([
+      "Sample.Movie.1999.mkv",
+    ]);
+  });
+
+  it("keeps a lone small video", () => {
+    touch(tmpDir, "Short (2005)", "Short.2005.avi");
+    expect(scanDirectory(tmpDir)).toHaveLength(1);
+  });
+
   it("ignores the 'iphotos' directory", () => {
     touch(tmpDir, "iphotos", "Photo.mkv");
     const results = scanDirectory(tmpDir);
