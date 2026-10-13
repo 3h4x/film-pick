@@ -26,14 +26,10 @@ function formatDuration(ms: number): string {
 }
 
 export function describeStandardizeProgress(
-  job: Pick<StandardizeJob, "startedAt" | "bytesDone" | "bytesTotal"> &
-    Partial<Pick<StandardizeJob, "phaseStartedAt">>,
+  job: Pick<StandardizeJob, "startedAt" | "bytesDone" | "bytesTotal">,
   now = Date.now(),
 ): StandardizeProgressView {
   const elapsed = now - job.startedAt;
-  // The remaining time comes from this phase's own rate: a subtitle rewrite
-  // before the move restarts bytesDone at 0.
-  const phaseElapsed = now - (job.phaseStartedAt ?? job.startedAt);
   const elapsedLabel = `${formatDuration(elapsed)} elapsed`;
   if (job.bytesTotal <= 0) {
     return { percent: null, sizeLabel: null, elapsedLabel, remainingLabel: null };
@@ -46,8 +42,8 @@ export function describeStandardizeProgress(
 
   // Needs a few seconds of copying before the rate means anything.
   let remainingLabel: string | null = null;
-  if (done > 0 && done < job.bytesTotal && phaseElapsed >= 3000) {
-    const remainingMs = ((job.bytesTotal - done) / done) * phaseElapsed;
+  if (done > 0 && done < job.bytesTotal && elapsed >= 3000) {
+    const remainingMs = ((job.bytesTotal - done) / done) * elapsed;
     remainingLabel = `about ${formatDuration(remainingMs)} left`;
   }
 

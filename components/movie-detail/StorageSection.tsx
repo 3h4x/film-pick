@@ -94,11 +94,7 @@ export default function StorageSection({
         {isStandardizing && (
           <div className="px-4 py-3 rounded-xl border bg-indigo-500/5 border-indigo-500/20 text-indigo-300 space-y-2">
             <div className="flex items-baseline justify-between gap-3 text-[10px] font-black uppercase tracking-widest">
-              <span>
-                {standardizeProgress?.phase === "subtitles"
-                  ? "Removing extra subtitle tracks"
-                  : "Moving into your library"}
-              </span>
+              <span>Moving into your library</span>
               {progress?.percent != null && <span>{progress.percent}%</span>}
             </div>
             <div
