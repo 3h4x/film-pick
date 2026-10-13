@@ -4,6 +4,7 @@ import type {
   VideoAudioTrack,
   VideoMetadata,
 } from "@/components/movie-detail/types";
+import { isAudioCompatible, isVideoCompatible } from "@/lib/codec-compat";
 
 interface TechnicalDetailsProps {
   videoMetadata: VideoMetadata | null;
@@ -41,6 +42,22 @@ function ResolutionBadge({ width }: { width: number }) {
     </span>
   );
 }
+
+function NotCompatibleBadge({ title }: { title: string }) {
+  return (
+    <span
+      title={title}
+      className="px-1 py-0.5 bg-yellow-500/10 text-yellow-400 text-[9px] font-black rounded border border-yellow-500/30 uppercase tracking-normal cursor-help"
+    >
+      Not compatible
+    </span>
+  );
+}
+
+const VIDEO_NOT_COMPATIBLE_TITLE =
+  "Most players and the media server have to re-encode this video to play it";
+const AUDIO_NOT_COMPATIBLE_TITLE =
+  "Most players have to convert this audio track to play it";
 
 export default function TechnicalDetails({
   videoMetadata,
@@ -84,9 +101,12 @@ export default function TechnicalDetails({
             <p className="text-[10px] text-gray-500 font-bold uppercase tracking-tighter">
               Video Codec
             </p>
-            <p className="text-sm text-gray-200 font-medium uppercase">
+            <div className="text-sm text-gray-200 font-medium uppercase flex items-center gap-1.5 flex-wrap">
               {videoMetadata.video?.codec}
-            </p>
+              {!isVideoCompatible(videoMetadata.video) && (
+                <NotCompatibleBadge title={VIDEO_NOT_COMPATIBLE_TITLE} />
+              )}
+            </div>
           </div>
           <div className="space-y-1">
             <p className="text-[10px] text-gray-500 font-bold uppercase tracking-tighter">
@@ -117,9 +137,14 @@ export default function TechnicalDetails({
                       key={index}
                       className="flex items-center justify-between bg-gray-900/40 px-2.5 py-1.5 rounded-lg border border-gray-700/20"
                     >
-                      <span className="text-xs text-gray-300 font-medium uppercase">
-                        {audio.codec}
-                      </span>
+                      <div className="flex items-center gap-1.5">
+                        <span className="text-xs text-gray-300 font-medium uppercase">
+                          {audio.codec}
+                        </span>
+                        {!isAudioCompatible(audio.codec) && (
+                          <NotCompatibleBadge title={AUDIO_NOT_COMPATIBLE_TITLE} />
+                        )}
+                      </div>
                       <div className="flex items-center gap-2">
                         <span className="text-[10px] text-gray-500 font-bold">
                           {audio.channels} ch
