@@ -53,12 +53,6 @@ vi.mock("fs", async (importOriginal) => {
   };
 });
 
-const { mockStripSubtitles } = vi.hoisted(() => ({ mockStripSubtitles: vi.fn() }));
-vi.mock("@/lib/subtitle-tracks", async (importOriginal) => ({
-  ...(await importOriginal<typeof import("@/lib/subtitle-tracks")>()),
-  stripForeignSubtitleTracks: mockStripSubtitles,
-}));
-
 vi.mock("@/lib/db", async (importOriginal) => {
   const actual = await importOriginal<typeof import("@/lib/db")>();
   return { ...actual, getDb: vi.fn() };
@@ -96,7 +90,6 @@ describe("movies/[id]/standardize POST handler", () => {
     mockReaddir.mockResolvedValue([]);
     mockRm.mockResolvedValue(undefined);
     mockStat.mockResolvedValue({ size: 0 });
-    mockStripSubtitles.mockResolvedValue({ removed: 0, kept: 0 });
     // Subtitle sniffing reads the file; default to genuine SubRip content.
     mockReadFile.mockResolvedValue(
       Buffer.from("1\r\n00:00:01,000 --> 00:00:02,000\r\nHello\r\n", "utf8"),
@@ -343,113 +336,6 @@ describe("movies/[id]/standardize POST handler", () => {
       expect.objectContaining({ recursive: true }),
     );
     expect(mockRename).toHaveBeenCalledWith(oldPath, expectedNewPath);
-  });
-
-  it("drops foreign subtitle tracks at the old path, before the move", async () => {
-    movieId = insertMovie(db, {
-      title: "Sample Movie",
-      year: 1999,
-      genre: null,
-      director: null,
-      rating: null,
-      poster_url: null,
-      source: "manual",
-      imdb_id: null,
-      tmdb_id: null,
-      type: "movie",
-    });
-    const oldPath = "/downloads/sample.movie.1999/sample.mkv";
-    db.prepare("UPDATE movies SET file_path = ? WHERE id = ?").run(oldPath, movieId);
-    mockExistsSync.mockImplementation((p: string) => p === oldPath);
-    const order: string[] = [];
-    mockStripSubtitles.mockImplementation(async (file: string) => {
-      order.push(`strip ${file}`);
-      return { removed: 30, kept: 2 };
-    });
-    mockRename.mockImplementation(async (src: string) => {
-      order.push(`move ${src}`);
-    });
-
-    const res = await POST(postReq(movieId), makeParams(movieId));
-    const body = await res.json();
-
-    expect(res.status).toBe(200);
-    expect(body.subtitleTracksRemoved).toBe(30);
-    expect(order).toEqual([`strip ${oldPath}`, `move ${oldPath}`]);
-    expect(mockStripSubtitles).toHaveBeenCalledWith(oldPath, ["pol", "eng"], expect.any(Function));
-  });
-
-  it("keeps the subtitle languages chosen in Config", async () => {
-    movieId = insertMovie(db, {
-      title: "Sample Movie",
-      year: 1999,
-      genre: null,
-      director: null,
-      rating: null,
-      poster_url: null,
-      source: "manual",
-      imdb_id: null,
-      tmdb_id: null,
-      type: "movie",
-    });
-    const oldPath = "/downloads/sample.movie.1999/sample.mkv";
-    db.prepare("UPDATE movies SET file_path = ? WHERE id = ?").run(oldPath, movieId);
-    db.prepare("INSERT OR REPLACE INTO settings (key, value) VALUES ('subtitle_track_languages', 'pol,spa')").run();
-    mockExistsSync.mockImplementation((p: string) => p === oldPath);
-
-    await POST(postReq(movieId), makeParams(movieId));
-
-    expect(mockStripSubtitles).toHaveBeenCalledWith(oldPath, ["pol", "spa"], expect.any(Function));
-  });
-
-  it("still moves the file when dropping subtitle tracks fails", async () => {
-    movieId = insertMovie(db, {
-      title: "Sample Movie",
-      year: 1999,
-      genre: null,
-      director: null,
-      rating: null,
-      poster_url: null,
-      source: "manual",
-      imdb_id: null,
-      tmdb_id: null,
-      type: "movie",
-    });
-    const oldPath = "/downloads/sample.movie.1999/sample.mkv";
-    db.prepare("UPDATE movies SET file_path = ? WHERE id = ?").run(oldPath, movieId);
-    mockExistsSync.mockImplementation((p: string) => p === oldPath);
-    mockStripSubtitles.mockRejectedValue(new Error("ffmpeg exited with 1"));
-
-    const res = await POST(postReq(movieId), makeParams(movieId));
-    const body = await res.json();
-
-    expect(res.status).toBe(200);
-    expect(body.subtitleTracksRemoved).toBe(0);
-    expect(mockRename).toHaveBeenCalledWith(oldPath, "/downloads/Sample Movie [1999]/Sample Movie.mkv");
-  });
-
-  it("does not rewrite a file that is already in place", async () => {
-    movieId = insertMovie(db, {
-      title: "Sample Movie",
-      year: 1999,
-      genre: null,
-      director: null,
-      rating: null,
-      poster_url: null,
-      source: "manual",
-      imdb_id: null,
-      tmdb_id: null,
-      type: "movie",
-    });
-    const stdPath = "/library/Sample Movie [1999]/Sample Movie.mkv";
-    db.prepare("UPDATE movies SET file_path = ? WHERE id = ?").run(stdPath, movieId);
-    db.prepare("INSERT OR REPLACE INTO settings (key, value) VALUES ('library_path', '/library')").run();
-    mockExistsSync.mockImplementation((p: string) => p === stdPath);
-
-    const res = await POST(postReq(movieId), makeParams(movieId));
-
-    expect(res.status).toBe(200);
-    expect(mockStripSubtitles).not.toHaveBeenCalled();
   });
 
   it("returns 409 when target file already exists on disk (collision)", async () => {

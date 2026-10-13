@@ -46,14 +46,4 @@ describe("describeStandardizeProgress", () => {
     expect(view.percent).toBe(100);
     expect(view.remainingLabel).toBeNull();
   });
-
-  it("estimates the move from its own phase after a subtitle rewrite", () => {
-    // Rewrite took the first 120s; the move started at 120s and did 1 of 4 GB by 180s.
-    const view = describeStandardizeProgress(
-      { startedAt: 0, phaseStartedAt: 120_000, bytesDone: 1 * GB, bytesTotal: 4 * GB },
-      180_000,
-    );
-    expect(view.elapsedLabel).toBe("3:00 elapsed");
-    expect(view.remainingLabel).toBe("about 3:00 left");
-  });
 });
