@@ -14,6 +14,10 @@ export interface VideoMetadata {
     width?: number;
     height?: number;
     codec?: string;
+    /** ffprobe profile, e.g. "High" or "High 10". Absent on metadata probed before it was stored. */
+    profile?: string;
+    /** ffprobe pixel format, e.g. "yuv420p" or "yuv420p10le". Absent on older metadata. */
+    pix_fmt?: string;
   };
   audio?: VideoAudioTrack[];
 }
