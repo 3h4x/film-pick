@@ -17,10 +17,14 @@ vi.mock("child_process", () => ({
 
 import {
   buildStripArgs,
+  normalizeSubtitleTrackLanguages,
+  parseSubtitleTrackLanguages,
   stripForeignSubtitleTracks,
   subtitleStreamsToDrop,
   type ProbedStream,
 } from "@/lib/subtitle-tracks";
+
+const PL_EN = ["pol", "eng"];
 
 const PARTIAL = ".filmpick-partial";
 
@@ -79,9 +83,40 @@ const STRIPPED = [
   stream(4, "subtitle"),
 ];
 
+describe("parseSubtitleTrackLanguages", () => {
+  it("defaults to Polish and English when never set", () => {
+    expect(parseSubtitleTrackLanguages(null)).toEqual(["pol", "eng"]);
+  });
+
+  it("reads a stored list, and an empty one as keep-all", () => {
+    expect(parseSubtitleTrackLanguages("pol,spa")).toEqual(["pol", "spa"]);
+    expect(parseSubtitleTrackLanguages("")).toEqual([]);
+  });
+
+  it("normalizes case, spaces and duplicates, and rejects non-codes", () => {
+    expect(normalizeSubtitleTrackLanguages(["ENG", " pl ", "eng", ""])).toEqual(["eng", "pl"]);
+    expect(() => normalizeSubtitleTrackLanguages(["english"])).toThrow(/language code/);
+  });
+});
+
 describe("subtitleStreamsToDrop", () => {
   it("keeps Polish, English and untagged tracks, drops the rest", () => {
-    expect(subtitleStreamsToDrop(SOURCE)).toEqual([4, 5]);
+    expect(subtitleStreamsToDrop(SOURCE, PL_EN)).toEqual([4, 5]);
+  });
+
+  it("keeps whatever languages are configured, matching their other tags", () => {
+    const streams = [
+      stream(0, "subtitle", "ger"),
+      stream(1, "subtitle", "deu"),
+      stream(2, "subtitle", "de"),
+      stream(3, "subtitle", "pol"),
+    ];
+    // Config holds "deu"; files tag German as ger/deu/de.
+    expect(subtitleStreamsToDrop(streams, ["deu"])).toEqual([3]);
+  });
+
+  it("drops nothing when the list is empty", () => {
+    expect(subtitleStreamsToDrop(SOURCE, [])).toEqual([]);
   });
 
   it("accepts two-letter and spelled-out tags in any case", () => {
@@ -92,11 +127,11 @@ describe("subtitleStreamsToDrop", () => {
       stream(3, "subtitle", "und"),
       stream(4, "subtitle", "spa"),
     ];
-    expect(subtitleStreamsToDrop(streams)).toEqual([4]);
+    expect(subtitleStreamsToDrop(streams, PL_EN)).toEqual([4]);
   });
 
   it("never drops audio or video, whatever their language", () => {
-    expect(subtitleStreamsToDrop([stream(0, "video"), stream(1, "audio", "fre")])).toEqual([]);
+    expect(subtitleStreamsToDrop([stream(0, "video"), stream(1, "audio", "fre")], PL_EN)).toEqual([]);
   });
 });
 
@@ -131,7 +166,7 @@ describe("stripForeignSubtitleTracks", () => {
     probeReturns(SOURCE, STRIPPED);
     ffmpegWrites("stripped video bytes");
 
-    const result = await stripForeignSubtitleTracks(video);
+    const result = await stripForeignSubtitleTracks(video, PL_EN);
 
     expect(result).toEqual({ removed: 2, kept: 3 });
     expect(fs.readFileSync(video, "utf8")).toBe("stripped video bytes");
@@ -145,7 +180,7 @@ describe("stripForeignSubtitleTracks", () => {
   it("does not touch a file with nothing to remove", async () => {
     probeReturns(STRIPPED);
 
-    expect(await stripForeignSubtitleTracks(video)).toEqual({ removed: 0, kept: 3 });
+    expect(await stripForeignSubtitleTracks(video, PL_EN)).toEqual({ removed: 0, kept: 3 });
     expect(mockSpawn).not.toHaveBeenCalled();
     expect(fs.readFileSync(video, "utf8")).toBe("original video bytes");
   });
@@ -154,7 +189,12 @@ describe("stripForeignSubtitleTracks", () => {
     const avi = path.join(dir, "Sample Movie.avi");
     fs.writeFileSync(avi, "x");
 
-    expect(await stripForeignSubtitleTracks(avi)).toEqual({ removed: 0, kept: 0 });
+    expect(await stripForeignSubtitleTracks(avi, PL_EN)).toEqual({ removed: 0, kept: 0 });
+    expect(mockExecFile).not.toHaveBeenCalled();
+  });
+
+  it("does not even probe the file when every track is kept (empty list)", async () => {
+    expect(await stripForeignSubtitleTracks(video, [])).toEqual({ removed: 0, kept: 0 });
     expect(mockExecFile).not.toHaveBeenCalled();
   });
 
@@ -162,7 +202,7 @@ describe("stripForeignSubtitleTracks", () => {
     probeReturns(SOURCE, [stream(0, "video"), stream(1, "subtitle", "pol")]);
     ffmpegWrites("broken copy");
 
-    await expect(stripForeignSubtitleTracks(video)).rejects.toThrow(/stream check failed/);
+    await expect(stripForeignSubtitleTracks(video, PL_EN)).rejects.toThrow(/stream check failed/);
     expect(fs.readFileSync(video, "utf8")).toBe("original video bytes");
     expect(fs.existsSync(video + PARTIAL)).toBe(false);
   });
@@ -171,7 +211,7 @@ describe("stripForeignSubtitleTracks", () => {
     probeReturns(SOURCE);
     ffmpegWrites("half written", 1);
 
-    await expect(stripForeignSubtitleTracks(video)).rejects.toThrow(/ffmpeg exited with 1/);
+    await expect(stripForeignSubtitleTracks(video, PL_EN)).rejects.toThrow(/ffmpeg exited with 1/);
     expect(fs.readFileSync(video, "utf8")).toBe("original video bytes");
     expect(fs.existsSync(video + PARTIAL)).toBe(false);
   });

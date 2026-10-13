@@ -9,7 +9,12 @@ import {
   subtitleExtensionForContent,
 } from "@/lib/subtitles";
 import { moveFile } from "@/lib/fs-move";
-import { stripForeignSubtitleTracks } from "@/lib/subtitle-tracks";
+import {
+  parseSubtitleTrackLanguages,
+  stripForeignSubtitleTracks,
+  SUBTITLE_TRACK_LANGUAGES_SETTING,
+} from "@/lib/subtitle-tracks";
+import { getSetting } from "@/lib/db";
 import {
   finishStandardizeJob,
   startStandardizeJob,
@@ -364,16 +369,19 @@ export async function standardizeMovie(
       );
     }
 
-    // 3. Drop embedded subtitle tracks other than Polish and English, still at the
-    // old path: the library folder should only ever see the slimmed file (a media
-    // server indexing it reads the whole video once per subtitle track). Best
-    // effort: on any failure the file is moved as it is.
+    // 3. Drop embedded subtitle tracks in languages not kept by Config (default
+    // Polish and English), still at the old path: the library folder should only
+    // ever see the slimmed file (a media server indexing it reads the whole video
+    // once per subtitle track). Best effort: on any failure the file is moved as it is.
     let subtitleTracksRemoved = 0;
     if (normOld !== normNew) {
       job.phase = "subtitles";
       job.phaseStartedAt = Date.now();
       try {
-        const stripped = await stripForeignSubtitleTracks(oldPath, (done, total) => {
+        const languages = parseSubtitleTrackLanguages(
+          getSetting(db, SUBTITLE_TRACK_LANGUAGES_SETTING),
+        );
+        const stripped = await stripForeignSubtitleTracks(oldPath, languages, (done, total) => {
           job.bytesDone = done;
           job.bytesTotal = total;
         });

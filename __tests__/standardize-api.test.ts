@@ -54,7 +54,8 @@ vi.mock("fs", async (importOriginal) => {
 });
 
 const { mockStripSubtitles } = vi.hoisted(() => ({ mockStripSubtitles: vi.fn() }));
-vi.mock("@/lib/subtitle-tracks", () => ({
+vi.mock("@/lib/subtitle-tracks", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@/lib/subtitle-tracks")>()),
   stripForeignSubtitleTracks: mockStripSubtitles,
 }));
 
@@ -375,6 +376,30 @@ describe("movies/[id]/standardize POST handler", () => {
     expect(res.status).toBe(200);
     expect(body.subtitleTracksRemoved).toBe(30);
     expect(order).toEqual([`strip ${oldPath}`, `move ${oldPath}`]);
+    expect(mockStripSubtitles).toHaveBeenCalledWith(oldPath, ["pol", "eng"], expect.any(Function));
+  });
+
+  it("keeps the subtitle languages chosen in Config", async () => {
+    movieId = insertMovie(db, {
+      title: "Sample Movie",
+      year: 1999,
+      genre: null,
+      director: null,
+      rating: null,
+      poster_url: null,
+      source: "manual",
+      imdb_id: null,
+      tmdb_id: null,
+      type: "movie",
+    });
+    const oldPath = "/downloads/sample.movie.1999/sample.mkv";
+    db.prepare("UPDATE movies SET file_path = ? WHERE id = ?").run(oldPath, movieId);
+    db.prepare("INSERT OR REPLACE INTO settings (key, value) VALUES ('subtitle_track_languages', 'pol,spa')").run();
+    mockExistsSync.mockImplementation((p: string) => p === oldPath);
+
+    await POST(postReq(movieId), makeParams(movieId));
+
+    expect(mockStripSubtitles).toHaveBeenCalledWith(oldPath, ["pol", "spa"], expect.any(Function));
   });
 
   it("still moves the file when dropping subtitle tracks fails", async () => {

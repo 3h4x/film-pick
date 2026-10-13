@@ -5,6 +5,11 @@ import { rateLimit } from "@/lib/rate-limit";
 import { rescheduleCdaJob } from "@/lib/cda-scheduler";
 import { invalidateMemCache } from "@/lib/epg-fetch";
 import { rescheduleEpgJob } from "@/lib/epg-scheduler";
+import {
+  normalizeSubtitleTrackLanguages,
+  parseSubtitleTrackLanguages,
+  SUBTITLE_TRACK_LANGUAGES_SETTING,
+} from "@/lib/subtitle-tracks";
 
 const VALID_REFRESH_INTERVAL_HOURS = [0, 6, 12, 24];
 
@@ -30,6 +35,13 @@ export async function GET() {
     backup_enabled: backupEnabled !== "false",
     sync_auto_standardize: getSetting(db, "sync_auto_standardize") !== "false",
     sync_auto_subtitles: getSetting(db, "sync_auto_subtitles") !== "false",
+    subtitle_track_languages: (() => {
+      try {
+        return parseSubtitleTrackLanguages(getSetting(db, SUBTITLE_TRACK_LANGUAGES_SETTING));
+      } catch {
+        return parseSubtitleTrackLanguages(null);
+      }
+    })(),
     cda_refresh_interval_hours: cdaIntervalStr ? parseInt(cdaIntervalStr, 10) : 0,
     cda_last_refresh: getSetting(db, "cda_last_refresh"),
     cda_movie_count: cdaMovieCountStr ? parseInt(cdaMovieCountStr, 10) : null,
@@ -94,6 +106,23 @@ export async function PATCH(request: NextRequest) {
   }
   for (const key of ["sync_auto_standardize", "sync_auto_subtitles"] as const) {
     if (typeof body[key] === "boolean") setSetting(db, key, body[key] ? "true" : "false");
+  }
+  if (body.subtitle_track_languages !== undefined) {
+    const value = body.subtitle_track_languages;
+    if (!Array.isArray(value) || !value.every((c: unknown) => typeof c === "string")) {
+      return Response.json(
+        { error: "subtitle_track_languages must be an array of language codes" },
+        { status: 400 },
+      );
+    }
+    let codes: string[];
+    try {
+      codes = normalizeSubtitleTrackLanguages(value);
+    } catch (e) {
+      return Response.json({ error: (e as Error).message }, { status: 400 });
+    }
+    // Stored even when empty: "" means keep every track, unlike a missing key (default).
+    setSetting(db, SUBTITLE_TRACK_LANGUAGES_SETTING, codes.join(","));
   }
   if (typeof body.backup_enabled === "boolean") {
     setSetting(db, "backup_enabled", body.backup_enabled ? "true" : "false");

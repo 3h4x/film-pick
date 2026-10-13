@@ -6,19 +6,89 @@ import { PARTIAL_SUFFIX, PROGRESS_INTERVAL_MS } from "@/lib/fs-move";
 
 const execFileAsync = promisify(execFile);
 
+/** Setting holding the languages whose embedded subtitle tracks are kept. */
+export const SUBTITLE_TRACK_LANGUAGES_SETTING = "subtitle_track_languages";
+
 /**
- * Embedded subtitle tracks in these languages are kept; every other one is
- * removed when a movie is standardized. A track without a language tag is kept
- * too, since there is no telling what it is.
+ * Embedded subtitle tracks in these languages are kept when a movie is
+ * standardized, unless Config sets others; every other one is removed. A track
+ * without a language tag is always kept, since there is no telling what it is.
+ * An empty list keeps every track (nothing is rewritten).
  */
-export const KEPT_SUBTITLE_LANGUAGES = new Set([
-  "pol",
-  "pl",
-  "polish",
-  "eng",
-  "en",
-  "english",
-]);
+export const DEFAULT_SUBTITLE_TRACK_LANGUAGES = ["pol", "eng"];
+
+/**
+ * Other ways files tag the same language: ISO 639-2/B and /T codes, ISO 639-1,
+ * and the English name. The key is the code Config stores (ISO 639-2/B).
+ */
+const LANGUAGE_ALIASES: Record<string, string[]> = {
+  pol: ["pl", "polish"],
+  eng: ["en", "english"],
+  ger: ["deu", "de", "german"],
+  fre: ["fra", "fr", "french"],
+  spa: ["es", "spanish"],
+  ita: ["it", "italian"],
+  por: ["pt", "portuguese"],
+  rus: ["ru", "russian"],
+  ukr: ["uk", "ukrainian"],
+  cze: ["ces", "cs", "czech"],
+  slo: ["slk", "sk", "slovak"],
+  dut: ["nld", "nl", "dutch"],
+  swe: ["sv", "swedish"],
+  nor: ["nob", "nno", "no", "nb", "nn", "norwegian"],
+  dan: ["da", "danish"],
+  fin: ["fi", "finnish"],
+  hun: ["hu", "hungarian"],
+  rum: ["ron", "ro", "romanian"],
+  gre: ["ell", "el", "greek"],
+  tur: ["tr", "turkish"],
+  jpn: ["ja", "japanese"],
+  kor: ["ko", "korean"],
+  chi: ["zho", "zh", "chinese"],
+  ara: ["ar", "arabic"],
+  heb: ["he", "hebrew"],
+};
+
+/** Every tag that counts as one of `languages` (codes as Config stores them). */
+function acceptedTags(languages: string[]): Set<string> {
+  const tags = new Set<string>();
+  for (const code of languages) {
+    const key = code.trim().toLowerCase();
+    // Config may hold an alias (e.g. "deu"): find the entry it belongs to.
+    const entry = Object.entries(LANGUAGE_ALIASES).find(
+      ([main, aliases]) => main === key || aliases.includes(key),
+    );
+    tags.add(key);
+    if (entry) {
+      tags.add(entry[0]);
+      for (const alias of entry[1]) tags.add(alias);
+    }
+  }
+  return tags;
+}
+
+/**
+ * Parse the setting: comma/space-separated language codes (2 or 3 letters),
+ * lower-cased and de-duplicated. `null` = never set, so the default applies.
+ */
+export function parseSubtitleTrackLanguages(value: string | null | undefined): string[] {
+  if (value === null || value === undefined) return [...DEFAULT_SUBTITLE_TRACK_LANGUAGES];
+  return normalizeSubtitleTrackLanguages(value.split(/[\s,]+/));
+}
+
+/** Lower-cased, de-duplicated codes; throws on anything that isn't 2-3 letters. */
+export function normalizeSubtitleTrackLanguages(codes: string[]): string[] {
+  const out: string[] = [];
+  for (const raw of codes) {
+    const code = raw.trim().toLowerCase();
+    if (!code) continue;
+    if (!/^[a-z]{2,3}$/.test(code)) {
+      throw new Error(`"${raw}" is not a 2- or 3-letter language code`);
+    }
+    if (!out.includes(code)) out.push(code);
+  }
+  return out;
+}
 
 /** Containers ffmpeg can write back with every other stream copied unchanged. */
 const MUXERS: Record<string, string> = {
@@ -42,9 +112,9 @@ export interface SubtitleStripResult {
   kept: number;
 }
 
-function isKeptLanguage(language: string | null): boolean {
-  if (!language || language === "und") return true;
-  return KEPT_SUBTITLE_LANGUAGES.has(language.trim().toLowerCase());
+function isKeptLanguage(language: string | null, accepted: Set<string>): boolean {
+  if (!language || language.trim().toLowerCase() === "und") return true;
+  return accepted.has(language.trim().toLowerCase());
 }
 
 /** Every stream of a file, with its type and language tag, via ffprobe. */
@@ -72,10 +142,15 @@ export async function probeStreams(filePath: string): Promise<ProbedStream[]> {
   }));
 }
 
-/** Indexes of the subtitle streams to remove. */
-export function subtitleStreamsToDrop(streams: ProbedStream[]): number[] {
+/** Indexes of the subtitle streams to remove; none when `languages` is empty. */
+export function subtitleStreamsToDrop(
+  streams: ProbedStream[],
+  languages: string[],
+): number[] {
+  if (languages.length === 0) return [];
+  const accepted = acceptedTags(languages);
   return streams
-    .filter((s) => s.codecType === "subtitle" && !isKeptLanguage(s.language))
+    .filter((s) => s.codecType === "subtitle" && !isKeptLanguage(s.language, accepted))
     .map((s) => s.index);
 }
 
@@ -130,7 +205,7 @@ function countByType(streams: ProbedStream[]): Record<string, number> {
 }
 
 /**
- * Remove the embedded subtitle tracks that aren't Polish or English, in place.
+ * Remove the embedded subtitle tracks that aren't in `languages`, in place.
  *
  * Why: a media server that extracts embedded subtitles (to offer them as
  * separate files) typically runs one pass over the whole video per track, so a
@@ -145,13 +220,14 @@ function countByType(streams: ProbedStream[]): Record<string, number> {
  */
 export async function stripForeignSubtitleTracks(
   filePath: string,
+  languages: string[],
   onProgress?: (bytesDone: number, bytesTotal: number) => void,
 ): Promise<SubtitleStripResult> {
   const muxer = MUXERS[path.extname(filePath).toLowerCase()];
-  if (!muxer) return { removed: 0, kept: 0 };
+  if (!muxer || languages.length === 0) return { removed: 0, kept: 0 };
 
   const streams = await probeStreams(filePath);
-  const drop = subtitleStreamsToDrop(streams);
+  const drop = subtitleStreamsToDrop(streams, languages);
   const subtitleCount = streams.filter((s) => s.codecType === "subtitle").length;
   if (drop.length === 0) return { removed: 0, kept: subtitleCount };
 
