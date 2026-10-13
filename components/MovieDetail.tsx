@@ -4,6 +4,7 @@ import { useState, useEffect, useMemo } from "react";
 import path from "path";
 import ManagementBar from "@/components/movie-detail/ManagementBar";
 import ManagementMenu from "@/components/movie-detail/ManagementMenu";
+import EmbeddedPlayer from "@/components/movie-detail/EmbeddedPlayer";
 import MovieInfoColumn from "@/components/movie-detail/MovieInfoColumn";
 import MovieSidebar from "@/components/movie-detail/MovieSidebar";
 import { useMovieFileActions } from "@/components/movie-detail/useMovieFileActions";
@@ -325,7 +326,7 @@ export default function MovieDetail({
       onClick={onClose}
     >
       <div
-        className="bg-gray-900 border border-gray-700/50 rounded-2xl w-[calc(100vw-1rem)] sm:w-full max-w-5xl max-h-[90vh] shadow-2xl relative flex flex-col"
+        className={`bg-gray-900 border border-gray-700/50 rounded-2xl w-[calc(100vw-1rem)] sm:w-full ${showEmbedded ? "max-w-7xl" : "max-w-5xl"} max-h-[90vh] shadow-2xl relative flex flex-col transition-[max-width] duration-300`}
         onClick={(e) => e.stopPropagation()}
         role="dialog"
         aria-modal="true"
@@ -362,13 +363,28 @@ export default function MovieDetail({
         />
 
         <div className="overflow-y-auto flex-1 px-4 sm:px-8 pb-6 pt-3">
+          {showEmbedded && filePath && (
+            <div className="mb-8">
+              <EmbeddedPlayer
+                movieId={movie.id}
+                posterUrl={posterUrl}
+                filePath={filePath}
+                extraFiles={extraFiles}
+                activePart={activePart}
+                subtitlesList={subtitlesList}
+                onSelectPart={setActivePart}
+                videoMetadata={videoMetadata}
+                onPlayExternal={() => handlePlay("play")}
+                onClose={() => setShowEmbedded(false)}
+              />
+            </div>
+          )}
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
             <MovieSidebar
               title={movie.title}
               posterUrl={posterUrl}
               filePath={filePath}
               showEmbedded={showEmbedded}
-              isPlaying={isPlaying}
               playError={playError}
               director={director}
               writer={writer}
@@ -376,7 +392,6 @@ export default function MovieDetail({
               isLoadingMetadata={isLoadingMetadata}
               videoMetadata={videoMetadata}
               personRatings={personRatings}
-              onPlay={() => handlePlay("play")}
               onEmbed={() => setShowEmbedded(true)}
               onPersonClick={onPersonClick}
             />
@@ -403,8 +418,6 @@ export default function MovieDetail({
               mergeQuery={mergeQuery}
               potentialMerges={potentialMerges}
               isMerging={isMerging}
-              showEmbedded={showEmbedded}
-              activePart={activePart}
               subtitlesList={subtitlesList}
               hasSubtitles={hasSubtitles}
               isSubtitleUploading={isSubtitleUploading}
@@ -423,10 +436,7 @@ export default function MovieDetail({
               onMergeQueryChange={setMergeQuery}
               onCancelMerge={() => setIsMergeMode(false)}
               onMerge={handleMerge}
-              onSelectPart={setActivePart}
-              onCloseEmbedded={() => setShowEmbedded(false)}
-              videoMetadata={videoMetadata}
-              onPlay={() => handlePlay("play")}
+              onEmbed={() => setShowEmbedded(true)}
               onDragOverSub={onDragOverSub}
               onDragLeaveSub={onDragLeaveSub}
               onDropSub={onDropSub}
