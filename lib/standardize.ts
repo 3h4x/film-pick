@@ -10,6 +10,12 @@ import {
 } from "@/lib/subtitles";
 import { moveFile } from "@/lib/fs-move";
 import {
+  parseSubtitleTrackLanguages,
+  stripForeignSubtitleTracks,
+  SUBTITLE_TRACK_LANGUAGES_SETTING,
+} from "@/lib/subtitle-tracks";
+import { getSetting } from "@/lib/db";
+import {
   finishStandardizeJob,
   startStandardizeJob,
 } from "@/lib/standardize-jobs";
@@ -363,7 +369,38 @@ export async function standardizeMovie(
       );
     }
 
-    // 3. Move movie file
+    // 3. Drop embedded subtitle tracks in languages not kept by Config (default
+    // Polish and English), still at the old path: the library folder should only
+    // ever see the slimmed file (a media server indexing it reads the whole video
+    // once per subtitle track). Best effort: on any failure the file is moved as it is.
+    let subtitleTracksRemoved = 0;
+    if (normOld !== normNew) {
+      job.phase = "subtitles";
+      job.phaseStartedAt = Date.now();
+      try {
+        const languages = parseSubtitleTrackLanguages(
+          getSetting(db, SUBTITLE_TRACK_LANGUAGES_SETTING),
+        );
+        const stripped = await stripForeignSubtitleTracks(oldPath, languages, (done, total) => {
+          job.bytesDone = done;
+          job.bytesTotal = total;
+        });
+        subtitleTracksRemoved = stripped.removed;
+        if (stripped.removed > 0) {
+          console.log(
+            `- Removed ${stripped.removed} subtitle track(s), kept ${stripped.kept}`,
+          );
+        }
+      } catch (e) {
+        console.warn("- Could not remove subtitle tracks, moving the file as it is:", e);
+      }
+      job.phase = "moving";
+      job.phaseStartedAt = Date.now();
+      job.bytesDone = 0;
+      job.bytesTotal = 0;
+    }
+
+    // 4. Move movie file
     if (normOld !== normNew) {
       console.log(`- Moving file: ${oldPath} -> ${newPath}`);
       job.bytesTotal = (await fs.stat(oldPath)).size;
@@ -373,7 +410,7 @@ export async function standardizeMovie(
       job.bytesDone = job.bytesTotal;
     }
 
-    // 4. Group multi-part files (CD2, etc.) if current is CD1 or vice versa
+    // 5. Group multi-part files (CD2, etc.) if current is CD1 or vice versa
     let updatedExtraFiles = movie.extra_files;
     if (oldPath !== newPath && (isCD1 || isCD2)) {
       const oldDir = path.dirname(oldPath);
@@ -409,7 +446,7 @@ export async function standardizeMovie(
       }
     }
 
-    // 5. Move associated subtitles
+    // 6. Move associated subtitles
     if (normOld !== normNew) {
       console.log(`- Scanning for subtitles in: ${path.dirname(oldPath)}`);
       const oldDir = path.dirname(oldPath);
@@ -450,13 +487,13 @@ export async function standardizeMovie(
       }
     }
 
-    // 6. Update DB
+    // 7. Update DB
     console.log(`- Updating DB record: id=${movieId}`);
     db.prepare(
       "UPDATE movies SET file_path = ?, title = ?, year = ?, extra_files = ?, video_metadata = NULL WHERE id = ?",
     ).run(newPath, finalTitle, finalYear, updatedExtraFiles, movieId);
 
-    // 6. Delete old directory — movie and subtitles have been moved, remaining contents are trash
+    // 8. Delete old directory — movie and subtitles have been moved, remaining contents are trash
     try {
       if (normOld !== normNew) {
         const oldDir = path.dirname(oldPath);
@@ -496,7 +533,7 @@ export async function standardizeMovie(
     }
 
     console.log(`Successfully standardized movie: id=${movieId}`);
-    return result({ ok: true, newPath, newTitle: finalTitle });
+    return result({ ok: true, newPath, newTitle: finalTitle, subtitleTracksRemoved });
   } catch (error) {
     console.error("Standardization failed:", error);
     return result(

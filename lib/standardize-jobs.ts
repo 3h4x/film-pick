@@ -26,10 +26,13 @@ export function getStandardizeJob(
 /** Starts tracking a standardize; returns null when one is already running for this movie. */
 export function startStandardizeJob(movieId: number): StandardizeJob | null {
   if (getStandardizeJob(movieId)?.status === "running") return null;
+  const now = Date.now();
   const job: StandardizeJob = {
     status: "running",
-    startedAt: Date.now(),
+    startedAt: now,
     finishedAt: null,
+    phase: "moving",
+    phaseStartedAt: now,
     bytesDone: 0,
     bytesTotal: 0,
     result: null,

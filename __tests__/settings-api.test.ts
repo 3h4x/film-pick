@@ -381,6 +381,33 @@ describe("settings API", () => {
       expect(data).toMatchObject({ sync_auto_standardize: false, sync_auto_subtitles: true });
     });
 
+    it("keeps Polish and English subtitle tracks by default", async () => {
+      const data = await (await GET()).json();
+      expect(data.subtitle_track_languages).toEqual(["pol", "eng"]);
+    });
+
+    it("persists the subtitle track languages, normalized", async () => {
+      const res = await PATCH(makeRequest({ subtitle_track_languages: ["POL", " spa", "pol"] }));
+      expect(res.status).toBe(200);
+      expect(getSetting(db, "subtitle_track_languages")).toBe("pol,spa");
+      const data = await (await GET()).json();
+      expect(data.subtitle_track_languages).toEqual(["pol", "spa"]);
+    });
+
+    it("stores an empty subtitle language list as keep-all, not as the default", async () => {
+      await PATCH(makeRequest({ subtitle_track_languages: [] }));
+      expect(getSetting(db, "subtitle_track_languages")).toBe("");
+      const data = await (await GET()).json();
+      expect(data.subtitle_track_languages).toEqual([]);
+    });
+
+    it("rejects subtitle track languages that are not language codes", async () => {
+      const res = await PATCH(makeRequest({ subtitle_track_languages: ["pol", "polish!"] }));
+      expect(res.status).toBe(400);
+      expect(getSetting(db, "subtitle_track_languages")).toBeNull();
+      expect((await PATCH(makeRequest({ subtitle_track_languages: "pol" }))).status).toBe(400);
+    });
+
     it("has the sync post-processing switches on by default", async () => {
       const data = await (await GET()).json();
       expect(data).toMatchObject({ sync_auto_standardize: true, sync_auto_subtitles: true });

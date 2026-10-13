@@ -127,7 +127,14 @@ export interface StandardizeJob {
   status: "running" | "done" | "error";
   startedAt: number;
   finishedAt: number | null;
-  /** Bytes of video moved so far; a same-filesystem rename jumps straight to bytesTotal. */
+  /**
+   * What bytesDone/bytesTotal count: "subtitles" while the video is rewritten
+   * without its foreign subtitle tracks, then "moving" for the move itself.
+   */
+  phase: "subtitles" | "moving";
+  /** When the current phase began; its progress rate is measured from here. */
+  phaseStartedAt: number;
+  /** Bytes of video moved (or rewritten) so far; a same-filesystem rename jumps straight to bytesTotal. */
   bytesDone: number;
   bytesTotal: number;
   /** Response body of the finished POST, so a reopened movie can show the outcome. */

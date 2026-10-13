@@ -158,6 +158,12 @@ export default function ConfigPanel({
   const [backupStats, setBackupStats] = useState<{ lastBackup: string | null; count: number } | null>(null);
   const [backupEnabled, setBackupEnabled] = useState(true);
   const [syncAuto, setSyncAuto] = useState({ sync_auto_standardize: true, sync_auto_subtitles: true });
+  // Languages whose embedded subtitle tracks survive a standardize move.
+  const [subtitleLangs, setSubtitleLangs] = useState("pol, eng");
+  const [subtitleLangsDraft, setSubtitleLangsDraft] = useState("pol, eng");
+  const [subtitleLangsState, setSubtitleLangsState] = useState<
+    { status: "idle" | "saving" | "saved" } | { status: "error"; message: string }
+  >({ status: "idle" });
   const [cdaInterval, setCdaInterval] = useState<0 | 6 | 12 | 24>(0);
   const [cdaStatus, setCdaStatus] = useState<"idle" | "running" | "error">("idle");
   const [cdaLastRefresh, setCdaLastRefresh] = useState<string | null>(null);
@@ -199,6 +205,29 @@ export default function ConfigPanel({
       .catch(() => {});
   }, [activeTab, detachedLoaded]);
 
+  async function handleSaveSubtitleLangs() {
+    setSubtitleLangsState({ status: "saving" });
+    const codes = subtitleLangsDraft.split(/[\s,]+/).filter(Boolean);
+    try {
+      const res = await fetch("/api/settings", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ subtitle_track_languages: codes }),
+      });
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}));
+        setSubtitleLangsState({ status: "error", message: body.error ?? "Could not save" });
+        return;
+      }
+      const saved = codes.map((c) => c.toLowerCase()).join(", ");
+      setSubtitleLangs(saved);
+      setSubtitleLangsDraft(saved);
+      setSubtitleLangsState({ status: "saved" });
+    } catch {
+      setSubtitleLangsState({ status: "error", message: "Could not save" });
+    }
+  }
+
   async function handleDeleteDetached(id: number) {
     setDeletingIds((prev) => new Set(prev).add(id));
     try {
@@ -225,6 +254,11 @@ export default function ConfigPanel({
           sync_auto_standardize: s.sync_auto_standardize ?? true,
           sync_auto_subtitles: s.sync_auto_subtitles ?? true,
         });
+        if (Array.isArray(s.subtitle_track_languages)) {
+          const langs = s.subtitle_track_languages.join(", ");
+          setSubtitleLangs(langs);
+          setSubtitleLangsDraft(langs);
+        }
         setCdaInterval(s.cda_refresh_interval_hours ?? 0);
         setCdaStatus(s.cda_refresh_status ?? "idle");
         setCdaLastRefresh(s.cda_last_refresh ?? null);
@@ -648,6 +682,48 @@ export default function ConfigPanel({
                   {label}: {syncAuto[key] ? "On" : "Off"}
                 </button>
               ))}
+            </div>
+            <div className="mt-4 space-y-2">
+              <p className="text-sm text-gray-300">Embedded subtitle tracks to keep</p>
+              <Hint>
+                Before a film is moved into the library (by Standardize or after sync),
+                subtitle tracks inside the video in other languages are removed, so a media
+                server does not read the whole file once per track. Language codes like{" "}
+                <span className="font-mono">pol, eng, spa</span>; tracks without a language
+                are always kept. Leave empty to keep every track.
+              </Hint>
+              <div className="flex flex-wrap items-center gap-2">
+                <input
+                  type="text"
+                  value={subtitleLangsDraft}
+                  onChange={(e) => {
+                    setSubtitleLangsDraft(e.target.value);
+                    setSubtitleLangsState({ status: "idle" });
+                  }}
+                  onKeyDown={(e) => e.key === "Enter" && handleSaveSubtitleLangs()}
+                  placeholder="empty = keep all tracks"
+                  aria-label="Subtitle track languages to keep"
+                  className="h-11 flex-1 min-w-0 rounded-lg border border-gray-700/30 bg-gray-800/60 px-3 text-sm font-mono text-white placeholder-gray-600 focus:border-indigo-500/50 focus:outline-none"
+                />
+                <Button
+                  onClick={handleSaveSubtitleLangs}
+                  disabled={
+                    subtitleLangsState.status === "saving" ||
+                    subtitleLangsDraft.trim() === subtitleLangs.trim()
+                  }
+                  className="min-h-11 shrink-0 rounded-lg px-4 py-2 text-sm"
+                >
+                  {subtitleLangsState.status === "saving" ? "Saving..." : "Save"}
+                </Button>
+              </div>
+              {subtitleLangsState.status === "saved" && (
+                <p className="text-xs text-green-400">
+                  {subtitleLangs ? `Keeping: ${subtitleLangs}` : "Keeping every subtitle track"}
+                </p>
+              )}
+              {subtitleLangsState.status === "error" && (
+                <p className="text-xs text-red-400">{subtitleLangsState.message}</p>
+              )}
             </div>
           </section>
 
