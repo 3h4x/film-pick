@@ -1,7 +1,6 @@
 "use client";
 
 import type { DragEvent } from "react";
-import EmbeddedPlayer from "@/components/movie-detail/EmbeddedPlayer";
 import MergeTargetSelector from "@/components/movie-detail/MergeTargetSelector";
 import MovieMetadataBadges from "@/components/movie-detail/MovieMetadataBadges";
 import MoviePoster from "@/components/movie-detail/MoviePoster";
@@ -10,7 +9,6 @@ import QuickLinks from "@/components/movie-detail/QuickLinks";
 import RatingControls from "@/components/movie-detail/RatingControls";
 import StorageSection from "@/components/movie-detail/StorageSection";
 import type { SubtitleCheck } from "@/lib/subtitle-check";
-import type { PlaybackMetadata } from "@/lib/playback";
 import WatchlistButton from "@/components/movie-detail/WatchlistButton";
 import NotInterestedButton from "@/components/movie-detail/NotInterestedButton";
 import SubtitlesSection from "@/components/movie-detail/SubtitlesSection";
@@ -46,8 +44,6 @@ interface MovieInfoColumnProps {
   mergeQuery: string;
   potentialMerges: MovieDetailMovie[];
   isMerging: boolean;
-  showEmbedded: boolean;
-  activePart: number;
   subtitlesList: SubtitleTrack[];
   hasSubtitles: boolean;
   isSubtitleUploading: boolean;
@@ -66,10 +62,7 @@ interface MovieInfoColumnProps {
   onMergeQueryChange: (query: string) => void;
   onCancelMerge: () => void;
   onMerge: (targetId: number) => void;
-  onSelectPart: (part: number) => void;
-  onCloseEmbedded: () => void;
-  videoMetadata: PlaybackMetadata | null;
-  onPlay: () => void;
+  onEmbed: () => void;
   onDragOverSub: (event: DragEvent<HTMLLabelElement>) => void;
   onDragLeaveSub: (event: DragEvent<HTMLLabelElement>) => void;
   onDropSub: (event: DragEvent<HTMLLabelElement>) => void;
@@ -158,8 +151,6 @@ export default function MovieInfoColumn({
   mergeQuery,
   potentialMerges,
   isMerging,
-  showEmbedded,
-  activePart,
   subtitlesList,
   hasSubtitles,
   isSubtitleUploading,
@@ -178,10 +169,7 @@ export default function MovieInfoColumn({
   onMergeQueryChange,
   onCancelMerge,
   onMerge,
-  onSelectPart,
-  onCloseEmbedded,
-  videoMetadata,
-  onPlay,
+  onEmbed,
   onDragOverSub,
   onDragLeaveSub,
   onDropSub,
@@ -265,24 +253,15 @@ export default function MovieInfoColumn({
           )}
 
 
-      <MoviePoster title={movie.title} posterUrl={posterUrl} size="mobile" />
+      <MoviePoster
+        title={movie.title}
+        posterUrl={posterUrl}
+        filePath={filePath}
+        size="mobile"
+        onEmbed={onEmbed}
+      />
 
-      {showEmbedded && filePath ? (
-        <EmbeddedPlayer
-          movieId={movie.id}
-          posterUrl={posterUrl}
-          filePath={filePath}
-          extraFiles={extraFiles}
-          activePart={activePart}
-          subtitlesList={subtitlesList}
-          onSelectPart={onSelectPart}
-          videoMetadata={videoMetadata}
-          onPlayExternal={onPlay}
-          onClose={onCloseEmbedded}
-        />
-      ) : (
-        <PlotSummary description={description} />
-      )}
+      <PlotSummary description={description} />
 
       {isMergeMode && (
         <MergeTargetSelector

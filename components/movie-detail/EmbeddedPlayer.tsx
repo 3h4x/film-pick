@@ -122,7 +122,7 @@ export default function EmbeddedPlayer({
           </button>
         </div>
       ) : (
-        <div className="bg-black rounded-2xl overflow-hidden aspect-video border border-gray-800 shadow-2xl relative group">
+        <div className="bg-black rounded-2xl overflow-hidden aspect-video max-h-[70vh] w-full border border-gray-800 shadow-2xl relative group">
           <video
             key={`${movieId}-${activePart}-${mode}-${offset}`}
             controls
@@ -183,7 +183,13 @@ export default function EmbeddedPlayer({
 
       {mode === "direct" && !showFallback && (
         <p className="text-[10px] text-gray-500 italic text-center">
-          Trouble playing? Use &quot;Play in VLC&quot;.
+          Trouble playing?{" "}
+          <button
+            onClick={onPlayExternal}
+            className="not-italic font-bold text-indigo-400 hover:text-indigo-300 underline-offset-2 hover:underline"
+          >
+            Open in VLC
+          </button>
         </p>
       )}
     </div>

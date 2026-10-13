@@ -13,7 +13,6 @@ interface MovieSidebarProps {
   posterUrl: string | null;
   filePath: string | null;
   showEmbedded: boolean;
-  isPlaying: boolean;
   playError: string | null;
   director: string | null;
   writer: string | null;
@@ -21,7 +20,6 @@ interface MovieSidebarProps {
   isLoadingMetadata: boolean;
   videoMetadata: VideoMetadata | null;
   personRatings: Record<string, PersonRating>;
-  onPlay: () => void;
   onEmbed: () => void;
   onPersonClick?: (name: string) => void;
 }
@@ -31,7 +29,6 @@ export default function MovieSidebar({
   posterUrl,
   filePath,
   showEmbedded,
-  isPlaying,
   playError,
   director,
   writer,
@@ -39,7 +36,6 @@ export default function MovieSidebar({
   isLoadingMetadata,
   videoMetadata,
   personRatings,
-  onPlay,
   onEmbed,
   onPersonClick,
 }: MovieSidebarProps) {
@@ -50,8 +46,6 @@ export default function MovieSidebar({
         posterUrl={posterUrl}
         filePath={filePath}
         showEmbedded={showEmbedded}
-        isPlaying={isPlaying}
-        onPlay={onPlay}
         onEmbed={onEmbed}
       />
 
