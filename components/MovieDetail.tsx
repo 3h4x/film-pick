@@ -18,6 +18,7 @@ import { useMovieSubtitles } from "@/components/movie-detail/useMovieSubtitles";
 import { usePersonRatings } from "@/components/movie-detail/usePersonRatings";
 import type { MovieDetailMovie } from "@/components/movie-detail/types";
 import { cleanTitle } from "@/lib/utils";
+import { browserCanDecode, planPlayback } from "@/lib/playback";
 
 type Movie = MovieDetailMovie;
 
@@ -66,6 +67,14 @@ export default function MovieDetail({
     isLoadingMetadata,
   } = useMovieDetailMetadata({ movie, isPersistedMovie, onUpdate });
   const personRatings = usePersonRatings(movie);
+  // No play button on the poster for a file this browser cannot play at all; the
+  // VLC "Play" button in the management bar still works for it.
+  const canEmbed = useMemo(
+    () =>
+      Boolean(filePath) &&
+      planPlayback(filePath ?? "", videoMetadata, browserCanDecode).mode !== "unsupported",
+    [filePath, videoMetadata],
+  );
   const {
     isStandardizing,
     standardizeProgress,
@@ -392,7 +401,7 @@ export default function MovieDetail({
               isLoadingMetadata={isLoadingMetadata}
               videoMetadata={videoMetadata}
               personRatings={personRatings}
-              onEmbed={() => setShowEmbedded(true)}
+              onEmbed={canEmbed ? () => setShowEmbedded(true) : undefined}
               onPersonClick={onPersonClick}
             />
 
@@ -436,7 +445,7 @@ export default function MovieDetail({
               onMergeQueryChange={setMergeQuery}
               onCancelMerge={() => setIsMergeMode(false)}
               onMerge={handleMerge}
-              onEmbed={() => setShowEmbedded(true)}
+              onEmbed={canEmbed ? () => setShowEmbedded(true) : undefined}
               onDragOverSub={onDragOverSub}
               onDragLeaveSub={onDragLeaveSub}
               onDropSub={onDropSub}

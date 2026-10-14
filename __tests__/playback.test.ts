@@ -4,6 +4,7 @@ import {
   buildRemuxArgs,
   planPlayback,
   shiftVttCues,
+  videoMimeType,
 } from "@/lib/playback";
 
 const meta = (video: string, audio?: string) => ({
@@ -11,7 +12,46 @@ const meta = (video: string, audio?: string) => ({
   audio: audio ? [{ codec: audio }] : [],
 });
 
+describe("videoMimeType", () => {
+  it("describes 10-bit HEVC with its level so the browser is asked about the real stream", () => {
+    expect(
+      videoMimeType({ codec: "hevc", profile: "Main 10", pix_fmt: "yuv420p10le", level: 120 }),
+    ).toBe('video/mp4; codecs="hvc1.2.4.L120.B0"');
+    expect(videoMimeType({ codec: "hevc", profile: "Main" })).toBe(
+      'video/mp4; codecs="hvc1.1.6.L120.B0"',
+    );
+  });
+
+  it("covers H.264, VP9 and AV1, and nothing a browser cannot play", () => {
+    expect(videoMimeType({ codec: "h264", profile: "High", level: 41 })).toBe(
+      'video/mp4; codecs="avc1.640029"',
+    );
+    expect(videoMimeType({ codec: "vp9", pix_fmt: "yuv420p10le" })).toBe(
+      'video/mp4; codecs="vp09.02.10.10"',
+    );
+    expect(videoMimeType({ codec: "av1" })).toBe('video/mp4; codecs="av01.0.08M.08"');
+    expect(videoMimeType({ codec: "mpeg4" })).toBeNull();
+    expect(videoMimeType(undefined)).toBeNull();
+  });
+});
+
 describe("planPlayback", () => {
+  it("marks browser video this browser cannot decode as unsupported", () => {
+    const hevc10 = {
+      video: { codec: "hevc", profile: "Main 10", pix_fmt: "yuv420p10le", level: 120 },
+      audio: [{ codec: "aac" }],
+    };
+    expect(planPlayback("/mnt/library/Sample/Sample.mp4", hevc10, () => false)).toEqual({
+      mode: "unsupported",
+      reason: "HEVC Main 10 video is not supported by this browser",
+    });
+    expect(planPlayback("/mnt/library/Sample/Sample.mp4", hevc10, () => true).mode).toBe(
+      "direct",
+    );
+    // Without a decoder check the plan stays optimistic, as on the server.
+    expect(planPlayback("/mnt/library/Sample/Sample.mp4", hevc10).mode).toBe("direct");
+  });
+
   it("plays H.264 + AAC in MP4 or Matroska directly", () => {
     expect(planPlayback("/mnt/library/Sample/Sample.mp4", meta("h264", "aac")).mode).toBe("direct");
     expect(planPlayback("/mnt/library/Sample/Sample.mkv", meta("h264", "aac")).mode).toBe("direct");

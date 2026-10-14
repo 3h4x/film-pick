@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import type { SubtitleTrack } from "@/components/movie-detail/types";
 import {
+  browserCanDecode,
   planPlayback,
   type PlaybackMetadata,
   type PlaybackMode,
@@ -43,7 +44,7 @@ export default function EmbeddedPlayer({
 }: EmbeddedPlayerProps) {
   const activeFile = [filePath, ...extraFiles][activePart] ?? filePath;
   const plan = useMemo(
-    () => planPlayback(activeFile, videoMetadata),
+    () => planPlayback(activeFile, videoMetadata, browserCanDecode),
     [activeFile, videoMetadata],
   );
   // The plan can be overridden once the browser has had its say: a "direct" file

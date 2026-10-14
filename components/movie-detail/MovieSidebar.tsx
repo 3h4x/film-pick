@@ -20,7 +20,7 @@ interface MovieSidebarProps {
   isLoadingMetadata: boolean;
   videoMetadata: VideoMetadata | null;
   personRatings: Record<string, PersonRating>;
-  onEmbed: () => void;
+  onEmbed?: () => void;
   onPersonClick?: (name: string) => void;
 }
 

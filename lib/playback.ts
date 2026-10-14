@@ -13,6 +13,11 @@
  *   support, so seeking restarts it from an offset (`start`).
  * - "unsupported": the video codec itself would need a full re-encode, which a small
  *   home server cannot do in real time. VLC plays these.
+ *
+ * "Browser video" is a ceiling, not a promise: HEVC (especially 10-bit) depends on a
+ * platform decoder, and VP9 / AV1 on the browser and hardware. Passing `canDecode`
+ * (`browserCanDecode` in the browser) asks the current browser about the exact stream, so
+ * a file it cannot decode is "unsupported" up front instead of failing after a remux try.
  */
 
 export type PlaybackMode = "direct" | "remux" | "unsupported";
@@ -26,7 +31,7 @@ export interface PlaybackPlan {
 /** The subset of the stored ffprobe metadata the plan needs. */
 export interface PlaybackMetadata {
   duration?: number;
-  video?: { codec?: string };
+  video?: { codec?: string; profile?: string; pix_fmt?: string; level?: number };
   audio?: { codec?: string }[];
 }
 
@@ -42,9 +47,63 @@ function extensionOf(filePath: string): string {
   return dot === -1 ? "" : base.slice(dot + 1).toLowerCase();
 }
 
+function isHighBitDepth(video: NonNullable<PlaybackMetadata["video"]>): boolean {
+  return /10|12/.test(video.profile ?? "") || /p1[02](le|be)?$/i.test(video.pix_fmt ?? "");
+}
+
+/**
+ * An RFC 6381 MIME type with codecs for the file's video stream, as the remux stream
+ * delivers it (MP4), for asking the browser whether it can decode it. Null when the
+ * codec is not one a browser could play at all.
+ */
+export function videoMimeType(video: PlaybackMetadata["video"]): string | null {
+  const codec = video?.codec?.toLowerCase();
+  if (!video || !codec) return null;
+  const highBitDepth = isHighBitDepth(video);
+  const level = Number.isFinite(video.level) && video.level! > 0 ? video.level! : 0;
+  let codecs: string;
+  switch (codec) {
+    case "h264": {
+      // profile_idc 0x64 = High, 0x6E = High 10; ffprobe's level is level_idc (e.g. 40).
+      const levelHex = (level || 40).toString(16).padStart(2, "0").toUpperCase();
+      codecs = `avc1.${highBitDepth ? "6E" : "64"}00${levelHex}`;
+      break;
+    }
+    case "hevc":
+      // ffprobe's HEVC level is already general_level_idc (30 x level, e.g. 120 = 4.0).
+      codecs = highBitDepth
+        ? `hvc1.2.4.L${level || 120}.B0`
+        : `hvc1.1.6.L${level || 120}.B0`;
+      break;
+    case "vp9":
+      codecs = highBitDepth ? "vp09.02.10.10" : "vp09.00.10.08";
+      break;
+    case "av1":
+      codecs = highBitDepth ? "av01.0.08M.10" : "av01.0.08M.08";
+      break;
+    default:
+      return null;
+  }
+  return `video/mp4; codecs="${codecs}"`;
+}
+
+/** Whether the current browser says it can decode `mimeType`. True outside a browser. */
+export function browserCanDecode(mimeType: string): boolean {
+  if (typeof window === "undefined") return true;
+  try {
+    if (typeof MediaSource !== "undefined" && MediaSource.isTypeSupported) {
+      if (MediaSource.isTypeSupported(mimeType)) return true;
+    }
+    return document.createElement("video").canPlayType(mimeType) !== "";
+  } catch {
+    return true;
+  }
+}
+
 export function planPlayback(
   filePath: string,
   metadata: PlaybackMetadata | null | undefined,
+  canDecode?: (mimeType: string) => boolean,
 ): PlaybackPlan {
   const ext = extensionOf(filePath);
   const videoCodec = metadata?.video?.codec?.toLowerCase();
@@ -60,6 +119,15 @@ export function planPlayback(
     return {
       mode: "unsupported",
       reason: `${videoCodec.toUpperCase()} video${ext ? ` in ${ext.toUpperCase()}` : ""}`,
+    };
+  }
+
+  const mimeType = canDecode ? videoMimeType(metadata?.video) : null;
+  if (mimeType && !canDecode!(mimeType)) {
+    const profile = metadata?.video?.profile;
+    return {
+      mode: "unsupported",
+      reason: `${videoCodec.toUpperCase()}${profile ? ` ${profile}` : ""} video is not supported by this browser`,
     };
   }
 
