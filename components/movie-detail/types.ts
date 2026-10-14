@@ -18,6 +18,8 @@ export interface VideoMetadata {
     profile?: string;
     /** ffprobe pixel format, e.g. "yuv420p" or "yuv420p10le". Absent on older metadata. */
     pix_fmt?: string;
+    /** ffprobe level, e.g. 40 (H.264 4.0) or 120 (HEVC 4.0). */
+    level?: number;
   };
   audio?: VideoAudioTrack[];
 }

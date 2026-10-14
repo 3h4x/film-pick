@@ -62,7 +62,7 @@ interface MovieInfoColumnProps {
   onMergeQueryChange: (query: string) => void;
   onCancelMerge: () => void;
   onMerge: (targetId: number) => void;
-  onEmbed: () => void;
+  onEmbed?: () => void;
   onDragOverSub: (event: DragEvent<HTMLLabelElement>) => void;
   onDragLeaveSub: (event: DragEvent<HTMLLabelElement>) => void;
   onDropSub: (event: DragEvent<HTMLLabelElement>) => void;
