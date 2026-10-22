@@ -14,6 +14,9 @@ const {
   mockRm,
   mockStat,
   mockReadFile,
+  mockReadlink,
+  mockSymlink,
+  mockUnlink,
 } = vi.hoisted(() => ({
   mockExistsSync: vi.fn(),
   mockMkdir: vi.fn(),
@@ -22,6 +25,9 @@ const {
   mockRm: vi.fn(),
   mockStat: vi.fn(),
   mockReadFile: vi.fn(),
+  mockReadlink: vi.fn(),
+  mockSymlink: vi.fn(),
+  mockUnlink: vi.fn(),
 }));
 
 vi.mock("fs/promises", () => ({
@@ -32,6 +38,9 @@ vi.mock("fs/promises", () => ({
     rm: mockRm,
     stat: mockStat,
     readFile: mockReadFile,
+    readlink: mockReadlink,
+    symlink: mockSymlink,
+    unlink: mockUnlink,
   },
   mkdir: mockMkdir,
   rename: mockRename,
@@ -39,6 +48,9 @@ vi.mock("fs/promises", () => ({
   rm: mockRm,
   stat: mockStat,
   readFile: mockReadFile,
+  readlink: mockReadlink,
+  symlink: mockSymlink,
+  unlink: mockUnlink,
 }));
 
 vi.mock("fs", async (importOriginal) => {
@@ -85,6 +97,9 @@ describe("movies/[id]/standardize POST handler", () => {
     initDb(db);
     vi.mocked(getDb).mockReturnValue(db as unknown as ReturnType<typeof getDb>);
     vi.clearAllMocks();
+    mockReadlink.mockRejectedValue(Object.assign(new Error("Not a link"), { code: "EINVAL" }));
+    mockSymlink.mockResolvedValue(undefined);
+    mockUnlink.mockResolvedValue(undefined);
     mockMkdir.mockResolvedValue(undefined);
     mockRename.mockResolvedValue(undefined);
     mockReaddir.mockResolvedValue([]);
@@ -177,6 +192,27 @@ describe("movies/[id]/standardize POST handler", () => {
     expect(job.status).toBe("error");
     expect(job.result.error).toMatch(/EACCES/);
     expect(startStandardizeJob(movieId)).not.toBeNull();
+  });
+
+  it("rebuilds the default English link when standardizing the movie name", async () => {
+    movieId = insertMovie(db, {
+      title: "Sample Movie", year: 1999, genre: null, director: null,
+      rating: null, poster_url: null, source: "local", imdb_id: null,
+      tmdb_id: null, type: "movie",
+    });
+    const oldPath = "/library/incoming/sample_movie_1080p.mkv";
+    db.prepare("UPDATE movies SET file_path = ? WHERE id = ?").run(oldPath, movieId);
+    mockExistsSync.mockImplementation((p: string) => p === oldPath);
+    mockReaddir.mockResolvedValue(["sample_movie_1080p.en.srt", "sample_movie_1080p.srt"]);
+    mockReadlink.mockImplementation(async (p: string) => {
+      if (p.endsWith("/sample_movie_1080p.srt")) return "sample_movie_1080p.en.srt";
+      throw Object.assign(new Error("Not a link"), { code: "EINVAL" });
+    });
+    const response = await POST(postReq(movieId), makeParams(movieId));
+    expect(response.status).toBe(200);
+    expect(mockSymlink).toHaveBeenCalledWith("Sample Movie.en.srt", "/library/Sample Movie [1999]/Sample Movie.srt");
+    expect(mockUnlink).toHaveBeenCalledWith("/library/incoming/sample_movie_1080p.srt");
+    expect(mockRename).toHaveBeenCalledWith("/library/incoming/sample_movie_1080p.en.srt", "/library/Sample Movie [1999]/Sample Movie.en.srt");
   });
 
   it("returns 404 when movie is not found", async () => {

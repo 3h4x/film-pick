@@ -427,6 +427,19 @@ export async function standardizeMovie(
             fileNameNoExt.startsWith(oldFileNameNoExt))
         ) {
           const oldSubPath = path.join(oldDir, file);
+          const linkTarget = await fs.readlink(oldSubPath).catch(() => null);
+          if (
+            file === oldFileNameNoExt + ".srt" &&
+            linkTarget === oldFileNameNoExt + ".en.srt"
+          ) {
+            // Rebuild the managed alias with the new name, even across filesystems.
+            await fs.symlink(
+              targetFileNameNoExt + ".en.srt",
+              path.join(targetDir, targetFileNameNoExt + ".srt"),
+            );
+            await fs.unlink(oldSubPath);
+            continue;
+          }
           // Name the file after what it actually contains. Forcing `.srt` here used
           // to relabel MicroDVD payloads as SubRip, which players render as nothing.
           let targetSubExt = fileExt;

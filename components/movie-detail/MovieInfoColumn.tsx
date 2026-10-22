@@ -1,4 +1,5 @@
 "use client";
+import type { SubtitleLanguage } from "@/lib/subtitle-language";
 
 import type { DragEvent } from "react";
 import MergeTargetSelector from "@/components/movie-detail/MergeTargetSelector";
@@ -67,7 +68,7 @@ interface MovieInfoColumnProps {
   onDragLeaveSub: (event: DragEvent<HTMLLabelElement>) => void;
   onDropSub: (event: DragEvent<HTMLLabelElement>) => void;
   onSubtitleUpload: (file: File) => void;
-  onSubtitleDownload: () => void;
+  onSubtitleDownload: (language?: SubtitleLanguage) => void;
   onStandardize: () => void;
 }
 

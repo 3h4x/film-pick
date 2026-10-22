@@ -4,7 +4,7 @@ import crypto from "crypto";
 import fs from "fs";
 import os from "os";
 import path from "path";
-import { initDb, insertMovie } from "@/lib/db";
+import { initDb, insertMovie, setSetting } from "@/lib/db";
 import { napiprojektHash, fetchNapiprojektSubtitle } from "@/lib/napiprojekt";
 import {
   opensubtitlesHash,
@@ -119,18 +119,18 @@ describe("fetchNapiprojektSubtitle", () => {
 describe("downloadSubtitle", () => {
   it("saves a NapiProjekt hit next to the video, converted to SubRip", async () => {
     global.fetch = vi.fn().mockResolvedValue(textResponse(napiXml(MICRODVD)));
-    const result = await downloadSubtitle({ filePath: videoPath });
+    const result = await downloadSubtitle({ filePath: videoPath, language: "pl" });
     expect(result).toMatchObject({
       status: "downloaded",
       provider: "napiprojekt",
       hashMatch: true,
-      fileName: "Movie (1999).srt",
+      fileName: "Movie (1999).pl.srt",
       format: "microdvd",
       converted: true,
       cueCount: 2,
     });
     const written = fs.readFileSync(
-      path.join(tmpDir, "Movie", "Movie (1999).srt"),
+      path.join(tmpDir, "Movie", "Movie (1999).pl.srt"),
       "utf8",
     );
     expect(written).toContain("00:00:01,001 --> 00:00:02,002");
@@ -141,25 +141,25 @@ describe("downloadSubtitle", () => {
     fs.writeFileSync(path.join(tmpDir, "Movie", "Movie (1999).pl.srt"), "x");
     const fetchMock = vi.fn();
     global.fetch = fetchMock;
-    const result = await downloadSubtitle({ filePath: videoPath });
+    const result = await downloadSubtitle({ filePath: videoPath, language: "pl" });
     expect(result.status).toBe("exists");
     expect(fetchMock).not.toHaveBeenCalled();
   });
 
   it("overwrites existing subtitles when asked to replace", async () => {
-    fs.writeFileSync(path.join(tmpDir, "Movie", "Movie (1999).srt"), "old");
+    fs.writeFileSync(path.join(tmpDir, "Movie", "Movie (1999).pl.srt"), "old");
     global.fetch = vi.fn().mockResolvedValue(textResponse(napiXml(MICRODVD)));
-    const result = await downloadSubtitle({ filePath: videoPath }, { replace: true });
+    const result = await downloadSubtitle({ filePath: videoPath, language: "pl" }, { replace: true });
     expect(result.status).toBe("downloaded");
     expect(
-      fs.readFileSync(path.join(tmpDir, "Movie", "Movie (1999).srt"), "utf8"),
+      fs.readFileSync(path.join(tmpDir, "Movie", "Movie (1999).pl.srt"), "utf8"),
     ).toContain("Dzień dobry.");
   });
 
   it("reports not_found when NapiProjekt misses and OpenSubtitles is not configured", async () => {
     const fetchMock = vi.fn().mockResolvedValue(textResponse(napiXml(null)));
     global.fetch = fetchMock;
-    expect(await downloadSubtitle({ filePath: videoPath })).toEqual({
+    expect(await downloadSubtitle({ filePath: videoPath, language: "pl" })).toEqual({
       status: "not_found",
     });
     expect(fetchMock).toHaveBeenCalledTimes(1);
@@ -200,6 +200,7 @@ describe("downloadSubtitle", () => {
     global.fetch = fetchMock as typeof fetch;
 
     const result = await downloadSubtitle({
+      language: "pl",
       filePath: videoPath,
       imdbId: "tt0133093",
       title: "Movie",
@@ -213,7 +214,7 @@ describe("downloadSubtitle", () => {
       adCuesRemoved: 2,
     });
     const written = fs.readFileSync(
-      path.join(tmpDir, "Movie", "Movie (1999).srt"),
+      path.join(tmpDir, "Movie", "Movie (1999).pl.srt"),
       "utf8",
     );
     expect(written).toBe("1\r\n00:00:04,000 --> 00:00:05,000\r\nCześć\r\n\r\n");
@@ -240,12 +241,42 @@ describe("downloadSubtitle", () => {
       throw new Error(`unexpected fetch ${href}`);
     }) as typeof fetch;
     // OpenSubtitles answered (with nothing), so the outage is not the verdict.
-    const result = await downloadSubtitle({ filePath: videoPath, title: "Movie" });
+    const result = await downloadSubtitle({ filePath: videoPath, language: "pl", title: "Movie" });
     expect(result).toEqual({ status: "error", error: "NapiProjekt HTTP 503" });
+  });
+
+  it("downloads English alongside Polish and untagged subtitles without overwriting either", async () => {
+    process.env.OPENSUBTITLES_API_KEY = "test-key";
+    const polish = path.join(tmpDir, "Movie", "Movie (1999).pl.srt");
+    const legacy = path.join(tmpDir, "Movie", "Movie (1999).srt");
+    fs.writeFileSync(polish, "Polish original");
+    fs.writeFileSync(legacy, "Unknown language original");
+    const fetchMock = vi.fn(async (url: string | URL) => {
+      const href = String(url);
+      if (href.includes("/subtitles?")) {
+        expect(new URL(href).searchParams.get("languages")).toBe("en");
+        return Response.json({ data: [{ attributes: { moviehash_match: true, files: [{ file_id: 3 }] } }] });
+      }
+      if (href.endsWith("/download")) return Response.json({ link: "https://dl.example/english.srt" });
+      if (href === "https://dl.example/english.srt") return textResponse("1\n00:00:01,000 --> 00:00:02,000\nSample dialogue\n");
+      throw new Error("Unexpected provider request");
+    });
+    global.fetch = fetchMock as typeof fetch;
+    expect(await downloadSubtitle({ filePath: videoPath })).toMatchObject({ status: "downloaded", fileName: "Movie (1999).en.srt" });
+    expect(fs.readFileSync(polish, "utf8")).toBe("Polish original");
+    expect(fs.readFileSync(legacy, "utf8")).toBe("Unknown language original");
+    const calls = fetchMock.mock.calls.length;
+    expect(await downloadSubtitle({ filePath: videoPath })).toMatchObject({ status: "exists" });
+    expect(fetchMock).toHaveBeenCalledTimes(calls);
+    fs.unlinkSync(legacy);
+    expect(await downloadSubtitle({ filePath: videoPath })).toMatchObject({ status: "exists" });
+    expect(fs.readlinkSync(legacy)).toBe("Movie (1999).en.srt");
+    expect(fetchMock).toHaveBeenCalledTimes(calls);
   });
 
   it("reports no_file when the video is gone", async () => {
     const result = await downloadSubtitle({
+      language: "pl",
       filePath: path.join(tmpDir, "missing.avi"),
     });
     expect(result).toEqual({ status: "no_file" });
@@ -259,6 +290,7 @@ describe("downloadMissingSubtitles", () => {
   beforeEach(() => {
     db = new Database(TEST_DB);
     initDb(db);
+    setSetting(db, "subtitle_language", "pl");
   });
 
   afterEach(() => {
@@ -283,17 +315,28 @@ describe("downloadMissingSubtitles", () => {
     return id;
   }
 
+  it("bulk English download does not skip a movie with only a Polish track", async () => {
+    fs.writeFileSync(path.join(tmpDir, "Movie", "Movie (1999).pl.srt"), "Polish original");
+    addMovie("Sample Movie", videoPath);
+    global.fetch = vi.fn();
+    const events: BulkSubtitleEvent[] = [];
+    await downloadMissingSubtitles(db, (event) => events.push(event), { delayMs: 0, language: "en" });
+    expect(events.at(-1)).toEqual({ type: "done", downloaded: 0, notFound: 1, skipped: 0, errors: 0 });
+    expect(global.fetch).not.toHaveBeenCalled();
+    expect(fs.readFileSync(path.join(tmpDir, "Movie", "Movie (1999).pl.srt"), "utf8")).toBe("Polish original");
+  });
+
   it("downloads for movies without subtitles and skips the rest", async () => {
     const otherVideo = path.join(tmpDir, "Other.mkv");
     fs.writeFileSync(otherVideo, Buffer.alloc(200 * 1024, 7));
-    fs.writeFileSync(path.join(tmpDir, "Other.srt"), "existing");
+    fs.writeFileSync(path.join(tmpDir, "Other.pl.srt"), "existing");
     addMovie("A Movie", videoPath);
     addMovie("B Other", otherVideo);
     addMovie("C Metadata only", null);
 
     global.fetch = vi.fn().mockResolvedValue(textResponse(napiXml(MICRODVD)));
     const events: BulkSubtitleEvent[] = [];
-    await downloadMissingSubtitles(db, (e) => events.push(e), { delayMs: 0 });
+    await downloadMissingSubtitles(db, (e) => events.push(e), { delayMs: 0, language: "pl" });
 
     expect(events[0]).toEqual({ type: "start", total: 2 });
     const progress = events.filter((e) => e.type === "progress");
@@ -322,7 +365,7 @@ describe("downloadMissingSubtitles", () => {
     const missing = addMovie("B Missing", path.join(tmpDir, "gone.mkv"));
     global.fetch = vi.fn().mockResolvedValue(textResponse(napiXml(MICRODVD)));
 
-    await downloadMissingSubtitles(db, () => {}, { delayMs: 0 });
+    await downloadMissingSubtitles(db, () => {}, { delayMs: 0, language: "pl" });
 
     expect(check(found)).toMatchObject({ status: "downloaded", detail: "napiprojekt" });
     expect(check(found).at).toBeGreaterThan(0);

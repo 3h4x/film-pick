@@ -78,6 +78,16 @@ describe("scanDirectory", () => {
     expect(results).toHaveLength(exts.length);
   });
 
+  it("ignores incomplete downloads until their temporary suffix is removed", () => {
+    const partial = touch(tmpDir, "Sample Movie (1999).mkv.!qB");
+    touch(tmpDir, "Sample Movie (2000).mp4.part");
+    expect(scanDirectory(tmpDir)).toEqual([]);
+
+    const complete = path.join(tmpDir, "Sample Movie (1999).mkv");
+    fs.renameSync(partial, complete);
+    expect(scanDirectory(tmpDir).map((file) => file.filePath)).toEqual([complete]);
+  });
+
   it("ignores dot-files and dot-directories", () => {
     touch(tmpDir, ".hidden", "Movie.mkv");
     touch(tmpDir, ".DS_Store");

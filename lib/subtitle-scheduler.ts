@@ -4,11 +4,11 @@ import { getSetting } from "@/lib/db";
 import { fetchMovieSubtitles } from "@/lib/subtitle-download";
 import { SETTLE_MS } from "@/lib/sync-postprocess";
 
-// Polish subtitles often appear days or weeks after a release. Every hour a small
+// Subtitles often appear days or weeks after a release. Every hour a small
 // batch of library films without subtitles is looked up again: never-checked
 // films first, then "none found" ones a week after their last try, errors (provider
 // down, share unmounted) a day after. Every attempt is recorded on the movie row,
-// which the movie detail shows. Off when Config's "Download Polish subtitles" is off.
+// which the movie detail shows. Off when Config's automatic subtitle download is off.
 const DEFAULT_INTERVAL_HOURS = 1;
 const FIRST_RUN_DELAY_MS = 3 * 60 * 1000;
 export const NOT_FOUND_RETRY_DAYS = 7;

@@ -1,5 +1,6 @@
 "use client";
 
+import { SUBTITLE_LANGUAGE_LABELS, subtitleTrackLanguage } from "@/lib/subtitle-language";
 import { useEffect, useMemo, useState } from "react";
 import type { SubtitleTrack } from "@/components/movie-detail/types";
 import {
@@ -141,8 +142,8 @@ export default function EmbeddedPlayer({
                 src={`${streamBase}&sub=${encodeURIComponent(subtitle.name)}${
                   isRemux && offset > 0 ? `&shift=${offset}` : ""
                 }`}
-                srcLang="pl"
-                label={`Polish (${subtitle.name})`}
+                srcLang={subtitleTrackLanguage(subtitle.name)}
+                label={`${subtitleTrackLanguage(subtitle.name) === "en" ? SUBTITLE_LANGUAGE_LABELS.en : subtitleTrackLanguage(subtitle.name) === "pl" ? SUBTITLE_LANGUAGE_LABELS.pl : "Subtitles"} (${subtitle.name})`}
               />
             ))}
             Your browser does not support the video tag.

@@ -40,7 +40,7 @@ function providerList(detail: string | null): string {
     .split(",")
     .map((p) => PROVIDER_NAMES[p.split(":")[0]] ?? p)
     .filter(Boolean);
-  return names.length > 0 ? names.join(" or ") : "NapiProjekt";
+  return names.length > 0 ? names.join(" or ") : "the configured providers";
 }
 
 /**
@@ -48,7 +48,7 @@ function providerList(detail: string | null): string {
  * of it, so "nothing here" reads as "tried, none exist yet" rather than "never tried".
  */
 export function describeSubtitleCheck(check: SubtitleCheck | null, notFoundRetryDays = 7): string {
-  if (!check) return "Not looked up yet; the background job will search for Polish subtitles.";
+  if (!check) return "Not looked up yet; the background job will search for subtitles in the selected language.";
   const when = formatCheckDate(check.at);
   switch (check.status) {
     case "downloaded": {
@@ -58,7 +58,7 @@ export function describeSubtitleCheck(check: SubtitleCheck | null, notFoundRetry
       }.`;
     }
     case "not_found":
-      return `Last checked ${when}: no Polish subtitles on ${providerList(check.detail)} yet. Checked again automatically every ${notFoundRetryDays} days.`;
+      return `Last checked ${when}: no subtitles on ${providerList(check.detail)} yet. Checked again automatically every ${notFoundRetryDays} days.`;
     case "exists":
       return `Last checked ${when}: subtitles were already there.`;
     case "no_file":

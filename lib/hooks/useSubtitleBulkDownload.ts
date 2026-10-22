@@ -1,5 +1,6 @@
 "use client";
 
+import type { SubtitleLanguage } from "@/lib/subtitle-language";
 import { useState } from "react";
 import type { BulkSubtitleEvent } from "@/lib/subtitle-download";
 import { getErrorMessage } from "@/lib/utils";
@@ -75,10 +76,10 @@ export function useSubtitleBulkDownload() {
     INITIAL_SUBTITLE_BULK_STATE,
   );
 
-  async function start() {
+  async function start(language: SubtitleLanguage) {
     setState({ ...INITIAL_SUBTITLE_BULK_STATE, running: true });
     try {
-      const res = await fetch("/api/subtitles/download-missing", {
+      const res = await fetch(`/api/subtitles/download-missing?language=${language}`, {
         method: "POST",
       });
       if (!res.ok || !res.body) {

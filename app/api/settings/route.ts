@@ -6,6 +6,8 @@ import { rescheduleCdaJob } from "@/lib/cda-scheduler";
 import { invalidateMemCache } from "@/lib/epg-fetch";
 import { rescheduleEpgJob } from "@/lib/epg-scheduler";
 
+import { DEFAULT_SUBTITLE_LANGUAGE, isSubtitleLanguage } from "@/lib/subtitle-language";
+
 const VALID_REFRESH_INTERVAL_HOURS = [0, 6, 12, 24];
 
 export async function GET() {
@@ -20,6 +22,7 @@ export async function GET() {
   const cdaIntervalStr = getSetting(db, "cda_refresh_interval_hours");
   const cdaMovieCountStr = getSetting(db, "cda_movie_count");
   return Response.json({
+    subtitle_language: getSetting(db, "subtitle_language") ?? DEFAULT_SUBTITLE_LANGUAGE,
     library_path: libraryPath,
     library_extra_paths: libraryExtraPaths,
     rec_group_order: groupOrder ? JSON.parse(groupOrder) : [],
@@ -60,6 +63,15 @@ export async function PATCH(request: NextRequest) {
   const db = getDb();
   const body = await request.json();
   try {
+  if (body.subtitle_language !== undefined) {
+    if (!isSubtitleLanguage(body.subtitle_language)) {
+      return Response.json({ error: "subtitle_language must be en or pl" }, { status: 400 });
+    }
+    if (getSetting(db, "subtitle_language") !== body.subtitle_language) {
+      db.prepare("UPDATE movies SET subtitles_checked_at = NULL, subtitles_check_status = NULL, subtitles_check_detail = NULL").run();
+    }
+    setSetting(db, "subtitle_language", body.subtitle_language);
+  }
   if (body.rec_group_order) {
     setSetting(db, "rec_group_order", JSON.stringify(body.rec_group_order));
   }

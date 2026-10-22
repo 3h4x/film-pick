@@ -100,6 +100,22 @@ describe("scanLibraryGenerator", () => {
     expect(await collect(root, { concurrency: 8 })).toHaveLength(40);
   });
 
+  it("only discovers a download after completion, including with a warm cache", async () => {
+    const partial = touch("Sample Movie (1999)/Sample Movie (1999).mkv.!qB");
+    touch("Sample Movie (2000).mp4.part");
+    age("Sample Movie (1999)", ".");
+    const cache = memoryCache();
+
+    expect(await collect(root, { cache })).toEqual([]);
+    const stats: ScanStats = { dirsListed: 0, dirsCached: 0 };
+    expect(await collect(root, { cache, stats })).toEqual([]);
+    expect(stats.dirsCached).toBe(2);
+
+    const complete = partial.slice(0, -".!qB".length);
+    fs.renameSync(partial, complete);
+    expect(await collect(root, { cache })).toEqual([complete]);
+  });
+
   it("does not list unchanged directories again", async () => {
     touch("A (2001)/A.2001.mkv");
     touch("B (2002)/B.2002.mkv");

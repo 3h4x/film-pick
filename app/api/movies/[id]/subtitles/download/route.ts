@@ -1,11 +1,12 @@
+import { DEFAULT_SUBTITLE_LANGUAGE, isSubtitleLanguage } from "@/lib/subtitle-language";
 import { NextRequest } from "next/server";
-import { getDb, Movie } from "@/lib/db";
+import { getDb, getSetting, Movie } from "@/lib/db";
 import { rateLimit } from "@/lib/rate-limit";
 import { fetchMovieSubtitles } from "@/lib/subtitle-download";
 import { subtitleCheckFromRow } from "@/lib/subtitle-check";
 
 /**
- * Download Polish subtitles for a movie's file from NapiProjekt/OpenSubtitles.
+ * Download subtitles in the requested language for a movie's file from NapiProjekt/OpenSubtitles.
  * Refuses to touch a movie that already has subtitles unless `?replace=1`.
  */
 export async function POST(
@@ -14,6 +15,10 @@ export async function POST(
 ) {
   const limited = rateLimit(request, "mutation");
   if (limited) return limited;
+  const language = request.nextUrl.searchParams.get("language") ?? getSetting(getDb(), "subtitle_language") ?? DEFAULT_SUBTITLE_LANGUAGE;
+  if (!isSubtitleLanguage(language)) {
+    return Response.json({ error: "language must be en or pl" }, { status: 400 });
+  }
   const { id } = await params;
   const movieId = parseInt(id, 10);
   const movie = getDb()
@@ -27,6 +32,7 @@ export async function POST(
   }
 
   const result = await fetchMovieSubtitles(getDb(), movieId, {
+    language,
     replace: request.nextUrl.searchParams.get("replace") === "1",
   });
   if (!result) {
@@ -51,7 +57,7 @@ export async function POST(
       );
     case "not_found":
       return Response.json(
-        { error: "No Polish subtitles found", ...result, check },
+        { error: `No ${language === "en" ? "English" : "Polish"} subtitles found`, ...result, check },
         { status: 404 },
       );
     case "no_file":
