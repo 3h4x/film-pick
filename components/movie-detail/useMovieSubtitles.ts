@@ -5,6 +5,7 @@ import type {
   SubtitleNotice,
   SubtitleTrack,
 } from "@/components/movie-detail/types";
+import type { SubtitleLanguage } from "@/lib/subtitle-language";
 import { getErrorMessage } from "@/lib/utils";
 import type { SubtitleCheck } from "@/lib/subtitle-check";
 
@@ -195,13 +196,13 @@ export function useMovieSubtitles({
     }
   };
 
-  const handleSubtitleDownload = async () => {
+  const handleSubtitleDownload = async (language?: SubtitleLanguage) => {
     setIsSubtitleDownloading(true);
     setSubtitleError(null);
     setSubtitleNotice(null);
     try {
       // An explicit click with tracks already present means "try again".
-      const query = hasSubtitles ? "?replace=1" : "";
+      const query = `?replace=1${language ? `&language=${language}` : ""}`;
       const response = await fetch(
         `/api/movies/${movieId}/subtitles/download${query}`,
         { method: "POST" },

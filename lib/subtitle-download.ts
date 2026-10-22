@@ -1,4 +1,5 @@
 import type Database from "better-sqlite3";
+import { getSetting } from "@/lib/db";
 import fs from "fs/promises";
 import path from "path";
 import {
@@ -14,11 +15,15 @@ import {
   opensubtitlesHash,
 } from "@/lib/opensubtitles";
 import { getErrorMessage } from "@/lib/utils";
+import { ensureDefaultEnglishLink } from "@/lib/subtitle-default-link";
+
+import { DEFAULT_SUBTITLE_LANGUAGE, subtitleTrackLanguage, type SubtitleLanguage } from "@/lib/subtitle-language";
 
 export type SubtitleProvider = "napiprojekt" | "opensubtitles";
 
 export interface SubtitleDownloadTarget {
   filePath: string;
+  language?: SubtitleLanguage;
   imdbId?: string | null;
   tmdbId?: number | null;
   title?: string | null;
@@ -57,7 +62,7 @@ export async function findExistingSubtitles(filePath: string): Promise<string[]>
       const ext = path.extname(file).toLowerCase();
       return (
         SUBTITLE_EXTENSIONS.includes(ext) &&
-        path.basename(file, ext).startsWith(baseName)
+        (path.basename(file, ext) === baseName || path.basename(file, ext).startsWith(baseName + "."))
       );
     })
     .map((file) => path.join(movieDir, file));
@@ -66,13 +71,14 @@ export async function findExistingSubtitles(filePath: string): Promise<string[]>
 async function findSubtitle(
   target: SubtitleDownloadTarget,
 ): Promise<{ content: Buffer; provider: SubtitleProvider; hashMatch: boolean } | null> {
-  // NapiProjekt first: the largest Polish catalogue, and only ever a hash match.
+  // For Polish, try NapiProjekt first; it only ever returns a hash match.
   // One provider failing (outage, quota) must not stop the other from trying.
   let lastError: unknown = null;
   try {
-    const content = await fetchNapiprojektSubtitle(
+    const content = target.language === "pl" ? await fetchNapiprojektSubtitle(
       await napiprojektHash(target.filePath),
-    );
+      "PL",
+    ) : null;
     if (content) return { content, provider: "napiprojekt", hashMatch: true };
   } catch (error) {
     lastError = error;
@@ -83,6 +89,7 @@ async function findSubtitle(
 
   try {
     const hit = await fetchOpenSubtitlesSubtitle({
+      language: target.language,
       hash: await opensubtitlesHash(target.filePath),
       imdbId: target.imdbId,
       tmdbId: target.tmdbId,
@@ -102,8 +109,8 @@ async function findSubtitle(
 }
 
 /**
- * Find Polish subtitles for a video and save them next to it as
- * `<video basename>.srt` (the same path a manual upload writes). Downloads go
+ * Find subtitles in the requested language and save them as
+ * `<video basename>.<language>.srt`. Downloads go
  * through the same normalization as uploads: providers hand out MicroDVD in
  * `.srt` clothing, which players render as nothing until it is converted.
  */
@@ -112,15 +119,21 @@ export async function downloadSubtitle(
   { replace = false }: { replace?: boolean } = {},
 ): Promise<SubtitleDownloadResult> {
   try {
+    const language = target.language ?? DEFAULT_SUBTITLE_LANGUAGE;
     const stat = await fs.stat(target.filePath).catch(() => null);
     if (!stat?.isFile()) return { status: "no_file" };
 
     if (!replace) {
-      const existing = await findExistingSubtitles(target.filePath);
-      if (existing.length > 0) return { status: "exists", existing };
+      const existing = (await findExistingSubtitles(target.filePath)).filter(
+        (file) => subtitleTrackLanguage(file) === language,
+      );
+      if (existing.length > 0) {
+        if (language === "en") await ensureDefaultEnglishLink(target.filePath);
+        return { status: "exists", existing };
+      }
     }
 
-    const found = await findSubtitle(target);
+    const found = await findSubtitle({ ...target, language });
     if (!found) return { status: "not_found" };
 
     const fps = await probeFps(target.filePath);
@@ -133,9 +146,12 @@ export async function downloadSubtitle(
       target.filePath,
       path.extname(target.filePath),
     );
-    const fileName = baseName + normalized.extension;
+    const fileName = `${baseName}.${language}${normalized.extension}`;
     const targetPath = path.join(path.dirname(target.filePath), fileName);
     await fs.writeFile(targetPath, normalized.content);
+    if (language === "en" && normalized.extension === ".srt") {
+      await ensureDefaultEnglishLink(target.filePath);
+    }
 
     console.log(
       `[Subtitles] ${found.provider}${found.hashMatch ? "" : " (title match)"} -> ${targetPath}: ` +
@@ -163,8 +179,10 @@ export async function downloadSubtitle(
 export type SubtitleCheckStatus = "downloaded" | "exists" | "not_found" | "no_file" | "error";
 
 /** The providers a lookup asks: OpenSubtitles only when its API key is set. */
-export function subtitleProvidersInUse(): SubtitleProvider[] {
-  return isOpenSubtitlesConfigured() ? ["napiprojekt", "opensubtitles"] : ["napiprojekt"];
+export function subtitleProvidersInUse(language: SubtitleLanguage = DEFAULT_SUBTITLE_LANGUAGE): SubtitleProvider[] {
+  const providers: SubtitleProvider[] = language === "pl" ? ["napiprojekt"] : [];
+  if (isOpenSubtitlesConfigured()) providers.push("opensubtitles");
+  return providers;
 }
 
 /**
@@ -178,12 +196,13 @@ export function recordSubtitleCheck(
   movieId: number,
   result: SubtitleDownloadResult,
   checkedAt = Math.floor(Date.now() / 1000),
+  language: SubtitleLanguage = DEFAULT_SUBTITLE_LANGUAGE,
 ): void {
   const detail =
     result.status === "downloaded"
       ? `${result.provider}${result.hashMatch ? "" : ":title"}`
       : result.status === "not_found"
-        ? subtitleProvidersInUse().join(",")
+        ? subtitleProvidersInUse(language).join(",")
         : result.status === "error"
           ? result.error.slice(0, 300)
           : null;
@@ -206,8 +225,10 @@ interface SubtitleMovieRow {
 export async function fetchMovieSubtitles(
   db: Database.Database,
   movieId: number,
-  { replace = false }: { replace?: boolean } = {},
+  { replace = false, language: requestedLanguage }: { replace?: boolean; language?: SubtitleLanguage } = {},
 ): Promise<SubtitleDownloadResult | null> {
+  const savedLanguage = getSetting(db, "subtitle_language");
+  const language = requestedLanguage ?? (savedLanguage === "pl" ? "pl" : DEFAULT_SUBTITLE_LANGUAGE);
   const movie = db
     .prepare("SELECT id, title, year, imdb_id, tmdb_id, file_path FROM movies WHERE id = ?")
     .get(movieId) as SubtitleMovieRow | undefined;
@@ -215,6 +236,7 @@ export async function fetchMovieSubtitles(
   const result: SubtitleDownloadResult = movie.file_path
     ? await downloadSubtitle(
         {
+          language,
           filePath: movie.file_path,
           imdbId: movie.imdb_id,
           tmdbId: movie.tmdb_id,
@@ -224,7 +246,7 @@ export async function fetchMovieSubtitles(
         { replace },
       )
     : { status: "no_file" };
-  recordSubtitleCheck(db, movieId, result);
+  recordSubtitleCheck(db, movieId, result, undefined, language);
   return result;
 }
 
@@ -257,13 +279,13 @@ interface BulkMovieRow {
 
 /**
  * Walk every library movie that has a local file and fetch subtitles for the
- * ones without any. Sequential on purpose: each lookup reads 10 MiB off what is
+ * ones missing the requested language. Sequential on purpose: each lookup reads 10 MiB off what is
  * usually a NAS and hits free community APIs, so `delayMs` spaces out the calls.
  */
 export async function downloadMissingSubtitles(
   db: Database.Database,
   onEvent: (event: BulkSubtitleEvent) => void,
-  { delayMs = 1000 }: { delayMs?: number } = {},
+  { delayMs = 1000, language = DEFAULT_SUBTITLE_LANGUAGE }: { delayMs?: number; language?: SubtitleLanguage } = {},
 ): Promise<void> {
   const movies = db
     .prepare(
@@ -275,7 +297,7 @@ export async function downloadMissingSubtitles(
   onEvent({ type: "start", total: movies.length });
 
   for (const [index, movie] of movies.entries()) {
-    const result = (await fetchMovieSubtitles(db, movie.id)) ?? ({ status: "no_file" } as const);
+    const result = (await fetchMovieSubtitles(db, movie.id, { language })) ?? ({ status: "no_file" } as const);
     if (result.status === "downloaded") totals.downloaded++;
     else if (result.status === "not_found") totals.notFound++;
     else if (result.status === "error") totals.errors++;

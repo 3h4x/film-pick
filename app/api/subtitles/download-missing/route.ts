@@ -1,5 +1,6 @@
+import { DEFAULT_SUBTITLE_LANGUAGE, isSubtitleLanguage } from "@/lib/subtitle-language";
 import { NextRequest } from "next/server";
-import { getDb } from "@/lib/db";
+import { getDb, getSetting } from "@/lib/db";
 import { rateLimit } from "@/lib/rate-limit";
 import {
   downloadMissingSubtitles,
@@ -15,6 +16,10 @@ let running = false;
 export async function POST(request: NextRequest) {
   const limited = rateLimit(request, "mutation");
   if (limited) return limited;
+  const language = request.nextUrl.searchParams.get("language") ?? getSetting(getDb(), "subtitle_language") ?? DEFAULT_SUBTITLE_LANGUAGE;
+  if (!isSubtitleLanguage(language)) {
+    return Response.json({ error: "language must be en or pl" }, { status: 400 });
+  }
   if (running) {
     return Response.json(
       { error: "A subtitle download is already running" },
@@ -38,7 +43,7 @@ export async function POST(request: NextRequest) {
         }
       }
       try {
-        await downloadMissingSubtitles(db, send);
+        await downloadMissingSubtitles(db, send, { language });
       } catch (error) {
         console.error("[Subtitles] Bulk download failed:", error);
         send({ type: "error", error: getErrorMessage(error) });

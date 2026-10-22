@@ -10,7 +10,7 @@ describe("subtitle check description", () => {
 
   it("says nothing exists yet, which providers were asked, and that it retries", () => {
     const text = describeSubtitleCheck({ at: AT, status: "not_found", detail: "napiprojekt,opensubtitles" });
-    expect(text).toMatch(/^Last checked 3 Oct 2026, \d\d:\d\d: no Polish subtitles on NapiProjekt or OpenSubtitles yet\./);
+    expect(text).toMatch(/^Last checked 3 Oct 2026, \d\d:\d\d: no subtitles on NapiProjekt or OpenSubtitles yet\./);
     expect(text).toMatch(/every 7 days/);
   });
 

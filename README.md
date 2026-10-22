@@ -39,7 +39,9 @@ Tracks and ranks directors, writers, and actors based on your watch history. See
 - **Filmweb import** — bring in your ratings history from Poland's biggest movie site
 - **TMDb search** — manually add any movie
 - **Sync** — re-scan your library path to pick up new files and clean up deleted ones
-- **Subtitles** — automatic detection of subtitle files, drop-to-add that renames and organizes subtitles to match your movie files, and one-click Polish subtitle download from NapiProjekt (matched by file hash) with an OpenSubtitles fallback. A Config button fetches them for every movie file that has none, and `scripts/fetch-subtitles.ts <dir>` does the same for any folder
+- **Subtitles** — automatic detection of subtitle files, drop-to-add that renames and organizes subtitles to match your movie files, and English or Polish subtitle downloads saved with `.en` or `.pl` before the subtitle extension. English SubRip downloads also create a relative `.srt` symlink to `.en.srt` for automatic player discovery, preserving any existing `.srt` file. Choose a default language in Config or change it for an individual download. English uses OpenSubtitles; Polish tries NapiProjekt first, then OpenSubtitles. A Config button fetches missing tracks in the selected language across the library; `scripts/fetch-subtitles.ts <dir> [--language=en|pl]` does the same for any folder (English by default)
+
+When downloading into a library folder, configure the download client to mark unfinished files with a temporary suffix. For qBittorrent, enable **Append .!qB extension to incomplete files**. Import and sync skip files ending in `.!qB` or `.part` and discover them after the client renames them to their final video extension. A video extension alone does not prove that a download has finished.
 
 ### Wishlist
 

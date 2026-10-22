@@ -47,6 +47,38 @@ describe("settings API", () => {
     vi.clearAllMocks();
   });
 
+  it.each(["pl", "en"])("persists subtitle language %s", async (language) => {
+    const response = await PATCH(new NextRequest("http://localhost/api/settings", {
+      method: "PATCH", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ subtitle_language: language }),
+    }));
+    expect(response.status).toBe(200);
+    expect((await (await GET()).json()).subtitle_language).toBe(language);
+  });
+
+  it("makes prior subtitle checks eligible again after changing language", async () => {
+    setSetting(db, "subtitle_language", "pl");
+    const id = db.prepare("INSERT INTO movies (title, type, subtitles_checked_at, subtitles_check_status) VALUES ('Sample Movie', 'movie', 1234, 'exists')").run().lastInsertRowid;
+    const response = await PATCH(new NextRequest("http://localhost/api/settings", {
+      method: "PATCH", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ subtitle_language: "en" }),
+    }));
+    expect(response.status).toBe(200);
+    expect(db.prepare("SELECT subtitles_checked_at, subtitles_check_status FROM movies WHERE id = ?").get(id)).toEqual({
+      subtitles_checked_at: null, subtitles_check_status: null,
+    });
+  });
+
+  it("rejects an unsupported subtitle language without changing the preference", async () => {
+    setSetting(db, "subtitle_language", "en");
+    const response = await PATCH(new NextRequest("http://localhost/api/settings", {
+      method: "PATCH", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ subtitle_language: "xx" }),
+    }));
+    expect(response.status).toBe(400);
+    expect(getSetting(db, "subtitle_language")).toBe("en");
+  });
+
   // ── DB layer ───────────────────────────────────────────────────────────────
 
   describe("getSetting / setSetting (DB layer)", () => {
@@ -79,6 +111,7 @@ describe("settings API", () => {
     it("returns null defaults when no settings are stored", async () => {
       const res = await GET();
       const data = await res.json();
+      expect(data.subtitle_language).toBe("en");
       expect(data.library_path).toBeNull();
       expect(data.rec_group_order).toEqual([]);
       expect(data.rec_config).toBeNull();

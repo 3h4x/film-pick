@@ -1,5 +1,8 @@
 "use client";
+import type { SubtitleLanguage } from "@/lib/subtitle-language";
 
+import { useSubtitleLanguage } from "@/lib/hooks/useSubtitleLanguage";
+import { SUBTITLE_LANGUAGE_LABELS, subtitleTrackLanguage } from "@/lib/subtitle-language";
 import type { DragEvent } from "react";
 import type {
   SubtitleNotice,
@@ -23,7 +26,7 @@ interface SubtitlesSectionProps {
   onDragLeave: (event: DragEvent<HTMLLabelElement>) => void;
   onDrop: (event: DragEvent<HTMLLabelElement>) => void;
   onSubtitleUpload: (file: File) => void;
-  onSubtitleDownload: () => void;
+  onSubtitleDownload: (language?: SubtitleLanguage) => void;
 }
 
 export default function SubtitlesSection({
@@ -43,7 +46,9 @@ export default function SubtitlesSection({
   onSubtitleUpload,
   onSubtitleDownload,
 }: SubtitlesSectionProps) {
-  const openSubtitlesUrl = `https://www.opensubtitles.org/en/search2/moviename-${encodeURIComponent(movieTitle)}/sublanguageid-pol`;
+  const { language, setLanguage, loading, error: languageError } = useSubtitleLanguage();
+  const languageLabel = SUBTITLE_LANGUAGE_LABELS[language];
+  const openSubtitlesUrl = `https://www.opensubtitles.org/en/search2/moviename-${encodeURIComponent(movieTitle)}/sublanguageid-${language === "en" ? "eng" : "pol"}`;
 
   return (
     <div className="space-y-3">
@@ -75,7 +80,7 @@ export default function SubtitlesSection({
                     className="flex items-center gap-3 bg-gray-900/60 px-3 py-2 rounded-xl border border-gray-700/20 group"
                   >
                     <span className="text-indigo-500 font-black text-[9px] tracking-tighter">
-                      POL
+                      {subtitleTrackLanguage(sub.name)?.toUpperCase() ?? "SUB"}
                     </span>
                     <span className="text-xs text-gray-400 truncate flex-1">
                       {sub.name}
@@ -94,19 +99,26 @@ export default function SubtitlesSection({
               </div>
             )}
 
+            <label className="block text-xs text-gray-300">
+              Subtitle language
+              <select aria-label="Subtitle language" value={language} disabled={loading || isSubtitleDownloading}
+                onChange={(event) => setLanguage(event.target.value as SubtitleLanguage)}
+                className="ml-3 rounded-lg bg-gray-900 p-2">
+                <option value="en">English</option><option value="pl">Polish</option>
+              </select>
+            </label>
+            {languageError && <p className="text-red-400 text-xs">{languageError}</p>}
             <button
               type="button"
-              onClick={onSubtitleDownload}
-              disabled={isSubtitleDownloading || isSubtitleUploading}
+              onClick={() => onSubtitleDownload(language)}
+              disabled={loading || isSubtitleDownloading || isSubtitleUploading}
               className="w-full min-h-11 flex items-center justify-center gap-2 bg-indigo-500 hover:bg-indigo-400 disabled:bg-gray-700 disabled:text-gray-500 disabled:cursor-not-allowed text-white py-3 rounded-xl transition-all"
             >
               <span className="text-sm">{isSubtitleDownloading ? "⏳" : "⬇"}</span>
               <span className="text-xs font-black uppercase tracking-widest">
                 {isSubtitleDownloading
-                  ? "Searching NapiProjekt / OpenSubtitles..."
-                  : hasSubtitles
-                    ? "Download Polish subtitles again"
-                    : "Download Polish subtitles"}
+                  ? "Searching for subtitles..."
+                  : `Download ${languageLabel} subtitles`}
               </span>
             </button>
 

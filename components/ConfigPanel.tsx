@@ -1,5 +1,7 @@
 "use client";
 
+import { useSubtitleLanguage } from "@/lib/hooks/useSubtitleLanguage";
+import type { SubtitleLanguage } from "@/lib/subtitle-language";
 import { useState, useEffect, useRef, type FormEvent } from "react";
 import { EPG_PRESETS } from "@/lib/epg-presets";
 import type { TmdbHealthSnapshot } from "@/lib/tmdb-health";
@@ -142,6 +144,7 @@ export default function ConfigPanel({
   onOpenMovie,
   addToast,
 }: ConfigPanelProps) {
+  const subtitleLanguage = useSubtitleLanguage();
   const [activeTab, setActiveTab] = useState<ConfigTab>("library");
   const tabsRef = useRef<HTMLDivElement | null>(null);
   const [draft, setDraft] = useState<RecConfig>(config);
@@ -562,17 +565,26 @@ export default function ConfigPanel({
           </section>
 
           <section>
-            <SubHeader>Polish Subtitles</SubHeader>
+            <SubHeader>Subtitles</SubHeader>
             <Hint>
-              Download subtitles for every movie file that has none, from
-              NapiProjekt, then OpenSubtitles if{" "}
-              <span className="font-mono">OPENSUBTITLES_API_KEY</span> is set.
-              They are saved next to each file. Existing subtitles are left alone.
+              Download missing subtitles in your selected language. English uses OpenSubtitles;
+              Polish tries NapiProjekt first. OpenSubtitles requires an API key.
+              Files use .en or .pl before the subtitle extension. Other languages are kept.
             </Hint>
+            <label className="mb-3 block text-sm text-gray-300">
+              Default subtitle language
+              <select aria-label="Default subtitle language" value={subtitleLanguage.language}
+                disabled={subtitleLanguage.loading || subtitleLanguage.saving || subtitleBulk.running}
+                onChange={(event) => void subtitleLanguage.saveLanguage(event.target.value as SubtitleLanguage)}
+                className="ml-3 rounded-lg bg-gray-800 p-2">
+                <option value="en">English</option><option value="pl">Polish</option>
+              </select>
+            </label>
+            {subtitleLanguage.error && <p className="text-red-400 text-xs">{subtitleLanguage.error}</p>}
             <div className="flex flex-wrap items-center gap-3 mb-2">
               <button
-                onClick={startSubtitleBulk}
-                disabled={subtitleBulk.running}
+                onClick={() => void startSubtitleBulk(subtitleLanguage.language)}
+                disabled={subtitleBulk.running || subtitleLanguage.loading || subtitleLanguage.saving}
                 className="min-h-11 rounded-lg bg-gray-700 px-4 py-2 text-sm text-gray-300 transition-colors hover:bg-gray-600 hover:text-white disabled:cursor-not-allowed disabled:opacity-40"
               >
                 {subtitleBulk.running
@@ -623,7 +635,7 @@ export default function ConfigPanel({
               {(
                 [
                   ["sync_auto_standardize", "Standardize name & folder"],
-                  ["sync_auto_subtitles", "Auto-download Polish subtitles"],
+                  ["sync_auto_subtitles", "Auto-download subtitles in selected language"],
                 ] as const
               ).map(([key, label]) => (
                 <button
