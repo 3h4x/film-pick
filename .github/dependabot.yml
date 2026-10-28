@@ -57,3 +57,21 @@ updates:
       actions-minor-patch:
         applies-to: version-updates
         patterns: ["*"]
+
+  # Track the Node base image used by the container build.
+  - package-ecosystem: docker
+    directory: "/"
+    schedule: {interval: weekly, day: monday, time: "06:00", timezone: Europe/Warsaw}
+    open-pull-requests-limit: 1
+    cooldown: {default-days: 7}
+    labels: [dependencies]
+    ignore:
+      - dependency-name: "*"
+        update-types: ["version-update:semver-major"]
+    groups:
+      docker-security:
+        applies-to: security-updates
+        patterns: ["*"]
+      docker-minor-patch:
+        applies-to: version-updates
+        patterns: ["*"]
