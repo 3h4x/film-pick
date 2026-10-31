@@ -1,5 +1,5 @@
 # tamtam inspected 2026-05-21
-FROM node:24-alpine AS base
+FROM node:24-alpine@sha256:06d7adf3e0ef61a13f1d28682726366f97a15aa1888c934d3ecec86c33918b53 AS base
 
 # Install pnpm
 # Keep in sync with "packageManager" in package.json — the supply-chain settings
@@ -22,7 +22,7 @@ ENV NEXT_PUBLIC_APP_VERSION=$APP_VERSION
 RUN pnpm build
 
 # --- Runtime ---
-FROM node:24-alpine AS runner
+FROM node:24-alpine@sha256:06d7adf3e0ef61a13f1d28682726366f97a15aa1888c934d3ecec86c33918b53 AS runner
 WORKDIR /app
 
 ENV NODE_ENV=production
