@@ -11,7 +11,7 @@ import {
   upsertCanonicalTmdbMovie,
 } from "@/lib/search";
 import {
-  getRatedMovieTmdbIds,
+  getHiddenRecommendationKeys,
   filterRatedRecommendations,
   deduplicateRecommendations,
 } from "@/lib/utils";
@@ -119,34 +119,40 @@ export function useRecommendations({
   }, [activeMood]);
 
   const recommendations = useMemo(() => {
-    const ratedTmdbIds = getRatedMovieTmdbIds(movies);
+    const hidden = getHiddenRecommendationKeys(movies);
     if (recCategory === "all") {
       return deduplicateRecommendations(
         filterRatedRecommendations(
           Object.values(recGroups).flat(),
-          ratedTmdbIds,
+          hidden.tmdbIds,
+          false,
+          hidden.titles,
         ),
       );
     }
     return filterRatedRecommendations(
       recGroups[recCategory] ?? [],
-      ratedTmdbIds,
+      hidden.tmdbIds,
       recCategory === "random",
+      hidden.titles,
     );
   }, [recGroups, recCategory, movies]);
 
   const categoryCounts = useMemo(() => {
-    const ratedTmdbIds = getRatedMovieTmdbIds(movies);
+    const hidden = getHiddenRecommendationKeys(movies);
     const counts: Record<string, number> = {};
     const allSeen = new Set<number>();
     for (const [key, groups] of Object.entries(recGroups)) {
       let count = 0;
-      for (const g of groups) {
+      for (const g of filterRatedRecommendations(
+        groups,
+        hidden.tmdbIds,
+        false,
+        hidden.titles,
+      )) {
         for (const r of g.recommendations) {
-          if (!ratedTmdbIds.has(r.tmdb_id)) {
-            count++;
-            allSeen.add(r.tmdb_id);
-          }
+          count++;
+          allSeen.add(r.tmdb_id);
         }
       }
       if (count > 0) counts[key] = count;

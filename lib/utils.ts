@@ -307,17 +307,76 @@ export function getRatedMovieTmdbIds(
   return ids;
 }
 
+function normalizeRecTitle(s: string): string {
+  return s.toLowerCase().replace(/[\s\u200b-\u200d\ufeff]+/g, " ").trim();
+}
+
+/** Titles (and years) of library movies that must not be recommended again. */
+export type HiddenRecTitles = Map<string, Set<number | null>>;
+
+export interface HiddenRecommendationKeys {
+  tmdbIds: Set<number | null | undefined>;
+  titles: HiddenRecTitles;
+}
+
+/**
+ * Movies already rated or on the watchlist, by tmdb_id and by title.
+ * Titles matter because a CDA recommendation can carry a pseudo tmdb_id
+ * (no TMDb match at fetch time) while the library row the user rated was
+ * auto-linked to the real one, so the ids never match.
+ */
+export function getHiddenRecommendationKeys(
+  movies: Movie[],
+): HiddenRecommendationKeys {
+  const tmdbIds = getRatedMovieTmdbIds(movies);
+  const titles: HiddenRecTitles = new Map();
+  for (const m of movies) {
+    if (m.type !== "movie") continue;
+    const rated = m.user_rating != null && m.user_rating > 0;
+    if (!rated && !m.wishlist) continue;
+    if (m.tmdb_id) tmdbIds.add(m.tmdb_id);
+    for (const t of [m.title, m.pl_title]) {
+      if (!t) continue;
+      const key = normalizeRecTitle(t);
+      if (!key) continue;
+      if (!titles.has(key)) titles.set(key, new Set());
+      titles.get(key)!.add(m.year ?? null);
+    }
+  }
+  return { tmdbIds, titles };
+}
+
+function matchesHiddenTitle(
+  r: { title: string; pl_title?: string | null; year?: number | null },
+  titles: HiddenRecTitles,
+): boolean {
+  for (const t of [r.title, r.pl_title]) {
+    if (!t) continue;
+    const years = titles.get(normalizeRecTitle(t));
+    if (!years) continue;
+    // Same title counts when either side has no year or the years agree,
+    // so a remake with the same title stays recommendable.
+    if (r.year == null || years.has(null) || years.has(r.year)) return true;
+  }
+  return false;
+}
+
 export function filterRatedRecommendations(
   groups: RecommendationGroup[],
   ratedTmdbIds: Set<number | null | undefined>,
   skipFilter = false,
+  hiddenTitles?: HiddenRecTitles,
 ): RecommendationGroup[] {
   return groups
     .map((g) => ({
       ...g,
       recommendations: skipFilter
         ? g.recommendations
-        : g.recommendations.filter((r) => !ratedTmdbIds.has(r.tmdb_id)),
+        : g.recommendations.filter(
+            (r) =>
+              !ratedTmdbIds.has(r.tmdb_id) &&
+              !(hiddenTitles && matchesHiddenTitle(r, hiddenTitles)),
+          ),
     }))
     .filter((g) => g.recommendations.length > 0);
 }

@@ -1,6 +1,6 @@
 // tamtam inspected 2026-05-21
 import { describe, it, expect } from "vitest";
-import { cleanTitle, parseFilename, getErrorMessage, getRatedMovieTmdbIds, filterRatedRecommendations, deduplicateRecommendations, getUniqueRecommendations } from "@/lib/utils";
+import { cleanTitle, parseFilename, getErrorMessage, getRatedMovieTmdbIds, getHiddenRecommendationKeys, filterRatedRecommendations, deduplicateRecommendations, getUniqueRecommendations } from "@/lib/utils";
 import type { Movie, RecommendationGroup, RecType } from "@/lib/types";
 import type { TmdbSearchResult } from "@/lib/tmdb";
 
@@ -336,6 +336,48 @@ describe("getRatedMovieTmdbIds", () => {
     ]);
     expect(result.has(10)).toBe(false);
     expect(result.has(11)).toBe(true);
+  });
+});
+
+describe("getHiddenRecommendationKeys", () => {
+  function hide(movies: Movie[], recs: TmdbSearchResult[]) {
+    const hidden = getHiddenRecommendationKeys(movies);
+    return filterRatedRecommendations(
+      [makeGroup("cda", recs)],
+      hidden.tmdbIds,
+      false,
+      hidden.titles,
+    ).flatMap((g) => g.recommendations.map((r) => r.tmdb_id));
+  }
+
+  it("hides a CDA rec with a pseudo tmdb_id once the real movie is rated (by Polish title)", () => {
+    const rec = { ...makeRec(999_001, "Przykładowy film"), year: 2025 };
+    const rated = makeMovie({
+      tmdb_id: 4242,
+      title: "Sample Movie",
+      pl_title: "Przykładowy film",
+      year: 2025,
+      user_rating: 3,
+      type: "movie",
+    });
+    expect(hide([rated], [rec, makeRec(2)])).toEqual([2]);
+  });
+
+  it("hides movies on the watchlist, by id and by title", () => {
+    const onList = makeMovie({ tmdb_id: 10, title: "Another Sample", year: 2025, wishlist: 1, user_rating: null, type: "movie" });
+    const recs = [makeRec(10), { ...makeRec(999_002, "another sample"), year: 2025 }, makeRec(3)];
+    expect(hide([onList], recs)).toEqual([3]);
+  });
+
+  it("keeps a same-title movie from another year (remake)", () => {
+    const rated = makeMovie({ tmdb_id: 10, title: "Remade Movie", year: 1984, user_rating: 6, type: "movie" });
+    const remake = { ...makeRec(20, "Remade Movie"), year: 2021 };
+    expect(hide([rated], [remake])).toEqual([20]);
+  });
+
+  it("ignores library movies that are neither rated nor on the watchlist", () => {
+    const owned = makeMovie({ tmdb_id: 10, title: "Film 10", user_rating: null, wishlist: 0, type: "movie" });
+    expect(hide([owned], [makeRec(10)])).toEqual([10]);
   });
 });
 
