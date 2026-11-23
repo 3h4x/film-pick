@@ -24,7 +24,7 @@ interface LocalRow {
 }
 
 /**
- * Try again to match films that were added without a TMDb id (`source = 'local'`):
+ * Try again to match local films without an id, and films with nonpositive ids:
  * TMDb may have added the film since, or the first search may have failed. Only a
  * strong match (same normalized title, plausible year) is applied, and never one
  * whose TMDb id another row already has (that would create a duplicate).
@@ -42,7 +42,8 @@ export async function rematchLocalMovies(
   const rows = db
     .prepare(
       `SELECT id, title, year FROM movies
-       WHERE tmdb_id IS NULL AND type = 'movie' AND source = 'local'
+       WHERE ((tmdb_id IS NULL AND source = 'local') OR tmdb_id <= 0)
+         AND type = 'movie'
          AND (tmdb_matched_at IS NULL OR tmdb_matched_at < ?)
          -- rows added by this very sync were just searched; give TMDb a day
          AND (created_at IS NULL OR created_at < datetime('now', '-1 day'))
@@ -54,7 +55,7 @@ export async function rematchLocalMovies(
   const findByTmdbId = db.prepare("SELECT id FROM movies WHERE tmdb_id = ?");
   const applyMatch = db.prepare(
     `UPDATE movies SET tmdb_id = ?, title = ?, year = COALESCE(year, ?), source = 'tmdb'
-     WHERE id = ? AND tmdb_id IS NULL`,
+     WHERE id = ? AND (tmdb_id IS NULL OR tmdb_id <= 0)`,
   );
   const markTried = db.prepare("UPDATE movies SET tmdb_matched_at = ? WHERE id = ?");
   const result: RematchResult = { matched: 0, unmatched: 0, failed: 0 };

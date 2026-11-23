@@ -74,6 +74,17 @@ describe("refreshStaleTmdbMetadata (used by sync/import)", () => {
     }
   });
 
+  it("does not spend a refresh batch on nonpositive identifiers", async () => {
+    addMovie(db, "Sample Zero", 0);
+    addMovie(db, "Sample Negative", -1);
+    addMovie(db, "Sample Valid", 42);
+
+    const result = await refreshStaleTmdbMetadata(db, { ...opts, limit: 1 });
+
+    expect(result).toEqual({ updated: 1, skipped: 0 });
+    expect(getTmdbMovieSnapshot).toHaveBeenCalledExactlyOnceWith(42);
+  });
+
   it("skips movies refreshed recently and refreshes stale or never-refreshed ones", async () => {
     addMovie(db, "Recent", 1, NOW() - 2 * DAY);
     addMovie(db, "Stale", 2, NOW() - 40 * DAY);

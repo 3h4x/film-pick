@@ -581,10 +581,16 @@ export default function ConfigPanel({
               </select>
             </label>
             {subtitleLanguage.error && <p className="text-red-400 text-xs">{subtitleLanguage.error}</p>}
+            {!subtitleLanguage.loading && !subtitleLanguage.error && !subtitleLanguage.downloadAvailable && (
+              <p role="status" className="text-amber-400 text-xs">
+                English downloads are unavailable because OpenSubtitles is not configured.
+                Configure it on the server or choose Polish.
+              </p>
+            )}
             <div className="flex flex-wrap items-center gap-3 mb-2">
               <button
                 onClick={() => void startSubtitleBulk(subtitleLanguage.language)}
-                disabled={subtitleBulk.running || subtitleLanguage.loading || subtitleLanguage.saving}
+                disabled={subtitleBulk.running || subtitleLanguage.loading || subtitleLanguage.saving || !subtitleLanguage.downloadAvailable}
                 className="min-h-11 rounded-lg bg-gray-700 px-4 py-2 text-sm text-gray-300 transition-colors hover:bg-gray-600 hover:text-white disabled:cursor-not-allowed disabled:opacity-40"
               >
                 {subtitleBulk.running
@@ -936,6 +942,12 @@ export default function ConfigPanel({
           <section>
             <SubHeader>CDA Premium</SubHeader>
             <Hint>Auto-refresh the CDA catalog on a schedule.</Hint>
+            {cdaInterval === 0 && (
+              <p role="status" className="text-amber-400 text-xs mb-3">
+                Automatic refresh is off. Cached availability may be out of date.
+                Use Refresh Now or choose a refresh interval to keep the catalog current.
+              </p>
+            )}
             <div className="space-y-3">
               <div>
                 <p className="text-xs text-gray-500 mb-2">Auto-refresh interval</p>

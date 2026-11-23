@@ -20,7 +20,7 @@ export async function refreshMovieTmdbMetadata(
 ): Promise<RefreshMovieResult | null> {
   const existing = getMovie(db, id);
   if (!existing) return null;
-  if (!existing.tmdb_id) {
+  if (!existing.tmdb_id || existing.tmdb_id < 0) {
     throw new Error("missing_tmdb_id");
   }
   if (existing.type !== "movie") {

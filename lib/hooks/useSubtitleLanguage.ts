@@ -6,6 +6,7 @@ import { getErrorMessage } from "@/lib/utils";
 
 export function useSubtitleLanguage() {
   const [language, setLanguage] = useState<SubtitleLanguage>(DEFAULT_SUBTITLE_LANGUAGE);
+  const [openSubtitlesConfigured, setOpenSubtitlesConfigured] = useState(false);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -16,6 +17,7 @@ export function useSubtitleLanguage() {
         const response = await fetch("/api/settings", { signal: controller.signal });
         if (!response.ok) throw new Error("Could not load subtitle language");
         const settings = await response.json();
+        setOpenSubtitlesConfigured(settings.opensubtitles_configured === true);
         if (isSubtitleLanguage(settings.subtitle_language)) setLanguage(settings.subtitle_language);
       } catch (error) {
         if (!controller.signal.aborted) setError(getErrorMessage(error));
@@ -43,5 +45,6 @@ export function useSubtitleLanguage() {
       setSaving(false);
     }
   }
-  return { language, setLanguage, saveLanguage, loading, saving, error };
+  return { language, setLanguage, saveLanguage, loading, saving, error,
+    downloadAvailable: language === "pl" || openSubtitlesConfigured };
 }

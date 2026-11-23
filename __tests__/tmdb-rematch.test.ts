@@ -65,6 +65,14 @@ describe("rematchLocalMovies", () => {
     expect(row(id).tried).not.toBeNull();
   });
 
+  it.each([0, -1])("repairs invalid identifier %s without requiring a local source", async (tmdbId) => {
+    const id = addLocal("Sample Movie", 1999, { source: "tmdb", tmdbId });
+    vi.mocked(searchTmdb).mockResolvedValue([hit("Sample Movie", 42, 1999)]);
+
+    expect(await rematchLocalMovies(db, opts)).toEqual({ matched: 1, unmatched: 0, failed: 0 });
+    expect(row(id)).toMatchObject({ tmdb_id: 42, title: "Sample Movie" });
+  });
+
   it("leaves an unrelated result alone but records the attempt", async () => {
     const id = addLocal("my holiday clip", null);
     vi.mocked(searchTmdb).mockResolvedValue([hit("Something Else Entirely", 9)]);

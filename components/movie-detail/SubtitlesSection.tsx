@@ -46,7 +46,7 @@ export default function SubtitlesSection({
   onSubtitleUpload,
   onSubtitleDownload,
 }: SubtitlesSectionProps) {
-  const { language, setLanguage, loading, error: languageError } = useSubtitleLanguage();
+  const { language, setLanguage, loading, downloadAvailable, error: languageError } = useSubtitleLanguage();
   const languageLabel = SUBTITLE_LANGUAGE_LABELS[language];
   const openSubtitlesUrl = `https://www.opensubtitles.org/en/search2/moviename-${encodeURIComponent(movieTitle)}/sublanguageid-${language === "en" ? "eng" : "pol"}`;
 
@@ -108,10 +108,16 @@ export default function SubtitlesSection({
               </select>
             </label>
             {languageError && <p className="text-red-400 text-xs">{languageError}</p>}
+            {!loading && !languageError && !downloadAvailable && (
+              <p role="status" className="text-amber-400 text-xs">
+                English downloads are unavailable because OpenSubtitles is not configured.
+                Configure it on the server or choose Polish. Manual subtitle search and upload are still available.
+              </p>
+            )}
             <button
               type="button"
               onClick={() => onSubtitleDownload(language)}
-              disabled={loading || isSubtitleDownloading || isSubtitleUploading}
+              disabled={loading || !downloadAvailable || isSubtitleDownloading || isSubtitleUploading}
               className="w-full min-h-11 flex items-center justify-center gap-2 bg-indigo-500 hover:bg-indigo-400 disabled:bg-gray-700 disabled:text-gray-500 disabled:cursor-not-allowed text-white py-3 rounded-xl transition-all"
             >
               <span className="text-sm">{isSubtitleDownloading ? "⏳" : "⬇"}</span>

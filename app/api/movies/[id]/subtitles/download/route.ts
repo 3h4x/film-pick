@@ -69,6 +69,8 @@ export async function POST(
       console.error(
         `[Subtitles] Download failed for movie ${movieId}: ${result.error}`,
       );
-      return Response.json({ error: result.error, check }, { status: 500 });
+      return Response.json({ error: result.error, code: result.code, check }, {
+        status: result.code === "provider_not_configured" ? 503 : 500,
+      });
   }
 }

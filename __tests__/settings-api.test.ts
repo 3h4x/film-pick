@@ -45,6 +45,16 @@ describe("settings API", () => {
     db.close();
     if (fs.existsSync(TEST_DB)) fs.unlinkSync(TEST_DB);
     vi.clearAllMocks();
+    vi.unstubAllEnvs();
+  });
+
+  it("reports provider availability without returning credentials", async () => {
+    vi.stubEnv("OPENSUBTITLES_API_KEY", "");
+    expect((await (await GET()).json()).opensubtitles_configured).toBe(false);
+    vi.stubEnv("OPENSUBTITLES_API_KEY", "placeholder-provider-key");
+    const settings = await (await GET()).json();
+    expect(settings.opensubtitles_configured).toBe(true);
+    expect(JSON.stringify(settings)).not.toContain("placeholder-provider-key");
   });
 
   it.each(["pl", "en"])("persists subtitle language %s", async (language) => {
