@@ -944,7 +944,7 @@ export function getStaleTmdbMovies(
     .prepare(
       `SELECT id, tmdb_id, tmdb_refreshed_at
        FROM movies
-       WHERE tmdb_id IS NOT NULL
+       WHERE tmdb_id > 0
          AND tmdb_id < ${MAX_TMDB_ID}
          AND type = 'movie'
          AND (tmdb_refreshed_at IS NULL OR tmdb_refreshed_at < ?)

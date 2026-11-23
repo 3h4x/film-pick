@@ -47,7 +47,7 @@ export type SubtitleDownloadResult =
   | { status: "exists"; existing: string[] }
   | { status: "not_found" }
   | { status: "no_file" }
-  | { status: "error"; error: string };
+  | { status: "error"; error: string; code?: "provider_not_configured" };
 
 /**
  * Subtitle files that belong to a video: same basename, optionally followed by
@@ -131,6 +131,14 @@ export async function downloadSubtitle(
         if (language === "en") await ensureDefaultEnglishLink(target.filePath);
         return { status: "exists", existing };
       }
+    }
+
+    if (subtitleProvidersInUse(language).length === 0) {
+      return {
+        status: "error",
+        code: "provider_not_configured",
+        error: "OpenSubtitles is not configured. Configure it on the server or choose Polish subtitles.",
+      };
     }
 
     const found = await findSubtitle({ ...target, language });

@@ -8,6 +8,8 @@ import { rescheduleEpgJob } from "@/lib/epg-scheduler";
 
 import { DEFAULT_SUBTITLE_LANGUAGE, isSubtitleLanguage } from "@/lib/subtitle-language";
 
+import { isOpenSubtitlesConfigured } from "@/lib/opensubtitles";
+
 const VALID_REFRESH_INTERVAL_HOURS = [0, 6, 12, 24];
 
 export async function GET() {
@@ -22,6 +24,7 @@ export async function GET() {
   const cdaIntervalStr = getSetting(db, "cda_refresh_interval_hours");
   const cdaMovieCountStr = getSetting(db, "cda_movie_count");
   return Response.json({
+    opensubtitles_configured: isOpenSubtitlesConfigured(),
     subtitle_language: getSetting(db, "subtitle_language") ?? DEFAULT_SUBTITLE_LANGUAGE,
     library_path: libraryPath,
     library_extra_paths: libraryExtraPaths,

@@ -156,6 +156,22 @@ describe("downloadSubtitle", () => {
     ).toContain("Dzień dobry.");
   });
 
+  it("reports missing English provider configuration without claiming a search miss", async () => {
+    const fetchMock = vi.fn();
+    global.fetch = fetchMock;
+    const result = await downloadSubtitle({ filePath: videoPath, language: "en" });
+    expect(result).toMatchObject({ status: "error", code: "provider_not_configured" });
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it("keeps existing English subtitles available without a provider key", async () => {
+    fs.writeFileSync(path.join(tmpDir, "Movie", "Movie (1999).en.srt"), "1\n00:00:01,000 --> 00:00:02,000\nSample dialogue\n");
+    const fetchMock = vi.fn();
+    global.fetch = fetchMock;
+    expect(await downloadSubtitle({ filePath: videoPath, language: "en" })).toMatchObject({ status: "exists" });
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
   it("reports not_found when NapiProjekt misses and OpenSubtitles is not configured", async () => {
     const fetchMock = vi.fn().mockResolvedValue(textResponse(napiXml(null)));
     global.fetch = fetchMock;
@@ -321,7 +337,7 @@ describe("downloadMissingSubtitles", () => {
     global.fetch = vi.fn();
     const events: BulkSubtitleEvent[] = [];
     await downloadMissingSubtitles(db, (event) => events.push(event), { delayMs: 0, language: "en" });
-    expect(events.at(-1)).toEqual({ type: "done", downloaded: 0, notFound: 1, skipped: 0, errors: 0 });
+    expect(events.at(-1)).toEqual({ type: "done", downloaded: 0, notFound: 0, skipped: 0, errors: 1 });
     expect(global.fetch).not.toHaveBeenCalled();
     expect(fs.readFileSync(path.join(tmpDir, "Movie", "Movie (1999).pl.srt"), "utf8")).toBe("Polish original");
   });

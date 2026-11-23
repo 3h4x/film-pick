@@ -65,6 +65,7 @@ describe("POST /api/movies/[id]/subtitles/download", () => {
 
   afterEach(() => {
     global.fetch = originalFetch;
+    vi.unstubAllEnvs();
     db.close();
     if (fs.existsSync(TEST_DB)) fs.unlinkSync(TEST_DB);
     fs.rmSync(tmpDir, { recursive: true, force: true });
@@ -80,6 +81,17 @@ describe("POST /api/movies/[id]/subtitles/download", () => {
     );
   }
 
+  it("returns an actionable unavailable response instead of a false not-found result", async () => {
+    vi.stubEnv("OPENSUBTITLES_API_KEY", "");
+    const response = await POST(new NextRequest(`http://localhost/api/movies/${movieId}/subtitles/download?language=en`, { method: "POST" }), { params: Promise.resolve({ id: String(movieId) }) });
+    expect(response.status).toBe(503);
+    const body = await response.json();
+    expect(body.code).toBe("provider_not_configured");
+    expect(body.check.status).toBe("error");
+    expect(body.error).toMatch(/OpenSubtitles is not configured/);
+    expect(global.fetch).not.toHaveBeenCalled();
+  });
+
   it("rejects unsupported languages before downloading", async () => {
     expect((await call(movieId, "?language=xx")).status).toBe(400);
     expect(global.fetch).not.toHaveBeenCalled();
@@ -91,13 +103,22 @@ describe("POST /api/movies/[id]/subtitles/download", () => {
     delete process.env.OPENSUBTITLES_API_KEY;
     try {
       const res = await call(movieId);
-      expect(res.status).toBe(404);
-      expect((await res.json()).error).toBe("No English subtitles found");
+      expect(res.status).toBe(503);
+      expect((await res.json()).code).toBe("provider_not_configured");
       expect(global.fetch).not.toHaveBeenCalled();
     } finally {
       if (previous === undefined) delete process.env.OPENSUBTITLES_API_KEY;
       else process.env.OPENSUBTITLES_API_KEY = previous;
     }
+  });
+
+  it("still reports a search miss when the English provider is configured", async () => {
+    vi.stubEnv("OPENSUBTITLES_API_KEY", "placeholder-provider-key");
+    global.fetch = vi.fn().mockResolvedValue(Response.json({ data: [] }));
+    const response = await call(movieId, "?language=en");
+    expect(response.status).toBe(404);
+    expect((await response.json()).error).toBe("No English subtitles found");
+    expect(global.fetch).toHaveBeenCalledTimes(1);
   });
 
   it("lets the download choice override the saved language", async () => {
