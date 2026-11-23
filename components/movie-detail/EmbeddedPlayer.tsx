@@ -19,7 +19,6 @@ interface EmbeddedPlayerProps {
   subtitlesList: SubtitleTrack[];
   videoMetadata: PlaybackMetadata | null;
   onSelectPart: (part: number) => void;
-  onPlayExternal: () => void;
   onClose: () => void;
 }
 
@@ -40,7 +39,6 @@ export default function EmbeddedPlayer({
   subtitlesList,
   videoMetadata,
   onSelectPart,
-  onPlayExternal,
   onClose,
 }: EmbeddedPlayerProps) {
   const activeFile = [filePath, ...extraFiles][activePart] ?? filePath;
@@ -81,7 +79,7 @@ export default function EmbeddedPlayer({
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-4">
           <p className="text-[10px] text-indigo-400 font-black uppercase tracking-widest">
-            Embedded Player
+            Browser player
           </p>
           {extraFiles.length > 0 && (
             <div className="flex items-center gap-1 bg-gray-800 rounded-lg p-0.5">
@@ -116,25 +114,22 @@ export default function EmbeddedPlayer({
               ? "This file could not be played in the browser."
               : `This file can't play in a browser${plan.reason ? ` (${plan.reason})` : ""}.`}
           </p>
-          <button
-            onClick={onPlayExternal}
-            className="px-4 py-2 rounded-xl bg-indigo-500 hover:bg-indigo-400 text-white text-xs font-bold uppercase tracking-widest"
-          >
-            Play in VLC
-          </button>
+          <p className="text-xs text-gray-400">
+            Try a browser-compatible copy, such as an MP4 with H.264 video and AAC audio.
+          </p>
         </div>
       ) : (
         <div className="bg-black rounded-2xl overflow-hidden aspect-video max-h-[70vh] w-full border border-gray-800 shadow-2xl relative group">
           <video
             key={`${movieId}-${activePart}-${mode}-${offset}`}
             controls
+            src={src}
             className="w-full h-full"
             poster={posterUrl || undefined}
             autoPlay
             onError={handleError}
             onTimeUpdate={(e) => setElapsed(e.currentTarget.currentTime)}
           >
-            <source src={src} type="video/mp4" onError={handleError} />
             {subtitlesList.map((subtitle, index) => (
               <track
                 key={`${subtitle.name}-${index}`}
@@ -181,18 +176,6 @@ export default function EmbeddedPlayer({
             converted on the fly; seek with the bar above.
           </p>
         </div>
-      )}
-
-      {mode === "direct" && !showFallback && (
-        <p className="text-[10px] text-gray-500 italic text-center">
-          Trouble playing?{" "}
-          <button
-            onClick={onPlayExternal}
-            className="not-italic font-bold text-indigo-400 hover:text-indigo-300 underline-offset-2 hover:underline"
-          >
-            Open in VLC
-          </button>
-        </p>
       )}
     </div>
   );

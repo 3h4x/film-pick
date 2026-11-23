@@ -13,7 +13,6 @@ interface MovieSidebarProps {
   posterUrl: string | null;
   filePath: string | null;
   showEmbedded: boolean;
-  playError: string | null;
   director: string | null;
   writer: string | null;
   actors: string | null;
@@ -29,7 +28,6 @@ export default function MovieSidebar({
   posterUrl,
   filePath,
   showEmbedded,
-  playError,
   director,
   writer,
   actors,
@@ -48,12 +46,6 @@ export default function MovieSidebar({
         showEmbedded={showEmbedded}
         onEmbed={onEmbed}
       />
-
-      {playError && (
-        <div className="bg-red-500/10 border border-red-500/20 rounded-xl p-3 text-red-400 text-[10px] font-bold uppercase tracking-wider text-center animate-in fade-in slide-in-from-top-2">
-          ⚠️ {playError}
-        </div>
-      )}
 
       <CreditsSection
         director={director}

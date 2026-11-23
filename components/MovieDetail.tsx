@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useRef } from "react";
 import path from "path";
 import ManagementBar from "@/components/movie-detail/ManagementBar";
 import ManagementMenu from "@/components/movie-detail/ManagementMenu";
@@ -18,7 +18,6 @@ import { useMovieSubtitles } from "@/components/movie-detail/useMovieSubtitles";
 import { usePersonRatings } from "@/components/movie-detail/usePersonRatings";
 import type { MovieDetailMovie } from "@/components/movie-detail/types";
 import { cleanTitle } from "@/lib/utils";
-import { browserCanDecode, planPlayback } from "@/lib/playback";
 
 type Movie = MovieDetailMovie;
 
@@ -67,14 +66,8 @@ export default function MovieDetail({
     isLoadingMetadata,
   } = useMovieDetailMetadata({ movie, isPersistedMovie, onUpdate });
   const personRatings = usePersonRatings(movie);
-  // No play button on the poster for a file this browser cannot play at all; the
-  // VLC "Play" button in the management bar still works for it.
-  const canEmbed = useMemo(
-    () =>
-      Boolean(filePath) &&
-      planPlayback(filePath ?? "", videoMetadata, browserCanDecode).mode !== "unsupported",
-    [filePath, videoMetadata],
-  );
+  const canPlay = isPersistedMovie && Boolean(filePath);
+  const detailScrollRef = useRef<HTMLDivElement>(null);
   const {
     isStandardizing,
     standardizeProgress,
@@ -94,14 +87,16 @@ export default function MovieDetail({
     setMovieTitle,
   });
   const {
-    isPlaying,
     showEmbedded,
     setShowEmbedded,
     activePart,
     setActivePart,
-    playError,
-    handlePlay,
-  } = useMoviePlayback(movie);
+  } = useMoviePlayback(movie.id, filePath);
+
+  function openPlayer() {
+    setShowEmbedded(true);
+    if (detailScrollRef.current) detailScrollRef.current.scrollTop = 0;
+  }
   const {
     isRating,
     showRatingPicker,
@@ -342,12 +337,10 @@ export default function MovieDetail({
         aria-labelledby="movie-detail-title"
       >
         <ManagementBar
-          filePath={filePath}
-          isPlaying={isPlaying}
+          canPlay={canPlay && !showEmbedded}
           isPersistedMovie={isPersistedMovie}
           isMenuOpen={isMenuOpen}
-          onPlay={() => handlePlay("play")}
-          onOpenFolder={() => handlePlay("folder")}
+          onPlay={openPlayer}
           onToggleMenu={() => setIsMenuOpen((open) => !open)}
           onClose={onClose}
         />
@@ -371,7 +364,7 @@ export default function MovieDetail({
           onDeleteFull={handleDeleteFull}
         />
 
-        <div className="overflow-y-auto flex-1 px-4 sm:px-8 pb-6 pt-3">
+        <div ref={detailScrollRef} className="overflow-y-auto flex-1 px-4 sm:px-8 pb-6 pt-3">
           {showEmbedded && filePath && (
             <div className="mb-8">
               <EmbeddedPlayer
@@ -383,7 +376,6 @@ export default function MovieDetail({
                 subtitlesList={subtitlesList}
                 onSelectPart={setActivePart}
                 videoMetadata={videoMetadata}
-                onPlayExternal={() => handlePlay("play")}
                 onClose={() => setShowEmbedded(false)}
               />
             </div>
@@ -394,14 +386,13 @@ export default function MovieDetail({
               posterUrl={posterUrl}
               filePath={filePath}
               showEmbedded={showEmbedded}
-              playError={playError}
               director={director}
               writer={writer}
               actors={actors}
               isLoadingMetadata={isLoadingMetadata}
               videoMetadata={videoMetadata}
               personRatings={personRatings}
-              onEmbed={canEmbed ? () => setShowEmbedded(true) : undefined}
+              onEmbed={canPlay ? openPlayer : undefined}
               onPersonClick={onPersonClick}
             />
 
@@ -445,7 +436,7 @@ export default function MovieDetail({
               onMergeQueryChange={setMergeQuery}
               onCancelMerge={() => setIsMergeMode(false)}
               onMerge={handleMerge}
-              onEmbed={canEmbed ? () => setShowEmbedded(true) : undefined}
+              onEmbed={canPlay ? openPlayer : undefined}
               onDragOverSub={onDragOverSub}
               onDragLeaveSub={onDragLeaveSub}
               onDropSub={onDropSub}

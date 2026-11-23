@@ -76,6 +76,7 @@ function renderSortFilterBar(
       languages: [],
       unratedOnly: false,
       hasFileOnly: false,
+      activeFilterCount: 0,
       onSortChange: vi.fn(),
       onSortDirChange: vi.fn(),
       onGenreChange: vi.fn(),

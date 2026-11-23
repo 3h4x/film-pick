@@ -231,24 +231,3 @@ export function shiftVttCues(vtt: string, offsetSeconds: number): string {
   }
   return out.join("\n\n");
 }
-
-/**
- * An M3U playlist of a movie's stream URLs (one entry per part), for "Play in VLC"
- * when FilmPick runs on a server: the browser downloads it and the OS opens it in the
- * default player. VLC plays every container and codec, so it uses the direct stream.
- */
-export function buildM3uPlaylist(
-  origin: string,
-  movieId: number,
-  title: string,
-  partCount: number,
-): string {
-  const parts = Math.max(1, partCount);
-  const lines = ["#EXTM3U"];
-  for (let part = 0; part < parts; part++) {
-    const label = parts > 1 ? `${title} (part ${part + 1})` : title;
-    lines.push(`#EXTINF:-1,${label.replace(/[\r\n]+/g, " ")}`);
-    lines.push(`${origin}/api/movies/${movieId}/stream?part=${part}`);
-  }
-  return lines.join("\n") + "\n";
-}

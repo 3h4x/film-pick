@@ -29,7 +29,7 @@ function PlayOverlay({ title, onEmbed }: { title: string; onEmbed?: () => void }
     <button
       type="button"
       onClick={onEmbed}
-      aria-label={`Play ${title}`}
+      aria-label={`Play ${title} in browser`}
       className="group/play absolute inset-0 flex items-center justify-center rounded-2xl bg-black/20 transition-colors hover:bg-black/45 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-indigo-400/60"
     >
       <span className="flex h-20 w-20 items-center justify-center rounded-full bg-indigo-500/90 shadow-2xl shadow-black/60 ring-4 ring-white/15 backdrop-blur-sm transition-transform group-hover/play:scale-110 group-hover/play:bg-indigo-500 group-active/play:scale-95 lg:h-24 lg:w-24">

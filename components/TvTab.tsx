@@ -307,20 +307,12 @@ export default function TvTab() {
       return true;
     });
 
-  // Filtered channel set
-  let filteredChannels = activeChannels.filter((ch) => !blacklist.has(ch.id));
-  if (filter.trim()) {
-    const q = filter.toLowerCase();
-    filteredChannels = filteredChannels.filter((ch) =>
-      ch.name.toLowerCase().includes(q),
-    );
-  }
-
-  const channelIds = new Set(filteredChannels.map((ch) => ch.id));
+  const channelQuery = filter.trim().toLowerCase();
+  const channelIds = new Set(activeChannels.filter((ch) => !blacklist.has(ch.id)).map((ch) => ch.id));
   const channelById = new Map(activeChannels.map((ch) => [ch.id, ch]));
 
   // Films table: current + upcoming film programs from filtered channels, sorted by start time
-  const filmRows = programs
+  const scheduledFilms = programs
     .filter(
       (p) =>
         channelIds.has(p.channel) &&
@@ -330,6 +322,11 @@ export default function TvTab() {
         (!hideUnrated || !enrichLoaded || ((enrich[p.title]?.rating ?? 0) > 0)),
     )
     .sort((a, b) => new Date(a.start).getTime() - new Date(b.start).getTime());
+
+  const filmRows = channelQuery
+    ? scheduledFilms.filter((p) => channelById.get(p.channel)?.name.toLowerCase().includes(channelQuery))
+    : scheduledFilms;
+  const noMatchingChannels = Boolean(channelQuery && scheduledFilms.length);
 
   const toolbar = (
     <div className="flex flex-wrap items-center gap-3 mb-5">
@@ -601,8 +598,15 @@ export default function TvTab() {
           <EmptyState
             variant="plain"
             className="!py-16"
-            message="No films scheduled today"
-          />
+            message={noMatchingChannels ? "No films match your channel filter" : "No films scheduled today"}
+          >
+            {channelQuery && (
+              <button type="button" onClick={() => setFilter("")}
+                className="min-h-11 rounded-lg border border-gray-700 px-3 text-sm text-gray-200">
+                Clear channel filter
+              </button>
+            )}
+          </EmptyState>
         ) : (
           <div>
             {/* Column headers */}

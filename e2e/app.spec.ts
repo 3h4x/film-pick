@@ -480,6 +480,48 @@ test.describe("mobile regressions", () => {
     expect(searchBox.x + searchBox.width).toBeLessThanOrEqual(mobileViewport.width);
   });
 
+  test("keeps library filters compact and provides recovery from empty results", async ({ page }) => {
+    await mockAPIs(page, [{ ...MOCK_MOVIES[0], title: "Sample Movie" }]);
+    await gotoMobile(page, "/#library");
+    await expect(page.getByRole("combobox", { name: "Filter by genre" })).not.toBeVisible();
+    await page.locator("summary").filter({ hasText: "Filters" }).click();
+    await expect(page.getByRole("combobox", { name: "Filter by genre" })).toBeVisible();
+    await page.locator("summary").filter({ hasText: "Filters" }).click();
+    await page.getByRole("button", { name: "Has File", exact: true }).click();
+    await expect(page.getByText("No movies match your filters")).toBeVisible();
+    await expect(page.getByRole("button", { name: "Remove filter Has File" })).toBeVisible();
+    await page.getByRole("button", { name: "Clear filters", exact: true }).click();
+    await expect(page.getByRole("button", { name: "Open Sample Movie" })).toBeVisible();
+
+    await page.route(/\/api\/movies\?/, (route) => route.fulfill({ json: [] }));
+    await page.getByRole("textbox", { name: "Search library" }).fill("No matching title");
+    await expect(page.getByText(/No library results for/)).toBeVisible();
+    await expect(page.getByRole("button", { name: "Search in TMDb", exact: true })).toBeVisible();
+    await page.getByRole("button", { name: "Clear search", exact: true }).last().click();
+    await expect(page.getByRole("button", { name: "Open Sample Movie" })).toBeVisible();
+  });
+
+  test("opens a browser player instead of calling the external play endpoint", async ({ page }) => {
+    const movie = { ...MOCK_MOVIES[0], title: "Sample Movie", tmdb_id: 4242, file_path: "/mnt/library/sample.mp4" };
+    await mockAPIs(page, [movie]);
+    await page.route("/api/movies/1", (route) => route.fulfill({ json: movie }));
+    await page.route("/api/movies/1/subtitles", (route) => route.fulfill({ json: { subtitles: [] } }));
+    await page.route(/\/api\/movies\/1\/stream/, (route) => route.fulfill({ status: 404 }));
+    let externalPlayRequested = false;
+    await page.route("/api/movies/1/play", (route) => {
+      externalPlayRequested = true;
+      return route.fulfill({ status: 501, json: {} });
+    });
+    await gotoMobile(page, "/#library");
+    await page.getByRole("button", { name: "Open Sample Movie" }).click();
+    const dialog = page.getByRole("dialog", { name: "Sample Movie" });
+    await expect(dialog.getByRole("button", { name: "Open in Finder" })).toHaveCount(0);
+    await dialog.getByRole("button", { name: "Play in browser", exact: true }).click();
+    await expect(dialog.getByRole("button", { name: /Close Player/ })).toBeVisible();
+    await expect(dialog.getByText("This file could not be played in the browser.")).toBeVisible();
+    expect(externalPlayRequested).toBe(false);
+  });
+
   test("stacks TV rows vertically below the desktop breakpoint", async ({
     page,
   }) => {
@@ -525,6 +567,10 @@ test.describe("mobile regressions", () => {
     const titleBox = await visibleBox(mobileRow.getByText("Stacked Film"));
     const channelBox = await visibleBox(mobileRow.getByText("Polsat Film"));
     expect(titleBox.y).toBeGreaterThan(channelBox.y);
+    await page.getByRole("textbox", { name: "Filter TV channels" }).fill("No matching station");
+    await expect(page.getByText("No films match your channel filter")).toBeVisible();
+    await page.getByRole("button", { name: "Clear channel filter" }).click();
+    await expect(mobileRow).toBeVisible();
   });
 
   test("allows Config sub-tab navigation to scroll horizontally", async ({
