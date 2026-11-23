@@ -26,6 +26,7 @@ interface SortFilterBarProps {
   languages: string[];
   unratedOnly: boolean;
   hasFileOnly: boolean;
+  activeFilterCount: number;
   onSortChange: (sort: SortOption) => void;
   onSortDirChange: () => void;
   onGenreChange: (genre: string) => void;
@@ -133,6 +134,7 @@ export default function SortFilterBar({
   languages,
   unratedOnly,
   hasFileOnly,
+  activeFilterCount,
   onSortChange,
   onSortDirChange,
   onGenreChange,
@@ -162,151 +164,165 @@ export default function SortFilterBar({
   }, [sort, sortDir]);
 
   return (
-    <div className="space-y-3 mb-6">
-      {/* Sort + filter row */}
-      <div className="flex flex-wrap items-center gap-3">
-        {/* Sort buttons — scrollable on mobile */}
-        <div className="relative min-w-0 w-full sm:w-auto">
-          <div
-            ref={sortTabsRef}
-            className="flex w-full items-center gap-1 bg-gray-800/40 p-1 rounded-xl overflow-x-auto pr-10 sm:w-auto [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]"
-          >
-            {SORT_KEYS.map((key) => (
+    <div className="relative mb-2 flex flex-wrap items-start gap-2">
+      <button
+        aria-pressed={hasFileOnly}
+        onClick={() => onHasFileChange(!hasFileOnly)}
+        className={`min-h-11 px-3 py-2 text-xs font-medium rounded-xl border transition-all ${
+          hasFileOnly
+            ? "bg-indigo-500/20 text-indigo-400 border-indigo-500/30"
+            : "bg-gray-800/60 text-gray-400 border-gray-700/50 hover:text-gray-300"
+        }`}
+      >
+        Has File
+      </button>
+      <details
+        className="group/filters open:basis-full"
+        onToggle={(event) => {
+          if (event.currentTarget.open && sortTabsRef.current) {
+            scrollActiveSortChipIntoView(sortTabsRef.current, window.innerWidth);
+          }
+        }}
+      >
+        <summary className="flex min-h-11 w-fit cursor-pointer list-none items-center gap-2 rounded-xl border border-gray-700/50 bg-gray-800/60 px-3 py-2 text-xs font-medium text-gray-300 focus-visible:outline-indigo-400 [&::-webkit-details-marker]:hidden">
+          Filters{activeFilterCount > 0 ? ` (${activeFilterCount})` : ""}
+          <span aria-hidden="true" className="group-open/filters:rotate-180">⌄</span>
+        </summary>
+        <div className="mt-2 flex max-w-[calc(100vw-2rem)] flex-wrap items-center gap-2 rounded-xl border border-gray-700/50 bg-gray-900 p-2">
+          {/* Sort buttons — scrollable on mobile */}
+          <div className="relative min-w-0 w-full sm:w-auto">
+            <div
+              ref={sortTabsRef}
+              className="flex w-full items-center gap-1 bg-gray-800/40 p-1 rounded-xl overflow-x-auto pr-10 sm:w-auto [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]"
+            >
+              {SORT_KEYS.map((key) => (
+                <button
+                  key={key}
+                  data-active={sort === key}
+                  onClick={() => onSortChange(key)}
+                  className={`min-h-11 px-3 py-2 text-xs font-medium rounded-lg transition-all whitespace-nowrap shrink-0 ${
+                    sort === key
+                      ? "bg-gray-700/80 text-white shadow-sm"
+                      : "text-gray-500 hover:text-gray-300 hover:bg-gray-700/30"
+                  }`}
+                >
+                  {SORT_LABELS[key]}
+                </button>
+              ))}
               <button
-                key={key}
-                data-active={sort === key}
-                onClick={() => onSortChange(key)}
-                className={`min-h-11 px-3 py-2 text-xs font-medium rounded-lg transition-all whitespace-nowrap shrink-0 ${
-                  sort === key
-                    ? "bg-gray-700/80 text-white shadow-sm"
-                    : "text-gray-500 hover:text-gray-300 hover:bg-gray-700/30"
-                }`}
+                onClick={onSortDirChange}
+                className="min-h-11 min-w-11 px-2 py-2 text-xs text-gray-400 hover:text-white rounded-lg hover:bg-gray-700/30 transition-all flex-shrink-0"
+                title={sortDir === "desc" ? "Descending" : "Ascending"}
+                aria-label={getSortDirToggleLabel(sortDir)}
               >
-                {SORT_LABELS[key]}
+                {sortDir === "desc" ? "↓" : "↑"}
               </button>
-            ))}
-            <button
-              onClick={onSortDirChange}
-              className="min-h-11 min-w-11 px-2 py-2 text-xs text-gray-400 hover:text-white rounded-lg hover:bg-gray-700/30 transition-all flex-shrink-0"
-              title={sortDir === "desc" ? "Descending" : "Ascending"}
-              aria-label={getSortDirToggleLabel(sortDir)}
-            >
-              {sortDir === "desc" ? "↓" : "↑"}
-            </button>
-            <div aria-hidden className="shrink-0 w-6 sm:hidden" />
+              <div aria-hidden className="shrink-0 w-6 sm:hidden" />
+            </div>
+            <div className="pointer-events-none absolute inset-y-0 right-0 w-8 bg-gradient-to-l from-[#0f1324] to-transparent rounded-r-xl sm:hidden" />
           </div>
-          <div className="pointer-events-none absolute inset-y-0 right-0 w-8 bg-gradient-to-l from-[#0f1324] to-transparent rounded-r-xl sm:hidden" />
-        </div>
 
-        <div className="flex flex-wrap items-center gap-2">
-          {/* Genre filter */}
-          {genres.length > 0 && (
+          <div className="flex flex-wrap items-center gap-2">
+            {/* Genre filter */}
+            {genres.length > 0 && (
+              <select
+                aria-label="Filter by genre"
+                value={genre}
+                onChange={(e) => onGenreChange(e.target.value)}
+                className="min-h-11 bg-gray-800/60 text-gray-300 text-xs px-3 py-2 rounded-xl border border-gray-700/50 focus:border-indigo-500/50 focus:outline-none appearance-none cursor-pointer"
+              >
+                <option value="">All Genres</option>
+                {genres.map((g) => (
+                  <option key={g} value={g}>
+                    {g}
+                  </option>
+                ))}
+              </select>
+            )}
+
+            {/* Source filter */}
+            {sources.length > 0 && (
+              <select
+                aria-label="Filter by source"
+                value={source}
+                onChange={(e) => onSourceChange(e.target.value)}
+                className="min-h-11 bg-gray-800/60 text-gray-300 text-xs px-3 py-2 rounded-xl border border-gray-700/50 focus:border-indigo-500/50 focus:outline-none appearance-none cursor-pointer"
+              >
+                <option value="">All Sources</option>
+                {sources.map((s) => (
+                  <option key={s} value={s}>
+                    {s}
+                  </option>
+                ))}
+              </select>
+            )}
+
+            {/* Year filter */}
+            {years.length > 0 && (
+              <select
+                aria-label="Filter by year"
+                value={year}
+                onChange={(e) => onYearChange(e.target.value)}
+                className="min-h-11 bg-gray-800/60 text-gray-300 text-xs px-3 py-2 rounded-xl border border-gray-700/50 focus:border-indigo-500/50 focus:outline-none appearance-none cursor-pointer"
+              >
+                <option value="">All Years</option>
+                {years.map((y) => (
+                  <option key={y} value={y.toString()}>
+                    {y}
+                  </option>
+                ))}
+              </select>
+            )}
+
+            {/* Runtime filter — movies whose runtime is not stored yet match no bucket */}
             <select
-              aria-label="Filter by genre"
-              value={genre}
-              onChange={(e) => onGenreChange(e.target.value)}
+              aria-label="Filter by runtime"
+              value={runtime}
+              onChange={(e) => onRuntimeChange(e.target.value as RuntimeFilter)}
               className="min-h-11 bg-gray-800/60 text-gray-300 text-xs px-3 py-2 rounded-xl border border-gray-700/50 focus:border-indigo-500/50 focus:outline-none appearance-none cursor-pointer"
             >
-              <option value="">All Genres</option>
-              {genres.map((g) => (
-                <option key={g} value={g}>
-                  {g}
+              <option value="">Any Length</option>
+              {(Object.keys(RUNTIME_FILTER_LABELS) as Exclude<RuntimeFilter, "">[]).map((key) => (
+                <option key={key} value={key}>
+                  {RUNTIME_FILTER_LABELS[key]}
                 </option>
               ))}
             </select>
-          )}
 
-          {/* Source filter */}
-          {sources.length > 0 && (
-            <select
-              aria-label="Filter by source"
-              value={source}
-              onChange={(e) => onSourceChange(e.target.value)}
-              className="min-h-11 bg-gray-800/60 text-gray-300 text-xs px-3 py-2 rounded-xl border border-gray-700/50 focus:border-indigo-500/50 focus:outline-none appearance-none cursor-pointer"
-            >
-              <option value="">All Sources</option>
-              {sources.map((s) => (
-                <option key={s} value={s}>
-                  {s}
-                </option>
-              ))}
-            </select>
-          )}
+            {/* Original language filter */}
+            {languages.length > 0 && (
+              <select
+                aria-label="Filter by original language"
+                value={language}
+                onChange={(e) => onLanguageChange(e.target.value)}
+                className="min-h-11 bg-gray-800/60 text-gray-300 text-xs px-3 py-2 rounded-xl border border-gray-700/50 focus:border-indigo-500/50 focus:outline-none appearance-none cursor-pointer"
+              >
+                <option value="">All Languages</option>
+                {languages.map((code) => (
+                  <option key={code} value={code}>
+                    {languageName(code)}
+                  </option>
+                ))}
+              </select>
+            )}
 
-          {/* Year filter */}
-          {years.length > 0 && (
-            <select
-              aria-label="Filter by year"
-              value={year}
-              onChange={(e) => onYearChange(e.target.value)}
-              className="min-h-11 bg-gray-800/60 text-gray-300 text-xs px-3 py-2 rounded-xl border border-gray-700/50 focus:border-indigo-500/50 focus:outline-none appearance-none cursor-pointer"
-            >
-              <option value="">All Years</option>
-              {years.map((y) => (
-                <option key={y} value={y.toString()}>
-                  {y}
-                </option>
-              ))}
-            </select>
-          )}
-
-          {/* Runtime filter — movies whose runtime is not stored yet match no bucket */}
-          <select
-            aria-label="Filter by runtime"
-            value={runtime}
-            onChange={(e) => onRuntimeChange(e.target.value as RuntimeFilter)}
-            className="min-h-11 bg-gray-800/60 text-gray-300 text-xs px-3 py-2 rounded-xl border border-gray-700/50 focus:border-indigo-500/50 focus:outline-none appearance-none cursor-pointer"
-          >
-            <option value="">Any Length</option>
-            {(Object.keys(RUNTIME_FILTER_LABELS) as Exclude<RuntimeFilter, "">[]).map((key) => (
-              <option key={key} value={key}>
-                {RUNTIME_FILTER_LABELS[key]}
-              </option>
-            ))}
-          </select>
-
-          {/* Original language filter */}
-          {languages.length > 0 && (
-            <select
-              aria-label="Filter by original language"
-              value={language}
-              onChange={(e) => onLanguageChange(e.target.value)}
-              className="min-h-11 bg-gray-800/60 text-gray-300 text-xs px-3 py-2 rounded-xl border border-gray-700/50 focus:border-indigo-500/50 focus:outline-none appearance-none cursor-pointer"
-            >
-              <option value="">All Languages</option>
-              {languages.map((code) => (
-                <option key={code} value={code}>
-                  {languageName(code)}
-                </option>
-              ))}
-            </select>
-          )}
-
-          {/* Unrated toggle */}
-          <button
+            {/* Unrated toggle */}
+            <button
+              aria-pressed={unratedOnly}
             onClick={() => onUnratedChange(!unratedOnly)}
-            className={`min-h-11 px-3 py-2 text-xs font-medium rounded-xl border transition-all ${
-              unratedOnly
-                ? "bg-indigo-500/20 text-indigo-400 border-indigo-500/30"
-                : "bg-gray-800/60 text-gray-400 border-gray-700/50 hover:text-gray-300"
-            }`}
-          >
-            {unratedOnly ? "★ Showing Unrated" : "☆ Show Unrated"}
-          </button>
+              className={`min-h-11 px-3 py-2 text-xs font-medium rounded-xl border transition-all ${
+                unratedOnly
+                  ? "bg-indigo-500/20 text-indigo-400 border-indigo-500/30"
+                  : "bg-gray-800/60 text-gray-400 border-gray-700/50 hover:text-gray-300"
+              }`}
+            >
+              {unratedOnly ? "★ Showing Unrated" : "☆ Show Unrated"}
+            </button>
 
-          {/* Has file toggle */}
-          <button
-            onClick={() => onHasFileChange(!hasFileOnly)}
-            className={`min-h-11 px-3 py-2 text-xs font-medium rounded-xl border transition-all ${
-              hasFileOnly
-                ? "bg-indigo-500/20 text-indigo-400 border-indigo-500/30"
-                : "bg-gray-800/60 text-gray-400 border-gray-700/50 hover:text-gray-300"
-            }`}
-          >
-            {hasFileOnly ? "Has File (on)" : "Has File"}
-          </button>
+
+          </div>
         </div>
-      </div>
+      </details>
     </div>
   );
 }

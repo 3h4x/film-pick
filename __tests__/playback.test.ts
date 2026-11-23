@@ -1,6 +1,5 @@
 import { describe, it, expect } from "vitest";
 import {
-  buildM3uPlaylist,
   buildRemuxArgs,
   planPlayback,
   shiftVttCues,
@@ -136,27 +135,5 @@ describe("shiftVttCues", () => {
     expect(out).toContain("00:00:00.000 --> 00:00:01.500 line:90%\nStraddles the offset");
     expect(out).toContain("00:08:00.250 --> 00:08:02.000\nLater line");
     expect(out.startsWith("WEBVTT")).toBe(true);
-  });
-});
-
-describe("buildM3uPlaylist", () => {
-  it("lists one stream URL per part", () => {
-    const m3u = buildM3uPlaylist("https://filmpick.example", 42, "Sample Movie", 2);
-    expect(m3u).toBe(
-      [
-        "#EXTM3U",
-        "#EXTINF:-1,Sample Movie (part 1)",
-        "https://filmpick.example/api/movies/42/stream?part=0",
-        "#EXTINF:-1,Sample Movie (part 2)",
-        "https://filmpick.example/api/movies/42/stream?part=1",
-        "",
-      ].join("\n"),
-    );
-  });
-
-  it("keeps a single part unlabelled and strips newlines from the title", () => {
-    const m3u = buildM3uPlaylist("http://localhost:4000", 7, "Sample\nMovie", 1);
-    expect(m3u).toContain("#EXTINF:-1,Sample Movie\n");
-    expect(m3u).toContain("http://localhost:4000/api/movies/7/stream?part=0");
   });
 });

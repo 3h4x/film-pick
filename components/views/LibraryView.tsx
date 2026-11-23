@@ -7,8 +7,9 @@ import MovieCard from "@/components/MovieCard";
 import QuickRateMode from "@/components/QuickRateMode";
 import SortFilterBar from "@/components/SortFilterBar";
 import type { Movie } from "@/lib/types";
-import { PAGE_SIZE } from "@/lib/types";
+import { PAGE_SIZE, RUNTIME_FILTER_LABELS } from "@/lib/types";
 import type { useLibrary } from "@/lib/hooks/useLibrary";
+import { languageName } from "@/lib/utils";
 import { isUnratedMovie } from "@/lib/quick-rate";
 
 const MOVIE_GRID_CLASS =
@@ -45,6 +46,7 @@ export default function LibraryView({
     runtimeFilter,
     languageFilter,
     searchQuery,
+    setSearchQuery,
     genres,
     sources,
     years,
@@ -95,6 +97,20 @@ export default function LibraryView({
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
   }, [unratedMovies.length]);
+
+  const activeFilters = [
+    { key: "genre", label: genreFilter, clear: () => setGenreFilter("") },
+    { key: "source", label: sourceFilter, clear: () => setSourceFilter("") },
+    { key: "year", label: yearFilter, clear: () => setYearFilter("") },
+    { key: "runtime", label: runtimeFilter ? RUNTIME_FILTER_LABELS[runtimeFilter] : "", clear: () => setRuntimeFilter("") },
+    { key: "language", label: languageFilter ? languageName(languageFilter) : "", clear: () => setLanguageFilter("") },
+    { key: "unrated", label: unratedOnly ? "Unrated" : "", clear: () => setUnratedOnly(false) },
+    { key: "file", label: hasFileOnly ? "Has File" : "", clear: () => setHasFileOnly(false) },
+  ].filter(({ label }) => Boolean(label));
+
+  function clearFilters() {
+    activeFilters.forEach(({ clear }) => clear());
+  }
 
   if (initialLoad) {
     return (
@@ -163,6 +179,7 @@ export default function LibraryView({
         languages={languages}
         unratedOnly={unratedOnly}
         hasFileOnly={hasFileOnly}
+        activeFilterCount={activeFilters.length}
         onSortChange={setSortOption}
         onSortDirChange={toggleSortDir}
         onGenreChange={setGenreFilter}
@@ -173,7 +190,22 @@ export default function LibraryView({
         onUnratedChange={setUnratedOnly}
         onHasFileChange={setHasFileOnly}
       />
-      <div className="mb-4 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between sm:gap-4">
+      {activeFilters.length > 0 && (
+        <div className="mb-2 flex flex-wrap items-center gap-x-2" role="group" aria-label="Active filters">
+          {activeFilters.map(({ key, label, clear }) => (
+            <button key={key} type="button" onClick={clear} aria-label={`Remove filter ${label}`}
+              className="min-h-9 rounded-lg px-2 text-xs text-indigo-200 hover:bg-indigo-500/10">
+              {label} <span aria-hidden="true">×</span>
+            </button>
+          ))}
+          {activeFilters.length > 1 && sortedMovies.length > 0 && (
+            <button type="button" className="min-h-9 px-2 text-xs text-gray-300 underline" onClick={clearFilters}>
+              Clear filters
+            </button>
+          )}
+        </div>
+      )}
+      <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
         <p className="text-xs text-gray-500">
           Showing {Math.min(visibleCount, sortedMovies.length)} of{" "}
           {sortedMovies.length}
@@ -199,25 +231,26 @@ export default function LibraryView({
           )}
         </div>
       </div>
-      {sortedMovies.length === 0 && searchQuery && !searching ? (
-        <EmptyState
-          icon="🔍"
-          message={`No results for "${searchQuery}"`}
-          subtext="Try searching for it on TMDb to add it to your library or watchlist"
-        >
-          <Button
-            onClick={() => onSearchInTMDb(searchQuery)}
-            className="min-h-11 rounded-xl px-5 py-2.5 text-sm shadow-lg shadow-indigo-500/20"
-          >
-            Search in TMDb
-          </Button>
-        </EmptyState>
-      ) : sortedMovies.length === 0 && searchQuery ? (
+      {sortedMovies.length === 0 && searching ? (
         <p className="py-16 text-center text-sm text-gray-500" role="status">
           Searching&hellip;
         </p>
       ) : sortedMovies.length === 0 ? (
-        <EmptyState variant="plain" message="No movies match your filters" />
+        <EmptyState
+          variant="plain"
+          message={activeFilters.length ? "No movies match your filters" : `No library results for “${searchQuery}”`}
+          subtext={activeFilters.length ? "Clear filters to broaden your library results." : undefined}
+        >
+          <div className="flex flex-wrap justify-center gap-2">
+            {activeFilters.length > 0 && <Button onClick={clearFilters}>Clear filters</Button>}
+            {searchQuery && (
+              <Button onClick={() => setSearchQuery("")}>Clear search</Button>
+            )}
+            {searchQuery && !activeFilters.length && (
+              <Button onClick={() => onSearchInTMDb(searchQuery)}>Search in TMDb</Button>
+            )}
+          </div>
+        </EmptyState>
       ) : (
         <div
           className={`${MOVIE_GRID_CLASS} transition-opacity ${searching ? "opacity-60" : ""}`}

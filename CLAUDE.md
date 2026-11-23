@@ -37,7 +37,7 @@ pnpm backup              # Backup SQLite DB
 │       ├── movies/route.ts           — GET/POST library (GET supports `?type=`, `?q=` FTS search, `?max_runtime=` and `?language=`)
 │       ├── movies/[id]/route.ts      — GET/DELETE single movie
 │       ├── movies/[id]/full/route.ts — DELETE movie from disk and DB (use ?disk_only=1 to keep DB row)
-│       ├── movies/[id]/play/route.ts — Launch VLC via macOS `open` (local runs only; any other server answers 501 `NO_LOCAL_PLAYER` and the client downloads an .m3u of stream URLs instead)
+│       ├── movies/[id]/play/route.ts — Launch VLC via macOS `open` (local runs only; any other server answers 501 `NO_LOCAL_PLAYER`)
 │       ├── movies/[id]/stream/route.ts — Stream video file (Range); `?mode=remux&start=` = ffmpeg compatibility stream (video copied, audio to AAC, fragmented MP4, max 2 at once); `?sub=` serves WebVTT, `&shift=` moves cues for a remux started at an offset
 │       ├── movies/[id]/subtitles/route.ts — Subtitle management (list / upload)
 │       ├── movies/[id]/subtitles/download/route.ts — Download Polish subtitles (NapiProjekt → OpenSubtitles); 409 if some exist unless `?replace=1`
@@ -113,7 +113,7 @@ pnpm backup              # Backup SQLite DB
 │   ├── tmdb-refresh-scheduler.ts     — Hourly background batch (`tmdb_refresh_interval_hours`, default 1, 0 = off): rematch up to 20 local films, then refresh up to 100 never/stale-refreshed movies (30 days), so a backlog works itself off gradually instead of inside a sync
 │   ├── subtitles.ts                  — Subtitle format sniffing (SubRip/MicroDVD/MPL2/TMP/VTT/ASS), encoding detection, conversion to SubRip, injected-ad cue detection (`isSubtitleAdCue`)
 │   ├── ffprobe.ts                    — probeFps: video frame rate via ffprobe, used to time frame-based subtitles
-│   ├── playback.ts                   — planPlayback (direct / remux / unsupported from stored ffprobe metadata, optionally checked against the browser's decoders), videoMimeType, browserCanDecode, buildRemuxArgs, shiftVttCues, buildM3uPlaylist
+│   ├── playback.ts                   — planPlayback (direct / remux / unsupported from stored ffprobe metadata, optionally checked against the browser's decoders), videoMimeType, browserCanDecode, buildRemuxArgs, shiftVttCues
 │   ├── codec-compat.ts               — isVideoCompatible / isAudioCompatible: the detail's "Not compatible" badges (stricter than planPlayback)
 │   ├── napiprojekt.ts                — NapiProjekt client: MD5-of-first-10-MiB hash + subtitle fetch (base64 in XML)
 │   ├── opensubtitles.ts              — OpenSubtitles REST v1 client: moviehash, search by hash/IMDb/TMDb/title, download (env keys only)
